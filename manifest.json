@@ -1,0 +1,17 @@
+{
+  "name": "LUKOS RÉVISION DAP/DQEG",
+  "short_name": "LUKOS",
+  "description": "Révision DAP et DQEG : cours, quiz et documents de référence.",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#075c2c",
+  "theme_color": "#075c2c",
+  "icons": [
+    {"src":"lk192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"lk512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"lkmask.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}
