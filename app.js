@@ -932,8 +932,77 @@
   }
   boot();
 
-  if ("serviceWorker" in navigator && location.protocol === "https:") {
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
+
+  /* ===== Installation de l'application (Android, iPhone, ordinateur) =====
+     Tant que l'application n'est pas installée, un écran d'installation s'affiche
+     à chaque ouverture sur téléphone, et un bandeau « Installer » reste visible. */
+  (function installer() {
+    const ua = navigator.userAgent || "";
+    const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = /android/i.test(ua);
+    const isMobile = isIOS || isAndroid;
+    const inApp = /FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|TikTok|musical_ly|; wv\)/i.test(ua);
+    const iosSafari = isIOS && /safari/i.test(ua) && !/crios|fxios|edgios|opios/i.test(ua);
+    let deferred = null;
+    const installed = () => window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true;
+    if (installed()) return;
+
+    const shareIco = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    const dotsIco = '<b class="inst-k">⋮</b>';
+
+    function steps() {
+      if (inApp) return `<p class="inst-warn">Tu as ouvert le lien depuis une autre application. Pour installer, ouvre-le dans <b>${isIOS ? "Safari" : "Chrome"}</b> :</p>
+        <ol class="inst-steps"><li>Touche ${dotsIco} ou ${shareIco} en haut ou en bas de l'écran ;</li><li>Choisis <b>« Ouvrir dans ${isIOS ? "Safari" : "Chrome"} »</b> (ou « Ouvrir dans le navigateur ») ;</li><li>L'écran d'installation apparaîtra.</li></ol>
+        <button class="btn btn-ghost btn-block" data-inst="copy">Copier le lien</button>`;
+      if (isIOS) return `${iosSafari ? "" : `<p class="inst-warn">Sur iPhone, le plus simple est d'utiliser <b>Safari</b>.</p>`}
+        <ol class="inst-steps"><li>Touche le bouton <b>Partager</b> ${shareIco} ${iosSafari ? "en bas de l'écran" : "(en haut ou en bas)"} ;</li><li>Fais défiler et choisis <b>« Sur l'écran d'accueil »</b> ;</li><li>Touche <b>Ajouter</b> en haut à droite.</li></ol>`;
+      if (deferred) return `<button class="btn btn-primary btn-block inst-go" data-inst="go">Installer maintenant</button>`;
+      return `<ol class="inst-steps"><li>Touche le menu ${dotsIco} en haut à droite de Chrome ;</li><li>Choisis <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b> ;</li><li>Confirme avec <b>Installer</b>.</li></ol>`;
+    }
+
+    let overlay = null;
+    function showOverlay() {
+      if (installed()) return;
+      if (!overlay) { overlay = document.createElement("div"); overlay.className = "inst-overlay"; overlay.setAttribute("role", "dialog"); overlay.setAttribute("aria-modal", "true"); document.body.appendChild(overlay); }
+      overlay.innerHTML = `<div class="inst-box"><img src="logo512.png" alt="" width="84" height="84" class="inst-logo">
+        <h2>Installe LUKOS-REVISION</h2><p class="muted">Installe l'application sur ton téléphone : elle s'ouvrira en plein écran, depuis son icône, comme une vraie application.</p>
+        ${steps()}<button class="inst-later" data-inst="later">Continuer dans le navigateur pour l'instant</button></div>`;
+      overlay.hidden = false; document.documentElement.classList.add("inst-lock");
+    }
+    function hideOverlay() { if (overlay) overlay.hidden = true; document.documentElement.classList.remove("inst-lock"); }
+
+    let bar = null;
+    function showBar() {
+      if (installed() || (!isMobile && !deferred)) return;
+      if (!bar) { bar = document.createElement("div"); bar.className = "inst-bar"; document.body.appendChild(bar); document.documentElement.classList.add("has-inst-bar"); }
+      bar.innerHTML = `<img src="logo-header.png" alt="" width="30" height="30"><span><b>Application non installée</b><small>Installe-la pour un accès rapide</small></span><button class="btn btn-sm inst-btn" data-inst="${deferred ? "go" : "open"}">Installer</button>`;
+    }
+    function done() { hideOverlay(); if (bar) { bar.remove(); bar = null; } document.documentElement.classList.remove("has-inst-bar"); }
+
+    async function promptInstall() {
+      if (!deferred) return showOverlay();
+      deferred.prompt();
+      try { const r = await deferred.userChoice; if (r && r.outcome === "accepted") { deferred = null; done(); toast("Installation en cours… L'icône LUKOS-REVISION va apparaître sur ton écran d'accueil.", "ok"); return; } } catch (e) { /* ignoré */ }
+      deferred = null; showBar();
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; showBar(); if (overlay && !overlay.hidden) showOverlay(); });
+    window.addEventListener("appinstalled", () => { deferred = null; done(); });
+    document.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-inst]"); if (!t) return;
+      const a = t.getAttribute("data-inst");
+      if (a === "go") promptInstall();
+      else if (a === "open") showOverlay();
+      else if (a === "later") hideOverlay();
+      else if (a === "copy") { const u = location.href.split("#")[0]; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Lien copié : colle-le dans " + (isIOS ? "Safari" : "Chrome") + ".", "ok")).catch(() => toast(u)); }
+    });
+    window.matchMedia("(display-mode: standalone)").addEventListener("change", (m) => { if (m.matches) done(); });
+
+    showBar();
+    if (isMobile) setTimeout(showOverlay, 900);
+  })();
   void sleep;
 })();
