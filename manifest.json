@@ -1,17 +1,14 @@
 {
-  "name": "LUKOS RÉVISION DAP/DQEG",
+  "name": "LUKOS RÉVISION — DAP · DQEG · CAT1-2 Infanterie",
   "short_name": "LUKOS",
-  "description": "Révision DAP et DQEG : cours, quiz et documents de référence.",
-  "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#075c2c",
-  "theme_color": "#075c2c",
+  "background_color": "#f4f6fa",
+  "theme_color": "#0b1f3a",
+  "lang": "fr",
   "icons": [
-    {"src":"lk192.png","sizes":"192x192","type":"image/png","purpose":"any"},
-    {"src":"lk512.png","sizes":"512x512","type":"image/png","purpose":"any"},
-    {"src":"lkmask.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+    { "src": "lk192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "lkapple.png", "sizes": "180x180", "type": "image/png" }
   ]
 }
