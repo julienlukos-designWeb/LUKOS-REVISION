@@ -1,5 +1,5 @@
 /* =====================================================================
-   LUKOS RÉVISION — Application (DAP · DQEG · CAT1-2 INFANTERIE)
+   LUKOS-REVISION — Application (DAP · DQEG · CAT1-2 INFANTERIE)
    Conçu par Julien Dath Yanghane SENE (LUKOS)
    Sécurité : aucune donnée n'est insérée dans la page sans échappement,
    aucun gestionnaire d'événement « inline », toutes les écritures passent
@@ -78,10 +78,27 @@
   const configured = !!(window.supabase && C.SUPABASE_URL && /^https:\/\/.+\.supabase\.co$/.test(C.SUPABASE_URL) && C.SUPABASE_ANON_KEY && !/VOTRE/.test(C.SUPABASE_ANON_KEY));
   const sb = configured ? window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
 
+  const IC = (d, w) => `<svg width="${w || 22}" height="${w || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICONS = {
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    cap: '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
+    star: '<path d="M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.6 6.5 19.5l1-6.3L3 8.9 9 8z"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+    home: '<path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    shield: '<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',
+    next: '<path d="M9 18l6-6-6-6"/>',
+    back: '<path d="M15 18l-6-6 6-6"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
+  };
+  const icon = (k, w) => IC(ICONS[k], w);
   const EXAM_META = {
-    DAP:  { icon: "📘", tagline: "Prépare ton DAP avec méthode et efficacité." },
-    DQEG: { icon: "📗", tagline: "Prépare ton DQEG avec méthode et efficacité." },
-    CAT:  { icon: "🎖️", tagline: "Prépare tes CAT1-2 Infanterie avec méthode et efficacité." }
+    DAP:  { icon: "book", tagline: "Prépare ton DAP avec méthode et efficacité." },
+    DQEG: { icon: "cap", tagline: "Prépare ton DQEG avec méthode et efficacité." },
+    CAT:  { icon: "star", tagline: "Prépare tes CAT1-2 Infanterie avec méthode et efficacité." }
   };
 
   const S = {
@@ -178,7 +195,7 @@
       `<button class="out hide-m" data-act="logout">Déconnexion</button>`;
   }
   function setFooter() {
-    document.getElementById("foot").textContent = "© " + new Date().getFullYear() + " LUKOS RÉVISION — Conçu par " + (C.AUTHOR || "LUKOS") + " • Assistance : " + (C.CONTACT_DISPLAY || "");
+    document.getElementById("foot").textContent = "© " + new Date().getFullYear() + " LUKOS-REVISION — Conçu par " + (C.AUTHOR || "LUKOS") + " • Assistance : " + (C.CONTACT_DISPLAY || "");
   }
 
   /* ------------------------------------------------------------------ */
@@ -190,7 +207,7 @@
   function renderAuth() {
     const login = S.authMode === "login";
     app.innerHTML = `<div class="auth-wrap"><div class="auth">
-      <div class="auth-head"><div class="big-logo">L</div><h1>LUKOS RÉVISION</h1><p class="muted">Ta plateforme de préparation aux examens</p>
+      <div class="auth-head"><img class="big-logo" src="logo512.png" alt="Logo LUKOS-REVISION DAP / DQEG / CAT1-2" width="120" height="120"><h1>LUKOS-REVISION</h1><p class="muted">Ta plateforme de préparation aux examens</p>
       <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT1-2 INFANTERIE</span></div></div>
       <div class="card">
         <div class="seg" role="tablist"><button data-act="auth-mode" data-mode="login" class="${login ? "on" : ""}">Se connecter</button><button data-act="auth-mode" data-mode="signup" class="${!login ? "on" : ""}">Créer un compte</button></div>
@@ -250,7 +267,7 @@
       const { data, error } = await sb.auth.signUp({ email: authEmail(phone), password: p1, options: { data: { first_name: first, last_name: last, phone } } });
       if (error) { msg.className = "msg err"; msg.textContent = /already|registered|exists/i.test(error.message) ? "Ce numéro a déjà un compte. Connecte-toi." : /password/i.test(error.message) ? "Mot de passe trop faible. Choisis-en un plus solide." : "Création impossible. Réessaie."; return; }
       if (!data.session) { S.authMode = "login"; renderAuth(); toast("Compte créé. Connecte-toi maintenant.", "ok"); return; }
-      S.session = data.session; await afterLogin(); toast("Bienvenue sur LUKOS RÉVISION !", "ok");
+      S.session = data.session; await afterLogin(); toast("Bienvenue sur LUKOS-REVISION !", "ok");
     } catch (e) { msg.className = "msg err"; msg.textContent = errText(e); }
     finally { busy = false; }
   }
@@ -270,39 +287,45 @@
   /* ------------------------------------------------------------------ */
   function statusBadge(code) {
     if (isAdmin()) return `<span class="badge ok">ACCÈS ADMIN</span>`;
+    const ex = examByCode(code);
     const e = S.enr[code];
     const pend = S.payments.find((p) => p.exam_code === code && p.status === "pending");
     if (e && e.status === "active") return `<span class="badge ok">✓ ACTIF</span>`;
     if (e && e.status === "suspended") return `<span class="badge bad">SUSPENDU</span>`;
     if (pend) return `<span class="badge warn">⏳ PAIEMENT EN VÉRIFICATION</span>`;
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
-    return `<span class="badge">NON ACTIVÉ</span>`;
+    return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))}</span>` : `<span class="badge">BIENTÔT</span>`;
   }
   function renderHome() {
+    homeBottomNav("home");
     const name = esc(S.profile.first_name);
-    app.innerHTML = `<div class="hello"><h1>Bonjour ${name} 👋</h1><p class="muted">Choisis ton parcours de révision. Chaque parcours s'active séparément.</p></div>
-      <div class="exam-cards">${S.exams.map((e) => `
-        <button class="exam-card exam-${esc(e.code)}" data-act="open-exam" data-exam="${esc(e.code)}">
-          <span class="ico">${EXAM_META[e.code] ? EXAM_META[e.code].icon : "📚"}</span>
-          <h2>${esc(e.name)}</h2><p>${esc(e.full_name)}</p>
-          <div class="foot-line">${statusBadge(e.code)}<span class="go">${hasAccess(e.code) ? "Ouvrir →" : e.is_open ? "Activer · " + esc(fmtXof(e.price_xof)) : "Bientôt disponible"}</span></div>
+    app.innerHTML = `<section class="home-hero"><div class="home-hello">Bonjour ${name}</div><p>Choisis ton parcours de révision.</p></section>
+      <div class="label-up">MES PARCOURS</div>
+      <div class="exam-list">${S.exams.map((e) => `
+        <button class="exam-row exam-${esc(e.code)}" data-act="open-exam" data-exam="${esc(e.code)}">
+          <span class="exam-ico">${icon((EXAM_META[e.code] || {}).icon || "book", 28)}</span>
+          <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}</span></span>
+          <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
-      <div class="card flat" style="margin-top:18px"><h3>Comment ça marche ?</h3><div class="steps">
-        <div class="step"><div>Choisis ton parcours : <b>DAP</b>, <b>DQEG</b> ou <b>CAT1-2 Infanterie</b>.</div></div>
-        <div class="step"><div>Effectue le paiement par Wave ou Orange Money et déclare-le dans l'application.</div></div>
-        <div class="step"><div>Dès validation, accède aux questions-réponses, aux quiz, à la recherche et aux documents du parcours.</div></div></div></div>`;
+      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave ou Orange Money.</span></div>`;
+  }
+  function homeBottomNav(cur) {
+    const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : []);
+    bottomnav.className = "bottomnav show home-nav n" + items.length;
+    bottomnav.innerHTML = items.map(([k, h, ic, l]) => `<a href="${h}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(ic, 20)}<span>${l}</span></a>`).join("");
   }
 
   /* ------------------------------------------------------------------ */
   /* Parcours                                                           */
   /* ------------------------------------------------------------------ */
   function examBottomNav(code, cur) {
-    const items = [["accueil", "⌂", "Accueil"], ["matieres", "▤", "Matières"], ["quiz", "◎", "Quiz"], ["recherche", "⌕", "Recherche"], ["documents", "▣", "Documents"]];
+    const items = [["accueil", "home", "Accueil"], ["matieres", "book", "Matières"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"], ["documents", "file", "Documents"]];
     bottomnav.className = "bottomnav show exam-" + code;
-    bottomnav.innerHTML = items.map(([k, i, l]) => `<a href="#/p/${code}/${k}" class="${cur === k ? "on" : ""}"><i>${i}</i>${l}</a>`).join("");
+    bottomnav.innerHTML = items.map(([k, i, l]) => `<a href="#/p/${code}/${k}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(i, 20)}<span>${l}</span></a>`).join("");
   }
   function hero(exam, title, sub, crumb) {
-    return `<section class="hero"><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/p/${exam.code}">${esc(exam.name)}</a> › ${esc(crumb)}` : esc(exam.name)}</div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+    const back = crumb ? "#/p/" + exam.code : "#/";
+    return `<section class="hero"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/p/${exam.code}">${esc(exam.name)}</a> › ${esc(crumb)}` : esc(exam.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
   }
 
   async function renderExam(code, page, rest) {
@@ -326,24 +349,24 @@
     const avg = totalQ ? Math.round((good / totalQ) * 100) : 0;
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Toutes les matières";
     app.innerHTML = hero(exam, exam.name, (EXAM_META[exam.code] || {}).tagline || exam.full_name) +
-      `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>Questions</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz réalisés</span></div><div class="stat"><b>${avg}%</b><span>Réussite moyenne</span></div></div>
+      `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>Questions</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz faits</span></div><div class="stat"><b>${avg} %</b><span>Réussite</span></div></div>
       <div class="actions">
-        <a class="action" href="#/p/${exam.code}/matieres"><i>📚</i>Réviser</a>
-        <a class="action" href="#/p/${exam.code}/quiz"><i>🎯</i>Quiz</a>
-        <a class="action" href="#/p/${exam.code}/recherche"><i>🔎</i>Rechercher</a>
-        <a class="action" href="#/p/${exam.code}/documents"><i>📄</i>Documents</a>
+        <a class="action a-blue" href="#/p/${exam.code}/matieres"><i>${icon("book", 24)}</i><b>Réviser</b><small>Fiches par matière</small></a>
+        <a class="action a-orange" href="#/p/${exam.code}/quiz"><i>${icon("target", 24)}</i><b>Quiz</b><small>QCM ou auto-évaluation</small></a>
+        <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
+        <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
           <div class="subject-list">${d.subjects.slice(0, 6).map((s, i) => subjectRow(exam, d, s, i)).join("") || emptyBox("Aucune question n'a encore été publiée pour ce parcours.")}</div></div>
         <div><div class="section-title"><h2>Mes derniers quiz</h2></div>
-          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span></td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e">🎯</div><p>Aucun quiz pour l'instant.</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
+          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span></td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e e-ico">${icon("target", 30)}</div><p>Aucun quiz pour l'instant.</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
       </div>`;
   }
-  function emptyBox(t) { return `<div class="card empty"><div class="e">📭</div><p>${esc(t)}</p></div>`; }
+  function emptyBox(t) { return `<div class="card empty"><div class="e e-ico">${icon("info", 30)}</div><p>${esc(t)}</p></div>`; }
   function subjectRow(exam, d, s, i) {
     const n = (d.bySubject.get(s.id) || []).length;
-    return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>${n} question${n > 1 ? "s" : ""}</span></div><a class="btn btn-soft btn-sm" href="#/p/${exam.code}/revision/${s.id}">Réviser</a></div>`;
+    return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>${n} question${n > 1 ? "s" : ""}</span></div><a class="btn btn-primary btn-sm" href="#/p/${exam.code}/revision/${s.id}">Réviser</a></div>`;
   }
   function renderSubjects(exam, d) {
     app.innerHTML = hero(exam, "Matières", d.questions.length + " questions réparties dans " + d.subjects.length + " matières.", "Matières") +
@@ -504,12 +527,22 @@
 
   /* ----- Documents ----- */
   async function renderDocuments(exam) {
-    app.innerHTML = hero(exam, "Documents", "Documents de référence du parcours " + exam.name + ".", "Documents") + `<div id="docsOut" class="study"><div class="center-load"><div class="spinner"></div></div></div>`;
+    app.innerHTML = hero(exam, "Documents", "Documents de référence du parcours " + exam.name + ".", "Documents") +
+      (isAdmin() ? `<div class="card study upload-card"><h3>${icon("upload", 20)} Ajouter un document de référence (${esc(exam.name)})</h3><p class="small muted">PDF uniquement, 25 Mo maximum. Seuls les candidats actifs sur ce parcours pourront l'ouvrir.</p><input type="file" id="docFile" accept="application/pdf,.pdf"><input type="hidden" id="docExam" value="${esc(exam.code)}"><button class="btn btn-primary" data-act="ad-docup" style="margin-top:12px">Publier le document</button><div class="msg" id="docMsg"></div></div>` : "") +
+      `<div id="docsOut" class="study"><div class="center-load"><div class="spinner"></div></div></div>`;
     const { data, error } = await sb.storage.from("lukos-docs").list(exam.code, { limit: 100, sortBy: { column: "name", order: "asc" } });
     const out = document.getElementById("docsOut"); if (!out) return;
-    if (error) { out.innerHTML = emptyBox("Impossible de charger les documents : " + errText(error)); return; }
+    if (error) { out.innerHTML = emptyBox("Impossible de charger les documents : " + storageErr(error)); return; }
     const files = (data || []).filter((f) => /\.pdf$/i.test(f.name));
-    out.innerHTML = files.length ? `<div class="subject-list">${files.map((f) => `<div class="subject"><div class="num">PDF</div><div class="info"><b>${esc(f.name.replace(/\.pdf$/i, "").replace(/[_-]+/g, " "))}</b><span>${f.metadata && f.metadata.size ? Math.round(f.metadata.size / 1024) + " Ko" : ""}</span></div><button class="btn btn-soft btn-sm" data-act="open-doc" data-path="${esc(exam.code + "/" + f.name)}">Ouvrir</button></div>`).join("")}</div><p class="hint center">Les liens d'ouverture sont personnels et expirent après 2 minutes.</p>` : emptyBox("Aucun document publié pour ce parcours pour le moment.");
+    out.innerHTML = files.length ? `<div class="subject-list">${files.map((f) => `<div class="subject"><div class="num pdf">PDF</div><div class="info"><b>${esc(f.name.replace(/\.pdf$/i, "").replace(/[_-]+/g, " "))}</b><span>${f.metadata && f.metadata.size ? Math.round(f.metadata.size / 1024) + " Ko" : ""}</span></div><button class="btn btn-primary btn-sm" data-act="open-doc" data-path="${esc(exam.code + "/" + f.name)}">Ouvrir</button>${isAdmin() ? `<button class="btn btn-bad btn-sm" data-act="ad-docdel" data-path="${esc(exam.code + "/" + f.name)}" aria-label="Supprimer">✕</button>` : ""}</div>`).join("")}</div><p class="hint center">Les liens d'ouverture sont personnels et expirent après 2 minutes.</p>` : emptyBox(isAdmin() ? "Aucun document pour ce parcours : ajoute le premier ci-dessus." : "Aucun document publié pour ce parcours pour le moment.");
+  }
+  function storageErr(e) {
+    const m = String((e && e.message) || e || "");
+    if (/bucket not found/i.test(m)) return "l'espace de stockage « lukos-docs » n'existe pas. Exécute le script 04_documents.sql dans Supabase.";
+    if (/row-level security|policy|unauthorized|not authorized|403/i.test(m)) return "droits de stockage manquants. Exécute le script 04_documents.sql dans Supabase.";
+    if (/mime|type/i.test(m)) return "seuls les fichiers PDF sont acceptés.";
+    if (/size|too large|payload/i.test(m)) return "fichier trop lourd (25 Mo maximum).";
+    return errText(e);
   }
   async function openDoc(path) {
     let w = null;
@@ -521,6 +554,7 @@
 
   /* ----- Activation / paiement ----- */
   function renderActivation(exam) {
+    homeBottomNav("home");
     const e = S.enr[exam.code];
     const pend = S.payments.find((p) => p.exam_code === exam.code && p.status === "pending");
     const lastRej = S.payments.find((p) => p.exam_code === exam.code && p.status === "rejected");
@@ -571,6 +605,7 @@
   /* Mon compte                                                         */
   /* ------------------------------------------------------------------ */
   function renderProfile() {
+    homeBottomNav("profil");
     const p = S.profile;
     const stLabel = { pending: ["warn", "EN ATTENTE"], successful: ["ok", "VALIDÉ"], rejected: ["bad", "REFUSÉ"] };
     app.innerHTML = `<h1>Mon compte</h1><div class="grid-2">
@@ -610,6 +645,7 @@
   const AD = { payFilter: "pending", people: null, peopleQ: "", contentExam: "DAP", contentQ: "", importRows: null };
   const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
+    homeBottomNav("admin");
     app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
     const body = document.getElementById("adminBody");
     const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
@@ -661,7 +697,7 @@
     const u = AD.people.byId.get(x.user_id) || {};
     const w = window.open("", "_blank", "width=720,height=860"); if (!w) return toast("Autorise les fenêtres pour imprimer le reçu.", "err");
     const line = (a, b) => `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e5eaf0;padding:10px 0"><b>${esc(a)}</b><span>${esc(b)}</span></div>`;
-    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Reçu LUKOS RÉVISION</title></head><body style="font-family:Arial;background:#f4f6fa;padding:24px;color:#14213a"><div style="max-width:620px;margin:auto;background:#fff;padding:28px;border-radius:16px"><h1 style="margin:0">LUKOS RÉVISION</h1><p style="color:#5b6b82">Reçu de paiement</p>${line("Candidat", (u.first_name || "") + " " + (u.last_name || ""))}${line("Téléphone", u.phone || "—")}${line("Parcours", examName(x.exam_code))}${line("Mode", x.method === "wave" ? "Wave" : "Orange Money")}${line("Référence transaction", x.transaction_reference || "—")}${line("Référence LUKOS", x.id)}${line("Déclaré le", fmtDate(x.created_at))}${line("Validé le", fmtDate(x.reviewed_at))}<div style="display:flex;justify-content:space-between;padding:14px 0;font-size:22px;font-weight:900"><span>Montant</span><span>${esc(fmtXof(x.amount_xof))}</span></div><p style="text-align:center;color:#5b6b82;font-size:12px">${esc(C.AUTHOR || "")} • ${esc(C.CONTACT_DISPLAY || "")}</p></div></body></html>`);
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Reçu LUKOS-REVISION</title></head><body style="font-family:Arial;background:#f4f6fa;padding:24px;color:#14213a"><div style="max-width:620px;margin:auto;background:#fff;padding:28px;border-radius:16px"><h1 style="margin:0">LUKOS-REVISION</h1><p style="color:#5b6b82">Reçu de paiement</p>${line("Candidat", (u.first_name || "") + " " + (u.last_name || ""))}${line("Téléphone", u.phone || "—")}${line("Parcours", examName(x.exam_code))}${line("Mode", x.method === "wave" ? "Wave" : "Orange Money")}${line("Référence transaction", x.transaction_reference || "—")}${line("Référence LUKOS", x.id)}${line("Déclaré le", fmtDate(x.created_at))}${line("Validé le", fmtDate(x.reviewed_at))}<div style="display:flex;justify-content:space-between;padding:14px 0;font-size:22px;font-weight:900"><span>Montant</span><span>${esc(fmtXof(x.amount_xof))}</span></div><p style="text-align:center;color:#5b6b82;font-size:12px">${esc(C.AUTHOR || "")} • ${esc(C.CONTACT_DISPLAY || "")}</p></div></body></html>`);
     w.document.close(); setTimeout(() => { try { w.print(); } catch (e) { /* ignore */ } }, 300);
   }
 
@@ -784,23 +820,31 @@
 
   async function adDocs(body) {
     const lists = await Promise.all(S.exams.map((e) => sb.storage.from("lukos-docs").list(e.code, { limit: 100 })));
-    body.innerHTML = `<div class="card" style="margin-bottom:14px"><h3>📤 Publier un document PDF</h3><div class="row"><select id="docExam" style="width:auto">${S.exams.map((e) => `<option value="${e.code}">${esc(e.name)}</option>`).join("")}</select><input type="file" id="docFile" accept="application/pdf,.pdf" style="flex:1;min-width:200px"><button class="btn btn-primary" data-act="ad-docup">Publier</button></div><p class="hint">PDF uniquement, 25 Mo maximum. Seuls les candidats actifs du parcours peuvent l'ouvrir.</p></div>
+    const lerr = lists.find((l) => l && l.error);
+    body.innerHTML = (lerr ? `<div class="feedback bad" style="margin-bottom:14px">Stockage indisponible : ${esc(storageErr(lerr.error))}</div>` : "") + `<div class="card" style="margin-bottom:14px"><h3>Publier un document PDF</h3><div class="row"><select id="docExam" style="width:auto">${S.exams.map((e) => `<option value="${e.code}">${esc(e.name)}</option>`).join("")}</select><input type="file" id="docFile" accept="application/pdf,.pdf" style="flex:1;min-width:200px"><button class="btn btn-primary" data-act="ad-docup">Publier</button></div><div class="msg" id="docMsg"></div><p class="hint">PDF uniquement, 25 Mo maximum. Seuls les candidats actifs du parcours peuvent l'ouvrir.</p></div>
       <div class="grid">${S.exams.map((e, i) => { const files = ((lists[i] && lists[i].data) || []).filter((f) => /\.pdf$/i.test(f.name)); return `<div class="card exam-${e.code}"><h3>${esc(e.name)}</h3>${files.map((f) => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="small">📄 ${esc(f.name)}</span><span class="row"><button class="btn btn-ghost btn-sm" data-act="open-doc" data-path="${esc(e.code + "/" + f.name)}">Ouvrir</button><button class="btn btn-bad btn-sm" data-act="ad-docdel" data-path="${esc(e.code + "/" + f.name)}">✕</button></span></div>`).join("") || '<p class="muted small">Aucun document.</p>'}</div>`; }).join("")}</div>`;
   }
   async function uploadDoc() {
-    const exam = document.getElementById("docExam").value, f = document.getElementById("docFile").files[0];
-    if (!f) return toast("Choisis un fichier PDF.", "err");
-    if (f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) return toast("Le fichier doit être un PDF.", "err");
-    if (f.size > 25 * 1024 * 1024) return toast("PDF trop lourd (25 Mo maximum).", "err");
-    const safe = f.name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 100);
-    const { error } = await sb.storage.from("lukos-docs").upload(exam + "/" + safe, f, { upsert: true, contentType: "application/pdf" });
-    if (error) return toast("Publication impossible : " + errText(error), "err");
-    toast("Document publié.", "ok"); route();
+    const exam = document.getElementById("docExam").value, input = document.getElementById("docFile"), f = input.files[0];
+    const msg = document.getElementById("docMsg") || { set textContent(v) { toast(v, "err"); }, className: "" };
+    const fail = (t) => { msg.className = "msg err"; msg.textContent = t; if (!document.getElementById("docMsg")) toast(t, "err"); };
+    if (!f) return fail("Choisis d'abord un fichier PDF.");
+    if (f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) return fail("Le fichier doit être un PDF.");
+    if (f.size > 25 * 1024 * 1024) return fail("PDF trop lourd (25 Mo maximum).");
+    const safe = f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/_+/g, "_").slice(0, 100) || "document.pdf";
+    msg.className = "msg"; msg.textContent = "Envoi du document en cours…";
+    const btn = document.querySelector('[data-act="ad-docup"]'); if (btn) btn.disabled = true;
+    try {
+      const { error } = await sb.storage.from("lukos-docs").upload(exam + "/" + (/\.pdf$/i.test(safe) ? safe : safe + ".pdf"), f, { upsert: true, contentType: "application/pdf", cacheControl: "3600" });
+      if (error) return fail("Publication impossible : " + storageErr(error));
+      toast("Document publié pour " + examName(exam) + ".", "ok"); route();
+    } catch (e) { fail("Publication impossible : " + storageErr(e)); }
+    finally { if (btn) btn.disabled = false; }
   }
   async function deleteDoc(path) {
     if (!confirm("Supprimer définitivement « " + path + " » ?")) return;
     const { error } = await sb.storage.from("lukos-docs").remove([path]);
-    if (error) return toast(errText(error), "err");
+    if (error) return toast("Suppression impossible : " + storageErr(error), "err");
     toast("Document supprimé.", "ok"); route();
   }
 
