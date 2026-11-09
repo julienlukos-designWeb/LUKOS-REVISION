@@ -3,30 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://fwzngfnzgrhkfikrzchu.supabase.co wss://fwzngfnzgrhkfikrzchu.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://fwzngfnzgrhkfikrzchu.supabase.co wss://fwzngfnzgrhkfikrzchu.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#0b1f3a">
-<meta name="description" content="LUKOS RÉVISION — Préparation au DAP, au DQEG et aux CAT1-2 Infanterie.">
+<meta name="description" content="LUKOS-REVISION — Préparation au DAP, au DQEG et aux CAT1-2 Infanterie.">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="lk192.png">
+<link rel="icon" type="image/png" href="lk192.png">
 <link rel="apple-touch-icon" href="lkapple.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>LUKOS RÉVISION — DAP · DQEG · CAT1-2 INFANTERIE</title>
+<title>LUKOS-REVISION — DAP · DQEG · CAT1-2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <header class="topbar" id="topbar">
-  <a class="logo" href="#/" aria-label="Accueil LUKOS RÉVISION"><span class="logo-mark">L</span><span class="logo-text">LUKOS <b>RÉVISION</b></span></a>
+  <a class="logo" href="#/" aria-label="Accueil LUKOS-REVISION"><img class="logo-img" src="logo-header.png" alt="" width="44" height="44"><span class="logo-text"><span class="lt1">LUKOS-<b>REVISION</b></span><span class="lt2">DAP · DQEG · CAT1-2</span></span></a>
   <nav class="topnav" id="topnav" aria-label="Navigation principale"></nav>
 </header>
 <main id="app" tabindex="-1">
-  <div class="center-load"><div class="spinner" aria-hidden="true"></div><p>Chargement de LUKOS RÉVISION…</p></div>
+  <div class="center-load"><div class="spinner" aria-hidden="true"></div><p>Chargement de LUKOS-REVISION…</p></div>
 </main>
 <nav class="bottomnav" id="bottomnav" aria-label="Navigation du parcours"></nav>
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <footer class="foot" id="foot"></footer>
-<noscript><p class="noscript">LUKOS RÉVISION nécessite JavaScript.</p></noscript>
+<noscript><p class="noscript">LUKOS-REVISION nécessite JavaScript.</p></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
