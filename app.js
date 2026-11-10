@@ -183,6 +183,7 @@
     } finally {
       routing = false;
       app.focus({ preventScroll: true });
+      try { jRefresh(); } catch (e) { /* assistant facultatif */ }
     }
   }
   window.addEventListener("hashchange", () => { window.scrollTo(0, 0); route(); });
@@ -456,6 +457,7 @@
   }
   function drawQuiz() {
     const z = S.quiz, exam = examByCode(z.exam), it = z.items[z.i], d = S.data[z.exam];
+    try { jRefresh(); } catch (e) { /* */ }
     if (z.finished) return drawQuizEnd();
     const subj = (d.allSubjects.find((s) => s.id === it.q.subject_id) || {}).name || "";
     let body = "";
@@ -499,6 +501,7 @@
   }
   function drawQuizEnd() {
     const z = S.quiz, exam = examByCode(z.exam);
+    try { jRefresh(); } catch (e) { /* */ }
     const correct = z.items.filter((x) => x.ok).length, pct = Math.round((correct / z.items.length) * 100);
     const wrong = z.items.filter((x) => !x.ok);
     const verdict = pct >= 80 ? "Excellent travail !" : pct >= 60 ? "Bon résultat, continue ainsi." : pct >= 40 ? "Des bases solides, mais il faut réviser." : "Reprends les fiches de révision puis réessaie.";
@@ -908,6 +911,210 @@
     if (map[id]) return map[id](ev);
     if (ev.target.dataset.examForm) { ev.preventDefault(); saveExam(ev.target); }
   });
+
+  /* ------------------------------------------------------------------ */
+  /* Julien – IA : assistant de révision (recherche intelligente)        */
+  /* ------------------------------------------------------------------ */
+  const JIA = { open: false, msgs: [], ctx: "", index: {}, busy: false };
+  const JIA_STOP = new Set("le la les l un une des du de d au aux a et ou en dans par pour sur sous avec sans que qu qui quoi quel quels quelle quelles est sont ce c cet cette ces se s son sa ses leur leurs il ils elle elles on y ne n pas plus tout tous toute toutes comment pourquoi quand combien donner donnez citer citez definir definissez definition expliquer expliquez dire dis moi me je j tu t peux peut veux voudrais savoir question reponse c'est qu'est qu'est-ce ce quoi faut doit etc svp stp merci".split(" "));
+  const JIA_ABBR = {
+    cat: "conduite a tenir", mgo: "marche generale operations", ari: "appareil respiratoire isolant", aricf: "appareil respiratoire isolant circuit ferme",
+    arico: "appareil respiratoire isolant circuit ouvert", erp: "etablissement recevant public", igh: "immeuble grande hauteur", ps: "premier secours",
+    psm: "premier secours", fpt: "fourgon pompe tonne", ldt: "lance devidoir tournant", gl: "grosse lance", pl: "petite lance", lm: "lance mousse",
+    cos: "commandant operations secours", pls: "position laterale securite", rcp: "reanimation cardio pulmonaire", bi: "bouche incendie", pi: "poteau incendie",
+    ria: "robinet incendie arme", ssi: "systeme securite incendie", mpe: "motopompe", co2: "anhydride carbonique", nrbc: "nucleaire radiologique biologique chimique",
+    avp: "accident voie publique", sp: "sapeurs pompiers", ept: "etablissement", ers: "etablissement repertorie", orsec: "organisation reponse securite civile",
+    dap: "dap", dqeg: "dqeg", gnsp: "groupement national sapeurs pompiers", bnsp: "brigade nationale sapeurs pompiers", lrac: "lance roquette antichar"
+  };
+  const jTok = (s) => norm(s).replace(/['’]/g, " ").split(/[^a-z0-9]+/).filter((w) => w && w.length > 1 && !JIA_STOP.has(w)).map((w) => (w.length > 3 && /[sx]$/.test(w) && !/(ss|us|is|as)$/.test(w) ? w.slice(0, -1) : w));
+  function jExpand(words) {
+    const out = [];
+    words.forEach((w) => { out.push(w); if (JIA_ABBR[w] && JIA_ABBR[w] !== w) jTok(JIA_ABBR[w]).forEach((x) => out.push(x)); });
+    return [...new Set(out)];
+  }
+  function jLev(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i]; let best = i;
+      for (let j = 1; j <= b.length; j++) { cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); best = Math.min(best, cur[j]); }
+      if (best > max) return max + 1;
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function jMatch(w, set) {
+    if (set.has(w)) return 1;
+    let best = 0;
+    for (const t of set) {
+      if (w.length >= 4 && (t.startsWith(w) || (t.length >= 4 && w.startsWith(t)))) best = Math.max(best, 0.8);
+      else if (w.length >= 5 && t.length >= 5 && jLev(w, t, w.length >= 8 ? 2 : 1) <= (w.length >= 8 ? 2 : 1)) best = Math.max(best, 0.7);
+      if (best >= 0.8) break;
+    }
+    return best;
+  }
+  function jIndex(code) {
+    const d = S.data[code]; if (!d) return [];
+    if (JIA.index[code] && JIA.index[code].src === d) return JIA.index[code].items;
+    const items = d.questions.map((x) => {
+      const qt = jExpand(jTok(x.question));
+      return { x, code, q: new Set(qt), a: new Set(jTok(x.answer)), qn: " " + jTok(x.question).join(" ") + " " };
+    });
+    JIA.index[code] = { src: d, items };
+    return items;
+  }
+  function jSearch(raw, codes) {
+    const words = jExpand(jTok(raw));
+    if (!words.length) return [];
+    const phrase = " " + jTok(raw).join(" ") + " ";
+    const res = [];
+    codes.forEach((code) => jIndex(code).forEach((it) => {
+      let s = 0, hit = 0;
+      words.forEach((w) => { const mq = jMatch(w, it.q), ma = mq < 1 ? jMatch(w, it.a) : 0; if (mq) { s += 3 * mq; hit++; } else if (ma) { s += ma; hit += 0.5; } });
+      if (!hit) return;
+      s = s * (hit / words.length) * (hit / words.length);
+      if (phrase.trim().length > 4 && it.qn.includes(phrase)) s += 4;
+      s -= Math.max(0, it.q.size - words.length) * 0.05;
+      res.push({ s, it });
+    }));
+    return res.sort((a, b) => b.s - a.s).slice(0, 4).filter((r, i, arr) => r.s >= Math.max(1.2, arr[0].s * 0.35));
+  }
+
+  /* ----- Questions sur l'utilisation de l'application ----- */
+  const JIA_FAQ = [
+    { k: ["payer", "paiement", "wave", "orange", "money", "prix", "tarif", "combien coute", "fcfa", "acheter"], a: () => `Pour activer un parcours :\n• Ouvre le parcours souhaité puis « Activer ce parcours ».\n• Envoie le montant indiqué par Wave au ${C.WAVE_NUMBER || "numéro affiché"} ou par Orange Money au ${C.ORANGE_MONEY_NUMBER || "numéro affiché"}.\n• Saisis ton numéro et la référence de la transaction dans le formulaire.\n• L'administrateur valide ton paiement, puis le parcours s'ouvre.` },
+    { k: ["active", "activation", "attente", "valide", "validation", "pas ouvert", "bloque", "acces"], a: () => `Après ton paiement, ton parcours reste « en attente » jusqu'à la validation par l'administrateur.\n• Touche « J'ai été validé ? Actualiser » sur la page du parcours.\n• Si c'est long, écris sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"} avec ta référence de transaction.` },
+    { k: ["installer", "installation", "telecharger", "application", "ecran accueil", "playstore", "iphone", "android"], a: () => `Pour installer LUKOS-REVISION sur ton téléphone :\n• Android (Chrome) : touche « Installer » dans le message affiché, ou menu ⋮ › « Installer l'application ».\n• iPhone (Safari) : bouton Partager › « Sur l'écran d'accueil ».\nL'application s'ouvre ensuite comme une vraie application, en plein écran.` },
+    { k: ["mot de passe", "passe", "oublie", "connexion", "connecter", "inscription", "inscrire", "compte"], a: () => `• Pour t'inscrire : écran d'accueil › « Créer un compte » (prénom, nom, téléphone, mot de passe).\n• Pour changer ton mot de passe : « Mon compte » › « Changer le mot de passe ».\n• Mot de passe oublié : contacte l'administrateur sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"}.` },
+    { k: ["quiz", "qcm", "test", "evaluation", "score", "note"], a: () => `Dans un parcours, onglet « Quiz » :\n• Choisis une matière (ou toutes), le nombre de questions et le mode (QCM ou auto-évaluation).\n• À la fin, ton score est enregistré et les questions ratées sont affichées.\nPendant un quiz, je me mets en pause pour que l'évaluation reste honnête 😉` },
+    { k: ["fiche", "revision", "reviser", "matiere", "cours"], a: () => `Onglet « Matières » : choisis une matière puis révise question par question avec « Afficher la réponse ». Le bouton « Mélanger » change l'ordre des fiches.` },
+    { k: ["document", "pdf", "telecharger le recueil", "recueil"], a: () => `Onglet « Documents » du parcours : tu y trouves les documents de référence (PDF) déposés par l'administrateur.` },
+    { k: ["contact", "whatsapp", "admin", "administrateur", "aide", "probleme", "bug"], a: () => `Tu peux joindre l'administrateur sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"}.` },
+    { k: ["bonjour", "salut", "bonsoir", "hello", "salam", "cava", "ca va"], a: () => `Bonjour ${S.profile ? esc(S.profile.first_name) : ""} 👋 Pose-moi ta question, par exemple : « CAT devant une fracture du crâne » ou « c'est quoi la MGO ».` },
+    { k: ["qui es tu", "qui est tu", "ton nom", "julien"], a: () => `Je suis Julien – IA, l'assistant de LUKOS-REVISION. Je retrouve en une seconde la réponse officielle de tes recueils, même si tu écris avec des fautes ou des abréviations.` }
+  ];
+  function jFaq(raw) {
+    const n = " " + norm(raw).replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ") + " ";
+    let best = null, bs = 0;
+    JIA_FAQ.forEach((f) => { const s = f.k.filter((k) => n.includes(" " + k) || n.includes(k + " ")).length; if (s > bs) { bs = s; best = f; } });
+    return bs ? best.a() : null;
+  }
+
+  /* ----- Contexte de la page ----- */
+  function jContext() {
+    const p = parts();
+    if (!S.session || !S.profile) return { mode: "guest", label: "Aide à l'inscription et à la connexion", codes: [] };
+    if (p[0] === "p" && examByCode(p[1])) {
+      const ex = examByCode(p[1]);
+      if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
+      if (!hasAccess(p[1])) return { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
+      return { mode: "exam", label: "Recherche dans " + ex.name, codes: [p[1]], exam: ex };
+    }
+    const codes = S.exams.filter((e) => hasAccess(e.code)).map((e) => e.code);
+    return { mode: "home", label: codes.length ? "Recherche dans tes parcours activés" : "Aide et activation des parcours", codes };
+  }
+  function jGreeting(c) {
+    const n = S.profile ? esc(S.profile.first_name) : "";
+    if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>. Je peux t'aider à créer ton compte, te connecter, installer l'application ou payer ton parcours.`;
+    if (c.mode === "locked") return `Bonjour ${n} 👋 Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi. Je peux t'expliquer comment le payer et l'activer.`;
+    if (c.mode === "exam") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi n'importe quelle question du parcours <b>${esc(c.exam.name)}</b> : je trouve la réponse tout de suite, même avec des fautes ou des abréviations (CAT, MGO, ARI…).`;
+    return c.codes.length ? `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Je cherche dans tous tes parcours activés : ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")}.` : `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Active un parcours pour que je puisse répondre à tes questions de révision. Je peux t'expliquer comment faire.`;
+  }
+  function jSuggest(c) {
+    if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "Comment payer ?"];
+    if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Contacter l'administrateur"];
+    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"] };
+    const code = c.codes[0];
+    return (ex[code] || ["CAT devant une hémorragie", "Qu'est-ce que la MGO ?"]).concat(["Comment se passe le quiz ?"]);
+  }
+
+  /* ----- Interface ----- */
+  const jFab = document.createElement("button");
+  jFab.className = "jia-fab"; jFab.type = "button"; jFab.setAttribute("aria-label", "Ouvrir Julien – IA");
+  jFab.innerHTML = `<img src="julien-ia.jpg" alt=""><span class="jia-fab-txt">Julien – IA</span><span class="jia-dot"></span>`;
+  const jPanel = document.createElement("section");
+  jPanel.className = "jia-panel"; jPanel.hidden = true; jPanel.setAttribute("aria-label", "Julien – IA");
+  jPanel.innerHTML = `<header class="jia-head"><img src="julien-ia.jpg" alt=""><div><b>Julien – IA</b><small id="jiaCtx"></small></div><button type="button" class="jia-x" data-jia="close" aria-label="Fermer">✕</button></header>
+    <div class="jia-body" id="jiaBody"></div><div class="jia-sugg" id="jiaSugg"></div>
+    <form class="jia-form" id="jiaForm" autocomplete="off"><input id="jiaIn" type="text" maxlength="200" placeholder="Pose ta question…" aria-label="Ta question"><button type="submit" aria-label="Envoyer">➤</button></form>`;
+  document.body.appendChild(jFab); document.body.appendChild(jPanel);
+  const jBody = jPanel.querySelector("#jiaBody");
+
+  function jPush(who, html, extra) { JIA.msgs.push({ who, html, extra }); jDraw(); }
+  function jDraw() {
+    jBody.innerHTML = JIA.msgs.map((m, i) => `<div class="jia-msg ${m.who}">${m.who === "bot" ? '<img src="julien-ia.jpg" alt="">' : ""}<div class="jia-bub">${m.html}${m.extra || ""}</div></div>`).join("");
+    jBody.scrollTop = jBody.scrollHeight;
+  }
+  function jRefresh() {
+    const c = jContext();
+    const key = c.mode + ":" + c.codes.join(",") + ":" + (c.exam ? c.exam.code : "");
+    jFab.hidden = c.mode === "quiz" || !configured;
+    if (c.mode === "quiz" && JIA.open) jClose();
+    document.getElementById("jiaCtx").textContent = c.label;
+    if (key !== JIA.ctx) {
+      JIA.ctx = key;
+      const last = JIA.msgs[JIA.msgs.length - 1];
+      if (last && last.g) JIA.msgs.pop();
+      JIA.msgs.push({ who: "bot", html: jGreeting(c), g: true });
+      if (JIA.msgs.length > 60) JIA.msgs.splice(0, JIA.msgs.length - 60);
+      if (JIA.open) jDraw();
+      document.getElementById("jiaSugg").innerHTML = jSuggest(c).map((s) => `<button type="button" data-jia="ask" data-q="${esc(s)}">${esc(s)}</button>`).join("");
+    }
+  }
+  function jOpen() { JIA.open = true; jPanel.hidden = false; jFab.classList.add("on"); document.documentElement.classList.add("jia-lock"); jDraw(); setTimeout(() => { const i = document.getElementById("jiaIn"); if (i && window.innerWidth > 700) i.focus(); }, 60); }
+  function jClose() { JIA.open = false; jPanel.hidden = true; jFab.classList.remove("on"); document.documentElement.classList.remove("jia-lock"); }
+
+  function jRender(r, alts, c) {
+    const x = r.it.x, d = S.data[r.it.code];
+    const sname = (d.allSubjects.find((s) => s.id === x.subject_id) || {}).name || "";
+    const exName = (examByCode(r.it.code) || {}).name || r.it.code;
+    const head = `<div class="jia-src">${c.codes.length > 1 ? esc(exName) + " · " : ""}${esc(sname)}</div><div class="jia-q">${esc(x.question)}</div>`;
+    const more = alts.length ? `<div class="jia-alts"><small>Questions proches :</small>${alts.map((a) => `<button type="button" data-jia="show" data-code="${esc(a.it.code)}" data-id="${a.it.x.id}">${esc(a.it.x.question)}</button>`).join("")}</div>` : "";
+    return { html: head + `<div class="answer">${formatAnswer(x.answer)}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="fiche" data-code="${esc(r.it.code)}" data-id="${x.id}">📖 Voir la fiche</button></div>` + more };
+  }
+  async function jAsk(raw) {
+    raw = String(raw || "").trim(); if (!raw || JIA.busy) return;
+    jPush("me", esc(raw));
+    const c = jContext();
+    JIA.busy = true;
+    try {
+      if (c.codes.length) {
+        for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
+        const res = jSearch(raw, c.codes);
+        const faq = jFaq(raw);
+        if (res.length && !(faq && res[0].s < 3)) {
+          const out = jRender(res[0], res.slice(1), c);
+          return jPush("bot", out.html, out.extra);
+        }
+        if (faq) return jPush("bot", formatAnswer(faq));
+        const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.`);
+      }
+      const faq = jFaq(raw);
+      if (faq) return jPush("bot", formatAnswer(faq));
+      if (c.mode === "locked" || c.mode === "home") return jPush("bot", formatAnswer(JIA_FAQ[0].a()) + `<p class="small muted" style="margin-top:8px">Dès que ton parcours sera activé, je pourrai répondre à toutes tes questions de révision.</p>`);
+      return jPush("bot", "Je peux t'aider pour l'inscription, la connexion, l'installation et le paiement. Pour les questions de révision, connecte-toi d'abord 🙂");
+    } catch (e) { jPush("bot", "Oups, je n'ai pas pu chercher : " + esc(errText(e))); }
+    finally { JIA.busy = false; }
+  }
+  function jFind(code, id) { const d = S.data[code]; return d && d.questions.find((q) => String(q.id) === String(id)); }
+
+  jFab.addEventListener("click", () => (JIA.open ? jClose() : jOpen()));
+  jPanel.addEventListener("submit", (ev) => { ev.preventDefault(); const i = document.getElementById("jiaIn"); const v = i.value; i.value = ""; jAsk(v); });
+  jPanel.addEventListener("click", (ev) => {
+    const el = ev.target.closest("[data-jia]"); if (!el) return;
+    const a = el.dataset.jia;
+    if (a === "close") return jClose();
+    if (a === "ask") return jAsk(el.dataset.q);
+    if (a === "show") { const q = jFind(el.dataset.code, el.dataset.id); if (!q) return; const out = jRender({ it: { x: q, code: el.dataset.code } }, [], jContext()); jPush("me", esc(q.question)); return jPush("bot", out.html, out.extra); }
+    if (a === "fiche") {
+      const code = el.dataset.code, q = jFind(code, el.dataset.id); if (!q) return;
+      const d = S.data[code], list = (d.bySubject.get(q.subject_id) || []).slice();
+      S.rev = { key: code + ":" + q.subject_id, list, i: Math.max(0, list.findIndex((x) => x.id === q.id)), show: true, shuffled: false };
+      jClose(); go("#/p/" + code + "/revision/" + q.subject_id);
+    }
+  });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && JIA.open) jClose(); });
 
   /* Déconnexion automatique après inactivité */
   let lastActive = Date.now();
