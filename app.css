@@ -377,3 +377,12 @@ html.has-inst-bar main{padding-top:72px}
   html.jia-lock,html.jia-lock body{overflow:hidden}
 }
 @media print{.jia-fab,.jia-panel{display:none}}
+
+/* ===== Mode hors connexion ===== */
+.off-bar{position:relative;z-index:29;background:#3A2A00;color:#FFE7A3;font-size:.86rem;padding:8px 14px;text-align:center;line-height:1.35}
+.off-bar[hidden]{display:none}
+.off-bar button{margin-left:6px;border:0;border-radius:10px;background:var(--gold);color:var(--navy);font:inherit;font-weight:800;font-size:.8rem;padding:4px 10px;cursor:pointer}
+.offnote{margin:12px 0 0;padding:10px 14px;border-radius:14px;background:var(--warn-bg);color:var(--warn);font-weight:700;font-size:.88rem}
+.offnote.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.off{background:var(--ok-bg);color:var(--ok)}
+@media (max-width:720px){.off-bar{font-size:.8rem}}

@@ -112,6 +112,102 @@
   const examByCode = (c) => S.exams.find((e) => e.code === c);
   const hasAccess = (c) => isAdmin() || (S.enr[c] && S.enr[c].status === "active" && !S.profile.is_blocked);
 
+  /* ------------------------------------------------------------------ */
+  /* Mode hors connexion : parcours activés gardés sur le téléphone      */
+  /* ------------------------------------------------------------------ */
+  const OFF_DAYS = 7;                       // délai max sans vérification de l'accès
+  const idb = (() => {
+    let p = null;
+    const open = () => p || (p = new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error("IndexedDB indisponible"));
+      const r = indexedDB.open("lukos-offline", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+    const tx = (mode, fn) => open().then((db) => new Promise((res, rej) => {
+      const t = db.transaction("kv", mode), r = fn(t.objectStore("kv"));
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+    const safe = (pr, dflt) => pr.catch(() => dflt);
+    return {
+      get: (k) => safe(tx("readonly", (s) => s.get(k)), undefined),
+      set: (k, v) => safe(tx("readwrite", (s) => s.put(v, k)), undefined),
+      del: (k) => safe(tx("readwrite", (s) => s.delete(k)), undefined),
+      clear: () => safe(tx("readwrite", (s) => s.clear()), undefined)
+    };
+  })();
+  const isNetErr = (e) => !navigator.onLine || /Failed to fetch|NetworkError|network|Load failed|fetch/i.test(String((e && (e.message || e.error_description)) || e || ""));
+  const hasStoredSession = () => { try { return Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
+  S.offline = false; S.verifiedAt = 0; S.offMeta = {};
+  const offFresh = () => Date.now() - (S.verifiedAt || 0) < OFF_DAYS * 86400000;
+
+  async function saveAccountCache() {
+    if (!S.session || !S.profile) return;
+    const uid = S.session.user.id;
+    const old = await idb.get("acct");
+    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; }
+    S.verifiedAt = Date.now();
+    await idb.set("acct", { uid, profile: S.profile, enr: S.enr, exams: S.exams, payments: S.payments, verifiedAt: S.verifiedAt });
+    // accès retiré ou suspendu : on efface le contenu gardé sur le téléphone
+    S.offMeta = (await idb.get("offmeta")) || {};
+    for (const code of Object.keys(S.offMeta)) if (!hasAccess(code)) { await idb.del("exam:" + code); delete S.offMeta[code]; }
+    await idb.set("offmeta", S.offMeta);
+  }
+  async function enterOffline() {
+    const acct = await idb.get("acct");
+    if (!acct || !hasStoredSession()) return false;
+    S.offline = true;
+    S.session = { user: { id: acct.uid } };
+    S.profile = acct.profile; S.enr = acct.enr || {}; S.exams = acct.exams || []; S.payments = acct.payments || [];
+    S.verifiedAt = acct.verifiedAt || 0;
+    S.offMeta = (await idb.get("offmeta")) || {};
+    return true;
+  }
+  async function leaveOffline() {
+    if (!S.offline || !navigator.onLine) return;
+    try {
+      await loadExams();
+      const { data } = await sb.auth.getSession();
+      S.offline = false;
+      S.session = data.session || null;
+      if (S.session) { await loadAccount(); S.data = {}; await flushPending(); toast("Connexion rétablie ✓", "ok"); }
+      route(); prefetchOffline();
+    } catch (e) { S.offline = true; }
+  }
+  window.addEventListener("online", () => setTimeout(leaveOffline, 1500));
+  async function queuePending(row) {
+    const list = (await idb.get("pending")) || [];
+    list.push(row); await idb.set("pending", list);
+  }
+  async function flushPending() {
+    if (S.offline || !S.session) return;
+    const list = (await idb.get("pending")) || [];
+    if (!list.length) return;
+    const rest = []; let sent = 0;
+    for (const r of list) {
+      if (r.uid !== S.session.user.id) continue;
+      try { const { error } = await sb.rpc("complete_quiz", r.args); if (error) throw error; sent++; delete S.attempts[r.args.p_exam]; }
+      catch (e) { if (isNetErr(e)) rest.push(r); }
+    }
+    await idb.set("pending", rest);
+    if (sent) toast(sent + (sent > 1 ? " résultats de quiz faits hors connexion ont été envoyés." : " résultat de quiz fait hors connexion a été envoyé."), "ok");
+  }
+  let prefetching = false;
+  async function prefetchOffline() {
+    // télécharge en arrière-plan les parcours activés absents ou anciens (> 24 h)
+    if (prefetching || S.offline || !S.session || !S.profile || isAdmin()) return;
+    prefetching = true;
+    try {
+      for (const e of S.exams) {
+        if (!hasAccess(e.code)) continue;
+        const m = S.offMeta[e.code];
+        if (m && Date.now() - m < 86400000 && S.data[e.code]) continue;
+        if (m && Date.now() - m < 86400000) continue;
+        await loadExamData(e.code, true).catch(() => {});
+      }
+    } finally { prefetching = false; }
+  }
+
   async function loadExams() {
     const { data, error } = await sb.from("exams").select("code,name,full_name,price_xof,position,is_open").order("position");
     if (error) throw error;
@@ -129,9 +225,9 @@
     if (e.error) throw e.error;
     S.enr = {}; (e.data || []).forEach((r) => (S.enr[r.exam_code] = r));
     S.payments = pay.data || [];
+    await saveAccountCache();
   }
-  async function loadExamData(code, force) {
-    if (!force && S.data[code]) return S.data[code];
+  async function fetchExamRaw(code) {
     const subj = await sb.from("subjects").select("id,name,position").eq("exam_code", code).order("position");
     if (subj.error) throw subj.error;
     const questions = [];
@@ -142,17 +238,51 @@
       questions.push(...(data || []));
       if (!data || data.length < 1000) break;
     }
+    return { subjects: subj.data || [], questions };
+  }
+  async function loadExamData(code, force) {
+    if (!force && S.data[code]) return S.data[code];
+    let raw = null, savedAt = null, fromCache = false;
+    if (!S.offline) {
+      try {
+        raw = await fetchExamRaw(code);
+        savedAt = Date.now();
+        if (hasAccess(code) && !isAdmin()) {
+          await idb.set("exam:" + code, { uid: S.session.user.id, savedAt, subjects: raw.subjects, questions: raw.questions.filter((q) => q.is_active) });
+          S.offMeta[code] = savedAt; await idb.set("offmeta", S.offMeta);
+        }
+      } catch (e) { if (!isNetErr(e)) throw e; }
+    }
+    if (!raw) {
+      const c = await idb.get("exam:" + code);
+      if (!c || c.uid !== S.session.user.id) throw new Error("Ce parcours n'est pas encore téléchargé sur ce téléphone. Ouvre-le une fois avec Internet pour pouvoir l'utiliser hors connexion.");
+      if (!offFresh()) throw new Error("Connecte-toi à Internet pour vérifier ton accès (au moins une fois tous les " + OFF_DAYS + " jours).");
+      raw = { subjects: c.subjects, questions: c.questions }; savedAt = c.savedAt; fromCache = true;
+    }
+    const subj = { data: raw.subjects }, questions = raw.questions;
     const active = questions.filter((q) => q.is_active);
     const bySubject = new Map();
     (subj.data || []).forEach((s) => bySubject.set(s.id, []));
     active.forEach((q) => { if (!bySubject.has(q.subject_id)) bySubject.set(q.subject_id, []); bySubject.get(q.subject_id).push(q); });
-    S.data[code] = { subjects: (subj.data || []).filter((s) => (bySubject.get(s.id) || []).length), allSubjects: subj.data || [], questions: active, all: questions, bySubject };
+    S.data[code] = { subjects: (subj.data || []).filter((s) => (bySubject.get(s.id) || []).length), allSubjects: subj.data || [], questions: active, all: questions, bySubject, savedAt, fromCache };
     return S.data[code];
   }
   async function loadAttempts(code) {
-    const { data, error } = await sb.from("quiz_attempts").select("id,subject_id,mode,total,correct,created_at").eq("user_id", S.session.user.id).eq("exam_code", code).order("created_at", { ascending: false }).limit(200);
-    if (error) throw error;
-    S.attempts[code] = data || [];
+    const pend = ((await idb.get("pending")) || []).filter((r) => r.uid === S.session.user.id && r.args.p_exam === code)
+      .map((r) => ({ id: "p" + r.at, subject_id: r.args.p_subject_id, mode: r.args.p_mode, total: r.args.p_total, correct: r.args.p_correct, created_at: new Date(r.at).toISOString(), pending: true }));
+    let list;
+    try {
+      if (S.offline) throw new Error("Failed to fetch");
+      const { data, error } = await sb.from("quiz_attempts").select("id,subject_id,mode,total,correct,created_at").eq("user_id", S.session.user.id).eq("exam_code", code).order("created_at", { ascending: false }).limit(200);
+      if (error) throw error;
+      list = data || [];
+      if (!isAdmin()) idb.set("att:" + code, { uid: S.session.user.id, list });
+    } catch (e) {
+      if (!isNetErr(e)) throw e;
+      const c = await idb.get("att:" + code);
+      list = c && c.uid === S.session.user.id ? c.list : [];
+    }
+    S.attempts[code] = pend.reverse().concat(list);
     return S.attempts[code];
   }
 
@@ -167,6 +297,7 @@
     if (routing) return; routing = true;
     try {
       document.body.className = "";
+      offBanner();
       bottomnav.className = "bottomnav"; bottomnav.innerHTML = "";
       if (!configured) return renderNotConfigured();
       if (!S.session) { renderTopnav(); return renderAuth(); }
@@ -174,6 +305,8 @@
       renderTopnav();
       if (S.profile.is_blocked) return renderBlocked();
       const p = parts();
+      if (S.offline && !offFresh()) return renderOfflineLocked();
+      if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
       if (p[0] === "profil") return renderProfile();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
@@ -188,6 +321,24 @@
   }
   window.addEventListener("hashchange", () => { window.scrollTo(0, 0); route(); });
 
+  let offBar = null;
+  function offBanner() {
+    const on = !!S.offline;
+    document.documentElement.classList.toggle("is-offline", on);
+    if (on && !offBar) {
+      offBar = document.createElement("div"); offBar.className = "off-bar"; offBar.setAttribute("role", "status");
+      document.getElementById("topbar").insertAdjacentElement("afterend", offBar);
+    }
+    if (offBar) {
+      offBar.hidden = !on;
+      if (on) offBar.innerHTML = `<b>📴 Mode hors connexion</b> — tes parcours téléchargés restent disponibles. <button type="button" data-act="retry-online">Réessayer</button>`;
+    }
+  }
+  function renderOfflineLocked() {
+    app.innerHTML = `<div class="card center" style="max-width:520px;margin:30px auto"><div class="e" style="font-size:2.4rem">🔒</div><h2>Vérification de ton accès nécessaire</h2>
+      <p>Tu utilises LUKOS-REVISION hors connexion depuis plus de ${OFF_DAYS} jours. Connecte-toi à Internet quelques secondes pour vérifier que tes parcours sont toujours actifs, puis tu pourras de nouveau réviser hors connexion.</p>
+      <button class="btn btn-primary" data-act="retry-online">J'ai de nouveau Internet</button></div>`;
+  }
   function renderTopnav() {
     const p = parts()[0] || "";
     if (!S.session || !S.profile) { topnav.innerHTML = ""; return; }
@@ -278,9 +429,12 @@
     await loadAccount();
     S.data = {}; S.attempts = {};
     go("#/");
+    flushPending(); setTimeout(prefetchOffline, 2500);
   }
   async function logout() {
     try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
+    try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
+    await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
     S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.quiz = null; S.rev = null;
     go("#/");
   }
@@ -307,10 +461,10 @@
       <div class="exam-list">${S.exams.map((e) => `
         <button class="exam-row exam-${esc(e.code)}" data-act="open-exam" data-exam="${esc(e.code)}">
           <span class="exam-ico">${icon((EXAM_META[e.code] || {}).icon || "book", 28)}</span>
-          <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}</span></span>
+          <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}${S.offMeta[e.code] && hasAccess(e.code) ? ` <span class="badge off">📥 HORS CONNEXION</span>` : ""}</span></span>
           <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
-      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave ou Orange Money.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave ou Orange Money. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
   }
   function homeBottomNav(cur) {
     const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : []);
@@ -346,6 +500,11 @@
     return await renderExamHome(exam, d);
   }
 
+  function offlineNote(exam, d) {
+    if (isAdmin()) return "";
+    if (S.offline) return `<div class="offnote">📴 Hors connexion — contenu téléchargé le ${esc(fmtDate(d.savedAt))}. Les résultats de tes quiz seront envoyés au retour d'Internet.</div>`;
+    return d.savedAt ? `<div class="offnote ok">📥 Disponible hors connexion — à jour (${esc(fmtDate(d.savedAt))}).</div>` : "";
+  }
   async function renderExamHome(exam, d) {
     const att = await loadAttempts(exam.code).catch(() => []);
     const done = att.length, totalQ = att.reduce((a, x) => a + x.total, 0), good = att.reduce((a, x) => a + x.correct, 0);
@@ -353,6 +512,7 @@
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Toutes les matières";
     app.innerHTML = hero(exam, exam.name, (EXAM_META[exam.code] || {}).tagline || exam.full_name).replace('class="hero"', 'class="hero hero-stats"') +
       `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>Questions</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz faits</span></div><div class="stat"><b>${avg} %</b><span>Réussite</span></div></div>
+      ${offlineNote(exam, d)}
       <div class="actions">
         <a class="action a-blue" href="#/p/${exam.code}/matieres"><i>${icon("book", 24)}</i><b>Réviser</b><small>Fiches par matière</small></a>
         <a class="action a-orange" href="#/p/${exam.code}/quiz"><i>${icon("target", 24)}</i><b>Quiz</b><small>QCM ou auto-évaluation</small></a>
@@ -363,7 +523,7 @@
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
           <div class="subject-list">${d.subjects.slice(0, 6).map((s, i) => subjectRow(exam, d, s, i)).join("") || emptyBox("Aucune question n'a encore été publiée pour ce parcours.")}</div></div>
         <div><div class="section-title"><h2>Mes derniers quiz</h2></div>
-          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span></td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e e-ico">${icon("target", 30)}</div><p>Aucun quiz pour l'instant.</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
+          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span>${a.pending ? ' <span class="badge warn">À ENVOYER</span>' : ""}</td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e e-ico">${icon("target", 30)}</div><p>Aucun quiz pour l'instant.</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
       </div>`;
   }
   function emptyBox(t) { return `<div class="card empty"><div class="e e-ico">${icon("info", 30)}</div><p>${esc(t)}</p></div>`; }
@@ -493,11 +653,16 @@
   async function saveQuiz() {
     const z = S.quiz; if (z.saved) return;
     const correct = z.items.filter((x) => x.ok).length;
+    const args = { p_exam: z.exam, p_subject_id: z.subjectId, p_mode: z.mode, p_total: z.items.length, p_correct: correct };
     try {
-      const { error } = await sb.rpc("complete_quiz", { p_exam: z.exam, p_subject_id: z.subjectId, p_mode: z.mode, p_total: z.items.length, p_correct: correct });
+      if (S.offline) throw new Error("Failed to fetch");
+      const { error } = await sb.rpc("complete_quiz", args);
       if (error) throw error;
       z.saved = true; delete S.attempts[z.exam];
-    } catch (e) { toast("Résultat non enregistré : " + errText(e), "err"); }
+    } catch (e) {
+      if (isNetErr(e)) { await queuePending({ uid: S.session.user.id, at: Date.now(), args }); z.pending = true; delete S.attempts[z.exam]; }
+      else toast("Résultat non enregistré : " + errText(e), "err");
+    }
   }
   function drawQuizEnd() {
     const z = S.quiz, exam = examByCode(z.exam);
@@ -506,7 +671,7 @@
     const wrong = z.items.filter((x) => !x.ok);
     const verdict = pct >= 80 ? "Excellent travail !" : pct >= 60 ? "Bon résultat, continue ainsi." : pct >= 40 ? "Des bases solides, mais il faut réviser." : "Reprends les fiches de révision puis réessaie.";
     app.innerHTML = hero(exam, "Résultat du quiz", verdict, "Quiz") +
-      `<div class="study"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${correct} / ${z.items.length} bonnes réponses</h2><p class="muted">${z.saved ? "Résultat enregistré dans ta progression." : "Résultat non enregistré (connexion)."}</p>
+      `<div class="study"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${correct} / ${z.items.length} bonnes réponses</h2><p class="muted">${z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera ajouté à ta progression dès le retour d'Internet." : "Résultat non enregistré."}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-primary" data-act="qz-again">Nouveau quiz</button><a class="btn btn-ghost" href="#/p/${exam.code}">Retour au parcours</a></div></div>
       ${wrong.length ? `<div class="card" style="margin-top:14px"><h3>À revoir (${wrong.length})</h3>${wrong.map((x) => `<div class="review-item"><b>${esc(x.q.question)}</b><div class="answer">${formatAnswer(x.q.answer)}</div></div>`).join("")}</div>` : ""}</div>`;
   }
@@ -598,10 +763,15 @@
     try {
       const { data, error } = await sb.rpc("submit_payment", { p_exam: code, p_method: method, p_sender_phone: payer, p_reference: document.getElementById("payRef").value.trim() || null });
       if (error) throw error;
+      // ouverture immédiate de WhatsApp vers le numéro des preuves de paiement
+      const link = waLink(exam, data);
+      msg.className = "msg ok"; msg.textContent = "Paiement déclaré. Ouverture de WhatsApp…";
+      let w = null;
+      try { w = window.open(link, "_blank"); if (w) w.opener = null; } catch (e) { w = null; }
+      if (!w) { location.href = link; return; }
       await loadAccount();
       route();
-      toast("Paiement déclaré. Envoie maintenant la preuve sur WhatsApp.", "ok");
-      const w = window.open(waLink(exam, data), "_blank", "noopener,noreferrer"); void w;
+      toast("Paiement déclaré. Envoie la capture du paiement dans WhatsApp.", "ok");
     } catch (e) { msg.className = "msg err"; msg.textContent = errText(e); }
     finally { busy = false; }
   }
@@ -881,6 +1051,7 @@
     const act = el.dataset.act;
     try {
       if (act === "reload") return location.reload();
+      if (act === "retry-online") { if (!navigator.onLine) return toast("Toujours pas de connexion Internet.", "err"); await leaveOffline(); if (S.offline) toast("Connexion impossible pour le moment.", "err"); return; }
       if (act === "logout") return logout();
       if (act === "auth-mode") { S.authMode = el.dataset.mode; return renderAuth(); }
       if (act === "open-exam") return go("#/p/" + el.dataset.exam);
@@ -983,13 +1154,13 @@
   /* ----- Questions sur l'utilisation de l'application ----- */
   const JIA_FAQ = [
     { k: ["payer", "paiement", "wave", "orange", "money", "prix", "tarif", "combien coute", "fcfa", "acheter"], a: () => `Pour activer un parcours :\n• Ouvre le parcours souhaité puis « Activer ce parcours ».\n• Envoie le montant indiqué par Wave au ${C.WAVE_NUMBER || "numéro affiché"} ou par Orange Money au ${C.ORANGE_MONEY_NUMBER || "numéro affiché"}.\n• Saisis ton numéro et la référence de la transaction dans le formulaire.\n• L'administrateur valide ton paiement, puis le parcours s'ouvre.` },
-    { k: ["active", "activation", "attente", "valide", "validation", "pas ouvert", "bloque", "acces"], a: () => `Après ton paiement, ton parcours reste « en attente » jusqu'à la validation par l'administrateur.\n• Touche « J'ai été validé ? Actualiser » sur la page du parcours.\n• Si c'est long, écris sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"} avec ta référence de transaction.` },
+    { k: ["active", "activation", "attente", "valide", "validation", "pas ouvert", "bloque", "acces"], a: () => `Après ton paiement, ton parcours reste « en attente » jusqu'à la validation par l'administrateur.\n• Touche « J'ai été validé ? Actualiser » sur la page du parcours.\n• Si c'est long, écris sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"} avec ta référence de transaction.` },
     { k: ["installer", "installation", "telecharger", "application", "ecran accueil", "playstore", "iphone", "android"], a: () => `Pour installer LUKOS-REVISION sur ton téléphone :\n• Android (Chrome) : touche « Installer » dans le message affiché, ou menu ⋮ › « Installer l'application ».\n• iPhone (Safari) : bouton Partager › « Sur l'écran d'accueil ».\nL'application s'ouvre ensuite comme une vraie application, en plein écran.` },
-    { k: ["mot de passe", "passe", "oublie", "connexion", "connecter", "inscription", "inscrire", "compte"], a: () => `• Pour t'inscrire : écran d'accueil › « Créer un compte » (prénom, nom, téléphone, mot de passe).\n• Pour changer ton mot de passe : « Mon compte » › « Changer le mot de passe ».\n• Mot de passe oublié : contacte l'administrateur sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"}.` },
+    { k: ["mot de passe", "passe", "oublie", "connexion", "connecter", "inscription", "inscrire", "compte"], a: () => `• Pour t'inscrire : écran d'accueil › « Créer un compte » (prénom, nom, téléphone, mot de passe).\n• Pour changer ton mot de passe : « Mon compte » › « Changer le mot de passe ».\n• Mot de passe oublié : contacte l'administrateur sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"}.` },
     { k: ["quiz", "qcm", "test", "evaluation", "score", "note"], a: () => `Dans un parcours, onglet « Quiz » :\n• Choisis une matière (ou toutes), le nombre de questions et le mode (QCM ou auto-évaluation).\n• À la fin, ton score est enregistré et les questions ratées sont affichées.\nPendant un quiz, je me mets en pause pour que l'évaluation reste honnête 😉` },
     { k: ["fiche", "revision", "reviser", "matiere", "cours"], a: () => `Onglet « Matières » : choisis une matière puis révise question par question avec « Afficher la réponse ». Le bouton « Mélanger » change l'ordre des fiches.` },
     { k: ["document", "pdf", "telecharger le recueil", "recueil"], a: () => `Onglet « Documents » du parcours : tu y trouves les documents de référence (PDF) déposés par l'administrateur.` },
-    { k: ["contact", "whatsapp", "admin", "administrateur", "aide", "probleme", "bug"], a: () => `Tu peux joindre l'administrateur sur WhatsApp au ${C.CONTACT_DISPLAY || "numéro de contact"}.` },
+    { k: ["contact", "whatsapp", "admin", "administrateur", "aide", "probleme", "bug"], a: () => `Tu peux joindre l'administrateur sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"}.` },
     { k: ["bonjour", "salut", "bonsoir", "hello", "salam", "cava", "ca va"], a: () => `Bonjour ${S.profile ? esc(S.profile.first_name) : ""} 👋 Pose-moi ta question, par exemple : « CAT devant une fracture du crâne » ou « c'est quoi la MGO ».` },
     { k: ["qui es tu", "qui est tu", "ton nom", "julien"], a: () => `Je suis Julien – IA, l'assistant de LUKOS-REVISION. Je retrouve en une seconde la réponse officielle de tes recueils, même si tu écris avec des fautes ou des abréviations.` }
   ];
@@ -1119,7 +1290,7 @@
   /* Déconnexion automatique après inactivité */
   let lastActive = Date.now();
   ["click", "keydown", "touchstart", "scroll"].forEach((t) => window.addEventListener(t, () => (lastActive = Date.now()), { passive: true }));
-  setInterval(() => { if (S.session && Date.now() - lastActive > (C.INACTIVITY_LOGOUT_MINUTES || 45) * 60000) { logout(); toast("Déconnexion automatique après inactivité."); } }, 60000);
+  setInterval(() => { if (S.session && !S.offline && Date.now() - lastActive > (C.INACTIVITY_LOGOUT_MINUTES || 45) * 60000) { logout(); toast("Déconnexion automatique après inactivité."); } }, 60000);
 
   /* ------------------------------------------------------------------ */
   /* Démarrage                                                          */
@@ -1128,14 +1299,19 @@
     setFooter();
     if (!configured) return route();
     try {
+      if (!navigator.onLine) throw new Error("Failed to fetch");
       await loadExams();
       const { data } = await sb.auth.getSession();
       S.session = data.session || null;
       if (S.session) await loadAccount();
-    } catch (e) { /* l'écran d'erreur est géré par route() */ }
+    } catch (e) {
+      if (isNetErr(e)) await enterOffline();
+      /* sinon l'écran d'erreur est géré par route() */
+    }
+    if (!S.offline && S.session) { flushPending(); setTimeout(prefetchOffline, 2500); }
     sb.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") { S.session = null; S.profile = null; route(); }
-      else if (session) S.session = session;
+      else if (session && !S.offline) S.session = session;
     });
     route();
   }
