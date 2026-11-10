@@ -10,7 +10,8 @@ window.LUKOS_CONFIG = Object.freeze({
 
   WAVE_NUMBER: "70 755 53 92",
   ORANGE_MONEY_NUMBER: "77 461 61 51",
-  WHATSAPP_NUMBER: "221774616151",   // format international sans « + »
+  WHATSAPP_NUMBER: "22551692933",    // format international sans « + » (preuves de paiement)
+  WHATSAPP_DISPLAY: "+225 51 69 29 33",
   CONTACT_DISPLAY: "+221 77 461 61 51",
 
   INACTIVITY_LOGOUT_MINUTES: 45
