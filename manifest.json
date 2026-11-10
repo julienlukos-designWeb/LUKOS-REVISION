@@ -1,6 +1,6 @@
 {
   "id": "./index.html",
-  "name": "LUKOS-REVISION — DAP · DQEG · CAT1-2",
+  "name": "LUKOS-REVISION — DAP · DQEG · CAT-1/CAT-2",
   "short_name": "LUKOS-REVISION",
   "start_url": "./index.html",
   "scope": "./",
@@ -33,5 +33,5 @@
       "type": "image/png"
     }
   ],
-  "description": "Révision DAP, DQEG et CAT1-2 Infanterie : fiches et quiz."
+  "description": "Révision DAP, DQEG, CAT-1/CAT-2 Infanterie et CAT-1/CAT-2 BNSP : fiches et quiz."
 }
