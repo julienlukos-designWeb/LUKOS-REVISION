@@ -431,8 +431,10 @@
     go("#/");
     flushPending(); setTimeout(prefetchOffline, 2500);
   }
+  let userLogout = false;
   async function logout() {
-    try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
+    userLogout = true;
+    try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
     await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
     S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.quiz = null; S.rev = null;
@@ -1232,7 +1234,14 @@
       document.getElementById("jiaSugg").innerHTML = jSuggest(c).map((s) => `<button type="button" data-jia="ask" data-q="${esc(s)}">${esc(s)}</button>`).join("");
     }
   }
-  function jOpen() { JIA.open = true; jPanel.hidden = false; jFab.classList.add("on"); document.documentElement.classList.add("jia-lock"); jDraw(); setTimeout(() => { const i = document.getElementById("jiaIn"); if (i && window.innerWidth > 700) i.focus(); }, 60); }
+  function jOpen() {
+    // nouvelle discussion à chaque ouverture, avec le contexte de la page actuelle
+    const c = jContext();
+    JIA.msgs = [{ who: "bot", html: jGreeting(c), g: true }];
+    document.getElementById("jiaSugg").innerHTML = jSuggest(c).map((s) => `<button type="button" data-jia="ask" data-q="${esc(s)}">${esc(s)}</button>`).join("");
+    document.getElementById("jiaCtx").textContent = c.label;
+    const inp = document.getElementById("jiaIn"); if (inp) inp.value = "";
+    JIA.open = true; jPanel.hidden = false; jFab.classList.add("on"); document.documentElement.classList.add("jia-lock"); jDraw(); setTimeout(() => { const i = document.getElementById("jiaIn"); if (i && window.innerWidth > 700) i.focus(); }, 60); }
   function jClose() { JIA.open = false; jPanel.hidden = true; jFab.classList.remove("on"); document.documentElement.classList.remove("jia-lock"); }
 
   function jRender(r, alts, c) {
@@ -1290,7 +1299,12 @@
   /* Déconnexion automatique après inactivité */
   let lastActive = Date.now();
   ["click", "keydown", "touchstart", "scroll"].forEach((t) => window.addEventListener(t, () => (lastActive = Date.now()), { passive: true }));
-  setInterval(() => { if (S.session && !S.offline && Date.now() - lastActive > (C.INACTIVITY_LOGOUT_MINUTES || 45) * 60000) { logout(); toast("Déconnexion automatique après inactivité."); } }, 60000);
+  // Le candidat reste connecté (même après une longue pause ou une mise en veille du téléphone).
+  // Option facultative : déconnexion des administrateurs seulement, si INACTIVITY_LOGOUT_ADMIN_MINUTES est défini dans config.js.
+  setInterval(() => {
+    const mins = Number(C.INACTIVITY_LOGOUT_ADMIN_MINUTES || 0);
+    if (mins > 0 && S.session && !S.offline && isAdmin() && Date.now() - lastActive > mins * 60000) { logout(); toast("Déconnexion automatique après inactivité."); }
+  }, 60000);
 
   /* ------------------------------------------------------------------ */
   /* Démarrage                                                          */
@@ -1310,7 +1324,10 @@
     }
     if (!S.offline && S.session) { flushPending(); setTimeout(prefetchOffline, 2500); }
     sb.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") { S.session = null; S.profile = null; route(); }
+      if (event === "SIGNED_OUT") {
+        if (!userLogout && hasStoredSession()) return;   // simple coupure réseau : on garde la session
+        S.session = null; S.profile = null; route();
+      }
       else if (session && !S.offline) S.session = session;
     });
     route();
