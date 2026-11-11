@@ -1,0 +1,74 @@
+/* =====================================================================
+   LUKOS-REVISION — Simulateur d'examen + champ Service / Corps
+   À charger après app.css (voir index.html)
+   ===================================================================== */
+
+/* Pendant l'épreuve : on masque tout ce qui permet de sortir ou de chercher */
+.in-exam .topbar, .in-exam .topnav, .in-exam .bottomnav, .in-exam .jia-fab, .in-exam .jia-panel,
+.in-exam .inst-bar, .in-exam .inst-overlay, .in-exam .foot, .in-exam .off-bar { display: none !important; }
+
+/* Bandeau d'accès sur l'accueil du parcours */
+.ex-banner { display: flex; align-items: center; gap: 14px; margin: 16px 0; padding: 16px 18px; border-radius: 18px;
+  background: linear-gradient(135deg, #0b1f3a, #1d4f91); color: #fff; text-decoration: none; box-shadow: 0 8px 24px rgba(11, 31, 58, .18); }
+.ex-banner:hover { filter: brightness(1.08); }
+.ex-banner .ex-ico { font-size: 1.9rem; line-height: 1; }
+.ex-banner b { display: block; font-size: 1.05rem; }
+.ex-banner small { display: block; opacity: .85; margin-top: 2px; }
+.ex-banner .ex-go { margin-left: auto; display: flex; }
+
+/* Configuration */
+.ex-sizes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.ex-sizes label { text-align: center; }
+.ex-rules { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--warn-bg, #fff7e6); font-size: .92rem; line-height: 1.5; }
+.ex-rules ul { margin: 6px 0 0 18px; padding: 0; }
+
+/* Épreuve */
+.ex-run { max-width: 760px; margin: 0 auto; padding-bottom: 24px; }
+.ex-bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 12px 14px; margin-bottom: 10px; border-radius: 14px; background: #0b1f3a; color: #fff; box-shadow: 0 6px 18px rgba(11, 31, 58, .25); }
+.ex-bar small { display: block; opacity: .8; font-size: .8rem; }
+.ex-timer { font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 800; padding: 4px 12px; border-radius: 10px; background: rgba(255, 255, 255, .14); }
+.ex-timer.low { background: #c62828; animation: exblink 1s infinite; }
+@keyframes exblink { 50% { opacity: .6; } }
+.ex-q .qtext { -webkit-user-select: none; user-select: none; }
+.ex-resp { position: relative; display: block; width: 100%; box-sizing: border-box; min-height: 160px; margin-top: 14px; padding: 12px;
+  font: inherit; font-size: 1rem; line-height: 1.5; border-radius: 12px; border: 2px solid var(--line, #dde3ec); background: #fff; color: inherit; resize: vertical; }
+.ex-resp:focus { outline: none; border-color: #1d4f91; box-shadow: 0 0 0 3px rgba(29, 79, 145, .15); }
+.ex-count { position: relative; text-align: right; margin-top: 4px; }
+.ex-warn { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: #fdecea; color: #b71c1c; font-weight: 600; font-size: .92rem; }
+.ex-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 10px; }
+.ex-grid button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line, #dde3ec); background: #fff; color: #14213a; font-weight: 700; cursor: pointer; }
+.ex-grid button.done { background: #e3f2e8; border-color: #2e7d32; color: #1b5e20; }
+.ex-grid button.cur { outline: 3px solid #1d4f91; outline-offset: 1px; }
+.ex-foot { margin-top: 6px; }
+
+/* Résultat */
+.ex-score .score-ring small { font-size: .5em; opacity: .7; margin-left: 2px; }
+.ex-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+.ex-kpis div { padding: 10px 4px; border-radius: 12px; background: var(--bg-soft, #f4f6fa); }
+.ex-kpis b { display: block; font-size: 1.4rem; }
+.ex-kpis span { font-size: .78rem; color: #5b6b82; }
+.ex-corr { padding: 14px 0 14px 12px; border-bottom: 1px solid var(--line, #e5eaf0); border-left: 4px solid transparent; }
+.ex-corr:last-child { border-bottom: 0; }
+.ex-corr.ok { border-left-color: #2e7d32; }
+.ex-corr.part, .ex-corr.weak { border-left-color: #ef8f00; }
+.ex-corr.bad, .ex-corr.none { border-left-color: #c62828; }
+.ex-cq { margin: 8px 0; }
+.ex-mine { padding: 10px 12px; border-radius: 10px; background: var(--bg-soft, #f4f6fa); margin-bottom: 8px; }
+.ex-mine small, .ex-found small, .ex-missl small { display: block; font-weight: 700; color: #5b6b82; margin-bottom: 4px; }
+.ex-mine p { margin: 0; }
+.ex-found, .ex-missl { margin: 6px 0; font-size: .92rem; }
+.ex-found ul, .ex-missl ul { margin: 0 0 0 18px; padding: 0; }
+.ex-found { color: #1b5e20; }
+.ex-missl, .ex-miss { color: #b71c1c; font-size: .92rem; }
+.ex-corr details summary { cursor: pointer; font-weight: 700; margin: 6px 0; }
+
+/* Carte « Complète ton profil » (service / corps) */
+.ex-service { margin: 12px 0; border: 2px dashed #ef8f00; }
+.ex-service p { margin: 4px 0 10px; }
+
+@media (max-width: 520px) {
+  .ex-kpis { grid-template-columns: repeat(2, 1fr); }
+  .ex-timer { font-size: 1.25rem; }
+  .ex-sizes { grid-template-columns: repeat(3, 1fr); }
+}

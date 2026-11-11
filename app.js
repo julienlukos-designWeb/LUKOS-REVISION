@@ -103,8 +103,14 @@
     BNSP: { icon: "flame", tagline: "Prépare tes CAT-1/CAT-2 BNSP (sapeurs-pompiers) avec méthode et efficacité." }
   };
 
+  /* Service / corps du membre */
+  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"]];
+  const serviceLabel = (v) => (SERVICES.find((s) => s[0] === v) || [])[1] || "";
+  const serviceOptions = (cur) => `<option value="" ${cur ? "" : "selected"} disabled>Choisis ton service ou corps</option>` + SERVICES.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("");
+  const PROFILE_COLS = "id,first_name,last_name,phone,role,is_blocked,created_at";
+
   const S = {
-    session: null, profile: null, exams: [], enr: {}, payments: [], attempts: {},
+    session: null, profile: null, exams: [], enr: {}, payments: [], attempts: {}, exam: null,
     data: {},          // data[exam] = { subjects:[], questions:[], bySubject:Map }
     authMode: "login", quiz: null, rev: null
   };
@@ -186,11 +192,11 @@
     const rest = []; let sent = 0;
     for (const r of list) {
       if (r.uid !== S.session.user.id) continue;
-      try { const { error } = await sb.rpc("complete_quiz", r.args); if (error) throw error; sent++; delete S.attempts[r.args.p_exam]; }
+      try { const fn = r.rpc || "complete_quiz"; const { error } = await sb.rpc(fn, r.args); if (error) throw error; sent++; if (fn === "complete_quiz") delete S.attempts[r.args.p_exam]; }
       catch (e) { if (isNetErr(e)) rest.push(r); }
     }
     await idb.set("pending", rest);
-    if (sent) toast(sent + (sent > 1 ? " résultats de quiz faits hors connexion ont été envoyés." : " résultat de quiz fait hors connexion a été envoyé."), "ok");
+    if (sent) toast(sent + (sent > 1 ? " résultats (quiz ou examens) faits hors connexion ont été envoyés." : " résultat (quiz ou examen) fait hors connexion a été envoyé."), "ok");
   }
   let prefetching = false;
   async function prefetchOffline() {
@@ -215,7 +221,9 @@
   }
   async function loadAccount() {
     const uid = S.session.user.id;
-    const p = await sb.from("profiles").select("id,first_name,last_name,phone,role,is_blocked,created_at").eq("id", uid).maybeSingle();
+    let p = await sb.from("profiles").select(PROFILE_COLS + ",service").eq("id", uid).maybeSingle();
+    // si le script 05_examens.sql n'est pas encore exécuté, la colonne « service » n'existe pas
+    if (p.error && /service/i.test(p.error.message || "")) p = await sb.from("profiles").select(PROFILE_COLS).eq("id", uid).maybeSingle();
     if (p.error) throw p.error;
     S.profile = p.data;
     const [e, pay] = await Promise.all([
@@ -268,7 +276,7 @@
     return S.data[code];
   }
   async function loadAttempts(code) {
-    const pend = ((await idb.get("pending")) || []).filter((r) => r.uid === S.session.user.id && r.args.p_exam === code)
+    const pend = ((await idb.get("pending")) || []).filter((r) => r.uid === S.session.user.id && r.args.p_exam === code && (!r.rpc || r.rpc === "complete_quiz"))
       .map((r) => ({ id: "p" + r.at, subject_id: r.args.p_subject_id, mode: r.args.p_mode, total: r.args.p_total, correct: r.args.p_correct, created_at: new Date(r.at).toISOString(), pending: true }));
     let list;
     try {
@@ -297,6 +305,7 @@
     if (routing) return; routing = true;
     try {
       document.body.className = "";
+      document.documentElement.classList.remove("in-exam");
       offBanner();
       bottomnav.className = "bottomnav"; bottomnav.innerHTML = "";
       if (!configured) return renderNotConfigured();
@@ -306,6 +315,8 @@
       if (S.profile.is_blocked) return renderBlocked();
       const p = parts();
       if (S.offline && !offFresh()) return renderOfflineLocked();
+      // examen en cours : impossible de quitter l'épreuve sans remettre sa copie
+      if (exRunning() && !(p[0] === "p" && p[1] === S.exam.exam && p[2] === "examen")) { toast("Examen en cours : remets ta copie avant de quitter l'épreuve.", "err"); return go("#/p/" + S.exam.exam + "/examen"); }
       if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
       if (p[0] === "profil") return renderProfile();
@@ -372,6 +383,7 @@
           <div class="msg" id="authMsg"></div></form>`
         : `<form id="signupForm" autocomplete="on" novalidate>
           <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px"><div><label for="sFirst">Prénom</label><input id="sFirst" autocomplete="given-name" required maxlength="60"></div><div><label for="sLast">Nom</label><input id="sLast" autocomplete="family-name" required maxlength="60"></div></div>
+          <label for="sService">Service / Corps</label><select id="sService" required>${serviceOptions("")}</select>
           <label for="sPhone">Numéro de téléphone</label><input id="sPhone" inputmode="tel" autocomplete="tel" placeholder="77 000 00 00" required>
           <label for="sPass">Mot de passe (8 caractères minimum)</label><input id="sPass" type="password" autocomplete="new-password" required minlength="8">
           <label for="sPass2">Confirmer le mot de passe</label><input id="sPass2" type="password" autocomplete="new-password" required minlength="8">
@@ -410,6 +422,8 @@
     const phone = phoneNormalize(document.getElementById("sPhone").value);
     const p1 = document.getElementById("sPass").value, p2 = document.getElementById("sPass2").value;
     if (first.length < 2 || last.length < 2) return (msg.textContent = "Prénom et nom obligatoires.");
+    const service = document.getElementById("sService").value;
+    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
     if (p1.length < 8) return (msg.textContent = "Le mot de passe doit contenir au moins 8 caractères.");
     if (!/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return (msg.textContent = "Le mot de passe doit contenir des lettres et des chiffres.");
@@ -418,10 +432,12 @@
     if (!document.getElementById("sCgu").checked) return (msg.textContent = "Coche la case d'acceptation pour continuer.");
     busy = true; msg.className = "msg"; msg.textContent = "Création du compte…";
     try {
-      const { data, error } = await sb.auth.signUp({ email: authEmail(phone), password: p1, options: { data: { first_name: first, last_name: last, phone } } });
+      const { data, error } = await sb.auth.signUp({ email: authEmail(phone), password: p1, options: { data: { first_name: first, last_name: last, phone, service } } });
       if (error) { msg.className = "msg err"; msg.textContent = /already|registered|exists/i.test(error.message) ? "Ce numéro a déjà un compte. Connecte-toi." : /password/i.test(error.message) ? "Mot de passe trop faible. Choisis-en un plus solide." : "Création impossible. Réessaie."; return; }
       if (!data.session) { S.authMode = "login"; renderAuth(); toast("Compte créé. Connecte-toi maintenant.", "ok"); return; }
-      S.session = data.session; await afterLogin(); toast("Bienvenue sur LUKOS-REVISION !", "ok");
+      S.session = data.session;
+      try { await sb.rpc("set_my_service", { p_service: service }); } catch (e) { /* déjà repris depuis l'inscription */ }
+      await afterLogin(); toast("Bienvenue sur LUKOS-REVISION !", "ok");
     } catch (e) { msg.className = "msg err"; msg.textContent = errText(e); }
     finally { busy = false; }
   }
@@ -437,7 +453,7 @@
     try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
     await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
-    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.quiz = null; S.rev = null;
+    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.quiz = null; S.rev = null; S.exam = null; clearInterval(exTick);
     go("#/");
   }
 
@@ -459,6 +475,7 @@
     homeBottomNav("home");
     const name = esc(S.profile.first_name);
     app.innerHTML = `<section class="home-hero"><div class="home-hello">Bonjour ${name}</div><p>Choisis ton parcours de révision.</p></section>
+      ${!isAdmin() && S.profile.service === null ? serviceCard() : ""}
       <div class="label-up">MES PARCOURS</div>
       <div class="exam-list">${S.exams.map((e) => `
         <button class="exam-row exam-${esc(e.code)}" data-act="open-exam" data-exam="${esc(e.code)}">
@@ -467,6 +484,18 @@
           <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
       <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave ou Orange Money. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+  }
+  function serviceCard() {
+    return `<form class="card ex-service" id="serviceForm"><b>Complète ton profil</b><p class="small muted">Indique ton service ou corps pour que nous puissions mieux t'accompagner.</p>
+      <div class="row"><select id="svcSel" style="flex:1;min-width:200px" aria-label="Service / Corps">${serviceOptions("")}</select><button class="btn btn-primary">Enregistrer</button></div></form>`;
+  }
+  async function saveService(ev) {
+    ev.preventDefault();
+    const v = document.getElementById("svcSel").value;
+    if (!SERVICES.some((s) => s[0] === v)) return toast("Choisis ton service ou corps.", "err");
+    const { error } = await sb.rpc("set_my_service", { p_service: v });
+    if (error) return toast(errText(error), "err");
+    await loadAccount(); toast("Profil complété ✓", "ok"); route();
   }
   function homeBottomNav(cur) {
     const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : []);
@@ -491,12 +520,13 @@
     const exam = examByCode(code);
     document.body.className = "exam-" + code;
     if (!hasAccess(code)) return renderActivation(exam);
-    examBottomNav(code, page === "revision" ? "matieres" : page);
+    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" ? "quiz" : page);
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
     const d = await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
     if (page === "revision") return renderRevision(exam, d, rest[0]);
     if (page === "quiz") return renderQuizSetup(exam, d);
+    if (page === "examen") return await renderExamSim(exam, d);
     if (page === "recherche") return renderSearch(exam, d);
     if (page === "documents") return await renderDocuments(exam);
     return await renderExamHome(exam, d);
@@ -521,6 +551,7 @@
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
+      <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
           <div class="subject-list">${d.subjects.slice(0, 6).map((s, i) => subjectRow(exam, d, s, i)).join("") || emptyBox("Aucune question n'a encore été publiée pour ce parcours.")}</div></div>
@@ -789,6 +820,7 @@
       <div class="card"><h3>Mes informations</h3><form id="profileForm">
         <label for="pFirst">Prénom</label><input id="pFirst" value="${esc(p.first_name)}" maxlength="60" required>
         <label for="pLast">Nom</label><input id="pLast" value="${esc(p.last_name)}" maxlength="60" required>
+        ${p.service !== undefined ? `<label for="pService">Service / Corps</label><select id="pService">${serviceOptions(p.service || "")}</select>` : ""}
         <label>Téléphone (identifiant)</label><input value="${esc(phonePretty(p.phone))}" disabled>
         <button class="btn btn-dark" style="margin-top:14px">Enregistrer</button><div class="msg" id="profMsg"></div></form>
         <div class="sep"></div><h3>Changer de mot de passe</h3><form id="passForm"><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" minlength="8"><label for="np2">Confirmer</label><input id="np2" type="password" autocomplete="new-password" minlength="8"><button class="btn btn-ghost" style="margin-top:14px">Modifier le mot de passe</button><div class="msg" id="passMsg"></div></form></div>
@@ -803,6 +835,11 @@
     if (f.length < 2 || l.length < 2) { msg.className = "msg err"; msg.textContent = "Prénom et nom obligatoires."; return; }
     const { error } = await sb.rpc("update_my_profile", { p_first_name: f, p_last_name: l });
     if (error) { msg.className = "msg err"; msg.textContent = errText(error); return; }
+    const sv = document.getElementById("pService");
+    if (sv && sv.value && sv.value !== S.profile.service) {
+      const r = await sb.rpc("set_my_service", { p_service: sv.value });
+      if (r.error) { msg.className = "msg err"; msg.textContent = errText(r.error); return; }
+    }
     await loadAccount(); msg.className = "msg ok"; msg.textContent = "Informations enregistrées.";
   }
   async function changePass(ev) {
@@ -839,11 +876,13 @@
   }
 
   async function loadPeople() {
-    const [p, e, pay] = await Promise.all([
-      sb.from("profiles").select("id,first_name,last_name,phone,role,is_blocked,created_at").order("created_at", { ascending: false }),
+    const profQ = (cols) => sb.from("profiles").select(cols).order("created_at", { ascending: false });
+    let [p, e, pay] = await Promise.all([
+      profQ(PROFILE_COLS + ",service"),
       sb.from("enrollments").select("user_id,exam_code,status,activated_at"),
       sb.from("payments").select("id,user_id,exam_code,amount_xof,method,sender_phone,transaction_reference,status,admin_note,created_at,reviewed_at").order("created_at", { ascending: false })
     ]);
+    if (p.error && /service/i.test(p.error.message || "")) p = await profQ(PROFILE_COLS);
     const err = p.error || e.error || pay.error; if (err) throw err;
     const byId = new Map((p.data || []).map((x) => [x.id, x]));
     AD.people = { profiles: p.data || [], enr: e.data || [], pay: pay.data || [], byId };
@@ -887,11 +926,11 @@
   function drawPeople() {
     const P = AD.people, out = document.getElementById("peopleList"); if (!out) return;
     const q = norm(AD.peopleQ).replace(/\s+/g, "");
-    const rows = P.profiles.filter((u) => u.role !== "admin" && (!q || norm(u.first_name + u.last_name + u.last_name + u.first_name).replace(/\s+/g, "").includes(q) || u.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "§")));
+    const rows = P.profiles.filter((u) => u.role !== "admin" && (!q || norm(u.first_name + u.last_name + u.last_name + u.first_name + serviceLabel(u.service)).replace(/\s+/g, "").includes(q) || u.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "§")));
     const opts = { "": "Non inscrit", pending: "En attente", active: "Actif", suspended: "Suspendu", rejected: "Refusé" };
     out.innerHTML = `<p class="muted small">${rows.length} candidat(s)</p>` + (rows.slice(0, 200).map((u) => {
       const en = (c) => (P.enr.find((x) => x.user_id === u.id && x.exam_code === c) || {}).status || "";
-      return `<div class="card person" style="margin-bottom:10px"><div class="row between"><div><b>${esc(u.first_name + " " + u.last_name)}</b> ${u.is_blocked ? '<span class="badge bad">BLOQUÉ</span>' : ""}<div class="small muted">${esc(phonePretty(u.phone))} · inscrit le ${esc(fmtDate(u.created_at))}</div></div><div class="row"><a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone)}">📞</a><button class="btn btn-ghost btn-sm" data-act="ad-block" data-id="${esc(u.id)}" data-v="${u.is_blocked ? "0" : "1"}">${u.is_blocked ? "Débloquer" : "Bloquer"}</button><button class="btn btn-bad btn-sm" data-act="ad-del" data-id="${esc(u.id)}">Supprimer</button></div></div>
+      return `<div class="card person" style="margin-bottom:10px"><div class="row between"><div><b>${esc(u.first_name + " " + u.last_name)}</b> ${u.is_blocked ? '<span class="badge bad">BLOQUÉ</span>' : ""}<div class="small muted">${esc(phonePretty(u.phone))}${u.service ? " · <b>" + esc(serviceLabel(u.service)) + "</b>" : ""} · inscrit le ${esc(fmtDate(u.created_at))}</div></div><div class="row"><a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone)}">📞</a><button class="btn btn-ghost btn-sm" data-act="ad-block" data-id="${esc(u.id)}" data-v="${u.is_blocked ? "0" : "1"}">${u.is_blocked ? "Débloquer" : "Bloquer"}</button><button class="btn btn-bad btn-sm" data-act="ad-del" data-id="${esc(u.id)}">Supprimer</button></div></div>
         <div class="exams-line">${S.exams.map((e) => `<label class="small" style="margin:0;display:flex;align-items:center;gap:6px">${esc(e.name)} <select data-act="ad-enr" data-id="${esc(u.id)}" data-exam="${esc(e.code)}">${Object.keys(opts).map((k) => `<option value="${k}" ${en(e.code) === k ? "selected" : ""} ${k === "" ? "disabled" : ""}>${opts[k]}</option>`).join("")}</select></label>`).join("")}</div></div>`;
     }).join("") || emptyBox("Aucun candidat."));
   }
@@ -1060,6 +1099,8 @@
       if (act === "refresh-account") { await loadAccount(); toast(hasAccess(parts()[1]) ? "Parcours activé !" : "Toujours en attente de validation.", hasAccess(parts()[1]) ? "ok" : ""); return route(); }
       if (act.startsWith("rev-")) return revAction(act);
       if (act === "qz-again") { S.quiz = null; return route(); }
+      if (act === "ex-again") { if (exRunning()) return; S.exam = null; return route(); }
+      if (act.startsWith("ex-")) return exAction(act, el);
       if (act.startsWith("qz-")) return quizAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
       if (act === "ad-payfilter") { AD.payFilter = el.dataset.f; return route(); }
@@ -1080,7 +1121,7 @@
   document.addEventListener("change", (ev) => { const el = ev.target; if (el.matches && el.matches('select[data-act="ad-enr"]')) setEnrollment(el); });
   document.addEventListener("submit", (ev) => {
     const id = ev.target.id;
-    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, payForm: submitPayment, profileForm: saveProfile, passForm: changePass, qForm: saveQuestion };
+    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, examForm: startExam, serviceForm: saveService, payForm: submitPayment, profileForm: saveProfile, passForm: changePass, qForm: saveQuestion };
     if (map[id]) return map[id](ev);
     if (ev.target.dataset.examForm) { ev.preventDefault(); saveExam(ev.target); }
   });
@@ -1177,6 +1218,7 @@
   function jContext() {
     const p = parts();
     if (!S.session || !S.profile) return { mode: "guest", label: "Aide à l'inscription et à la connexion", codes: [] };
+    if (exRunning()) return { mode: "quiz", label: "En pause pendant l'examen", codes: [] };
     if (p[0] === "p" && examByCode(p[1])) {
       const ex = examByCode(p[1]);
       if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
@@ -1296,6 +1338,324 @@
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && JIA.open) jClose(); });
 
+  /* ------------------------------------------------------------------ */
+  /* Simulateur d'examen : réponses rédigées, chronomètre, note sur 20   */
+  /* ------------------------------------------------------------------ */
+  const EX_MAX_LEAVES = 3;                          // sorties tolérées avant remise automatique
+  const EX_SIZES = [10, 15, 20, 25, 30];
+  const EX_PACE = [[60, "1 min"], [90, "1 min 30"], [120, "2 min"], [180, "3 min"]];
+  const EX_MAXLEN = 1500;
+  const EX_V = { ok: ["ok", "✓ Juste"], part: ["warn", "◐ Partiellement juste"], weak: ["warn", "◔ Insuffisante"], bad: ["bad", "✗ Fausse"], none: ["bad", "— Sans réponse"] };
+  let exTick = null, exSaveT = null;
+  const exRunning = () => !!(S.exam && !S.exam.done);
+  const exSave = () => { const z = S.exam; if (z && !z.done) return idb.set("examrun", z); };
+  const exSaveSoon = () => { clearTimeout(exSaveT); exSaveT = setTimeout(exSave, 400); };
+  const fmtNote = (n) => Number(n || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+  const fmtDur = (s) => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s"; };
+  const trunc = (t, n) => (t.length > (n || 140) ? t.slice(0, (n || 140) - 1) + "…" : t);
+  function exMention(n) { return n >= 18 ? "Excellent" : n >= 16 ? "Très bien" : n >= 14 ? "Bien" : n >= 12 ? "Assez bien" : n >= 10 ? "Passable" : n >= 5 ? "Insuffisant" : "Très insuffisant"; }
+
+  /* ----- Correcteur par notions clés ----- */
+  const NUM_WORDS = { zero: "0", deux: "2", trois: "3", quatre: "4", cinq: "5", six: "6", sept: "7", huit: "8", neuf: "9", dix: "10", onze: "11", douze: "12", treize: "13", quatorze: "14", quinze: "15", seize: "16", vingt: "20", trente: "30", quarante: "40", cinquante: "50", soixante: "60", cent: "100", mille: "1000", premier: "1", premiere: "1", deuxieme: "2", troisieme: "3", quatrieme: "4", cinquieme: "5" };
+  // sigles reconnus par le correcteur (ceux de Julien – IA + procédure)
+  const G_ABBR = Object.assign({}, JIA_ABBR, { opj: "officier police judiciaire", apj: "agent police judiciaire", apja: "agent police judiciaire adjoint", pv: "proces verbal", gav: "garde vue", cpp: "code procedure penale" });
+  const G_UNITS = { h: "heure", hr: "heure", mn: "minute", min: "minute", j: "jour", km: "kilometre", kg: "kilogramme", m: "metre", cm: "centimetre", mm: "millimetre", l: "litre", s: "seconde", sec: "seconde" };
+  const G_STOP = new Set("lequel laquelle lesquels lesquelles duquel auquel dont etre etant ete ainsi aussi tres lors afin cela celui celle ceux celles cet".split(" "));
+  function gTok(s) {
+    return norm(s).replace(/['’]/g, " ").replace(/(\d)([a-z])/g, "$1 $2").replace(/([a-z])(\d)/g, "$1 $2").split(/[^a-z0-9]+/).filter(Boolean)
+      .map((w, k, arr) => NUM_WORDS[w] || (G_UNITS[w] && k > 0 && /^\d+$/.test(arr[k - 1]) ? G_UNITS[w] : w))
+      .filter((w) => /^\d+$/.test(w) || (w.length > 1 && !JIA_STOP.has(w) && !G_STOP.has(w)))
+      .map((w) => (!/\d/.test(w) && w.length > 3 && /[sx]$/.test(w) && !/(ss|us|is|as)$/.test(w) ? w.slice(0, -1) : w))
+      .reduce((out, w) => {                                       // « quarante huit » => 48
+        const prev = out[out.length - 1];
+        if (/^[1-9]$/.test(w) && /^[2-6]0$/.test(prev || "")) out[out.length - 1] = String(Number(prev) + Number(w)); else out.push(w);
+        return out;
+      }, []);
+  }
+  // découpe la réponse officielle en éléments attendus (lignes, puces, lignes de tableau, « ; »)
+  function gPoints(answer) {
+    let lines = String(answer || "").split(/\n/).map((l) => l.trim()).filter(Boolean);
+    const intro = (l) => /:\s*$/.test(l);
+    if (lines.length > 1 && lines.some((l) => !intro(l))) lines = lines.filter((l) => !intro(l));
+    lines = lines.map((l) => l.replace(/^[•\-–*]\s*/, "").replace(/\s\|\s/g, " — "));
+    if (lines.length === 1) {
+      let segs = lines[0].split(/\s*;\s*/).filter((x) => gTok(x).length);
+      if (segs.length < 2 && gTok(lines[0]).length > 8) { const c = lines[0].split(/\s*,\s*/).filter((x) => gTok(x).length >= 2); if (c.length >= 2) segs = c; }
+      if (segs.length >= 2) lines = segs;
+    }
+    return lines.map((text) => ({ text, kw: [...new Set(gTok(text))] })).filter((p) => p.kw.length);
+  }
+  function gHit(w, C) {
+    if (/\d/.test(w)) return C.has(w) ? 1 : 0;                 // les chiffres doivent être exacts
+    if (C.has(w) || jMatch(w, C) >= 0.7) return 1;             // fautes, pluriels, débuts de mots
+    const ab = G_ABBR[w];                                        // sigle attendu écrit en toutes lettres
+    if (ab && ab !== w) { const t = gTok(ab); if (t.length && t.every((x) => C.has(x) || jMatch(x, C) >= 0.7)) return 1; }
+    return 0;
+  }
+  function gWordMap(text) {
+    const m = new Map();
+    String(text).split(/[^A-Za-zÀ-ÿ0-9]+/).forEach((w) => { const t = gTok(w)[0]; if (t && !m.has(t)) m.set(t, w); });
+    return m;
+  }
+  function gradeOne(it) {
+    const resp = String(it.resp || "").trim();
+    const points = gPoints(it.answer);
+    if (!resp) return { credit: 0, verdict: "none", found: [], missing: [], missKw: [], single: points.length <= 1 };
+    const C = new Set();
+    gTok(resp).forEach((w) => { C.add(w); const ab = G_ABBR[w]; if (ab && ab !== w) gTok(ab).forEach((x) => C.add(x)); });
+    if (!points.length) {
+      const ok = norm(resp).replace(/[^a-z0-9]/g, "") === norm(it.answer).replace(/[^a-z0-9]/g, "");
+      return { credit: ok ? 1 : 0, verdict: ok ? "ok" : "bad", found: [], missing: [], missKw: [], single: true };
+    }
+    let sum = 0; const found = [], missing = [], missKw = [];
+    points.forEach((p) => {
+      const hits = p.kw.map((w) => gHit(w, C));
+      const ratio = hits.reduce((a, b) => a + b, 0) / p.kw.length;
+      const nums = p.kw.map((w, k) => (/\d/.test(w) ? hits[k] : null)).filter((h) => h !== null);
+      // un chiffre attendu (durée, nombre, article…) absent ou faux : l'élément ne rapporte rien
+      const pc = nums.length && !nums.some(Boolean) ? 0 : ratio >= 0.85 ? 1 : ratio >= 0.6 ? 0.75 : ratio >= 0.34 ? 0.5 : ratio >= 0.2 ? 0.25 : 0;
+      sum += pc;
+      (pc >= 0.75 ? found : missing).push(p.text);
+      if (pc < 1) { const wm = gWordMap(p.text); p.kw.forEach((w, k) => { if (!hits[k]) missKw.push(wm.get(w) || w); }); }
+    });
+    const r = sum / points.length;
+    const credit = r >= 0.85 ? 1 : r >= 0.6 ? 0.75 : r >= 0.4 ? 0.5 : r >= 0.2 ? 0.25 : 0;
+    const verdict = credit === 1 ? "ok" : credit >= 0.5 ? "part" : credit > 0 ? "weak" : "bad";
+    return { credit, verdict, found, missing, missKw: [...new Set(missKw)].slice(0, 8), single: points.length === 1 };
+  }
+
+  /* ----- Écran de configuration ----- */
+  async function loadExamAttempts(code) {
+    const uid = S.session.user.id;
+    const pend = ((await idb.get("pending")) || []).filter((r) => r.rpc === "complete_exam" && r.uid === uid && r.args.p_exam === code)
+      .map((r) => ({ id: "p" + r.at, subject_id: r.args.p_subject_id, total: r.args.p_total, note20: r.args.p_note20, duration_s: r.args.p_duration_s, leaves: r.args.p_leaves, created_at: new Date(r.at).toISOString(), pending: true }));
+    let list = [];
+    try {
+      if (S.offline) throw new Error("Failed to fetch");
+      const { data, error } = await sb.from("exam_attempts").select("id,subject_id,total,note20,duration_s,leaves,created_at").eq("user_id", uid).eq("exam_code", code).order("created_at", { ascending: false }).limit(30);
+      if (error) throw error;
+      list = data || [];
+      idb.set("exatt:" + code, { uid, list });
+    } catch (e) { const c = await idb.get("exatt:" + code); list = c && c.uid === uid ? c.list : []; }
+    return pend.reverse().concat(list);
+  }
+  async function renderExamSim(exam, d) {
+    const z = S.exam;
+    if (z && z.uid === S.session.user.id) {
+      if (!z.done && z.exam !== exam.code) return go("#/p/" + z.exam + "/examen");
+      if (z.exam === exam.code) {
+        if (z.done) return drawExamResult();
+        if (Date.now() >= z.endsAt) return finishExam("time");
+        if (z.leaves >= EX_MAX_LEAVES) return finishExam("leaves");
+        return drawExamRun();
+      }
+    }
+    const top = hero(exam, "Simulateur d'examen", "Mets-toi dans les conditions du jour J : réponses rédigées, chronomètre et note sur 20.", "Examen");
+    if (!d.questions.length) { app.innerHTML = top + emptyBox("Le simulateur sera disponible dès que les questions de ce parcours seront publiées."); return; }
+    const hist = await loadExamAttempts(exam.code).catch(() => []);
+    const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Tout le parcours";
+    const avg = hist.length ? hist.reduce((a, x) => a + Number(x.note20), 0) / hist.length : 0;
+    app.innerHTML = top + `<div class="study stack"><div class="card"><form id="examForm">
+        <label for="exSub">Épreuve</label><select id="exSub"><option value="">Tout le parcours ${esc(exam.name)} (${d.questions.length} questions, toutes matières)</option>${d.subjects.map((s) => `<option value="${s.id}">${esc(s.name)} (${(d.bySubject.get(s.id) || []).length})</option>`).join("")}</select>
+        <label>Nombre de questions</label><div class="radio-cards ex-sizes">${EX_SIZES.map((n) => `<label><input type="radio" name="exNum" value="${n}" ${n === 20 ? "checked" : ""}> ${n}</label>`).join("")}</div>
+        <label for="exPace">Temps par question</label><select id="exPace">${EX_PACE.map(([s, l]) => `<option value="${s}" ${s === 90 ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <p class="hint" id="exDur"></p>
+        <div class="ex-rules"><b>📋 Règlement de l'épreuve</b><ul>
+          <li>Les questions sont tirées au hasard. Tu rédiges chaque réponse avec tes propres mots.</li>
+          <li>Pendant l'épreuve : pas de fiches, pas de recherche, pas de Julien – IA. Le copier-coller est désactivé.</li>
+          <li>Chaque sortie de l'application est notée sur ta copie. À la ${EX_MAX_LEAVES}<sup>e</sup> sortie, la copie est remise automatiquement.</li>
+          <li>À la fin du temps, la copie est remise automatiquement, telle quelle.</li>
+          <li>Tu peux revenir sur une question tant que tu n'as pas remis ta copie.</li></ul></div>
+        <label class="check"><input type="checkbox" id="exHonor"> Je m'engage sur l'honneur à composer seul(e), sans aucun document.</label>
+        <button class="btn btn-primary btn-block" style="margin-top:14px">Commencer l'épreuve</button></form></div>
+        ${hist.length ? `<div class="card"><h3>Mes derniers examens</h3><p class="small muted">${hist.length} examen${hist.length > 1 ? "s" : ""} · moyenne ${fmtNote(Math.round(avg * 4) / 4)}/20</p><div class="table-wrap"><table class="t"><tr><th>Date</th><th>Épreuve</th><th>Note</th><th>Durée</th></tr>${hist.slice(0, 10).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))} <span class="muted small">(${a.total} q.)</span></td><td><b>${fmtNote(a.note20)}/20</b> <span class="muted small">${esc(exMention(Number(a.note20)))}</span>${a.pending ? ' <span class="badge warn">À ENVOYER</span>' : ""}</td><td class="small">${esc(fmtDur(a.duration_s))}</td></tr>`).join("")}</table></div></div>` : ""}
+      </div>`;
+    const upd = () => {
+      const n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 20;
+      const sid = document.getElementById("exSub").value, pool = sid ? (d.bySubject.get(Number(sid)) || []).length : d.questions.length;
+      const real = Math.min(n, pool), pace = Number(document.getElementById("exPace").value) || 90;
+      document.getElementById("exDur").textContent = "Durée de l'épreuve : " + fmtDur(real * pace).replace(" 00 s", "") + " pour " + real + " question" + (real > 1 ? "s" : "") + (real < n ? " (seulement " + pool + " disponible" + (pool > 1 ? "s" : "") + (sid ? " dans cette matière)" : " dans ce parcours)") : "") + ".";
+    };
+    document.getElementById("examForm").addEventListener("change", upd); upd();
+  }
+  function startExam(ev) {
+    ev.preventDefault();
+    const code = parts()[1], d = S.data[code]; if (!d || exRunning()) return;
+    if (!document.getElementById("exHonor").checked) return toast("Coche l'engagement sur l'honneur pour commencer.", "err");
+    const sid = document.getElementById("exSub").value;
+    const n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 20;
+    const pace = Number(document.getElementById("exPace").value) || 90;
+    const pool = sid ? (d.bySubject.get(Number(sid)) || []) : d.questions;
+    if (!pool.length) return toast("Aucune question disponible pour cette sélection.", "err");
+    const sname = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "";
+    const want = Math.min(n, pool.length);
+    let picked;
+    if (sid) picked = shuffle(pool).slice(0, want);
+    else {
+      // tout le parcours : questions réparties équitablement entre les matières
+      const groups = d.subjects.map((s) => shuffle(d.bySubject.get(s.id) || [])).filter((g) => g.length);
+      picked = [];
+      for (let k = 0; picked.length < want && groups.some((g) => g.length); k++) { const g = groups[k % groups.length]; if (g.length) picked.push(g.pop()); }
+      picked = shuffle(picked);
+    }
+    const now = Date.now();
+    S.exam = {
+      uid: S.session.user.id, exam: code, subjectId: sid ? Number(sid) : null, scope: sid ? sname(Number(sid)) : "Tout le parcours",
+      items: picked.map((q) => ({ id: q.id, subject_id: q.subject_id, sname: sname(q.subject_id), question: q.question, answer: q.answer, resp: "" })),
+      i: 0, pace, startedAt: now, endsAt: now + picked.length * pace * 1000, leaves: 0, done: false
+    };
+    exSave(); drawExamRun(); window.scrollTo(0, 0);
+  }
+
+  /* ----- Épreuve ----- */
+  function drawExamRun() {
+    const z = S.exam, exam = examByCode(z.exam), it = z.items[z.i];
+    document.documentElement.classList.add("in-exam");
+    try { jRefresh(); } catch (e) { /* */ }
+    const answered = () => z.items.filter((x) => x.resp.trim()).length;
+    const last = z.i >= z.items.length - 1;
+    app.innerHTML = `<div class="ex-run">
+      <div class="ex-bar"><div><b>Examen ${esc(exam.name)}</b><small>${esc(z.scope)} · ${z.items.length} questions</small></div><div class="ex-timer" id="exTimer">--:--</div></div>
+      <div class="bar" style="margin-bottom:12px"><i style="width:${((z.i + 1) / z.items.length) * 100}%"></i></div>
+      ${z.leaves ? `<div class="ex-warn">⚠️ ${z.leaves} sortie${z.leaves > 1 ? "s" : ""} de l'application notée${z.leaves > 1 ? "s" : ""} sur ta copie. À la ${EX_MAX_LEAVES}<sup>e</sup>, ta copie sera remise automatiquement.</div>` : ""}
+      <article class="qcard ex-q">${watermark()}
+        <div class="qmeta"><span class="badge acc">${esc(it.sname)}</span><span class="muted small">Question ${z.i + 1} / ${z.items.length}</span></div>
+        <div class="qtext">${esc(it.question)}</div>
+        <textarea id="exResp" class="ex-resp" rows="6" maxlength="${EX_MAXLEN}" spellcheck="false" autocomplete="off" autocorrect="off" aria-label="Ta réponse" placeholder="Rédige ta réponse ici…">${esc(it.resp)}</textarea>
+        <div class="ex-count small muted" id="exCount">${it.resp.length} / ${EX_MAXLEN}</div></article>
+      <div class="nav-q"><button class="btn btn-ghost" data-act="ex-prev" ${z.i === 0 ? "disabled" : ""}>← Précédente</button>${last ? `<button class="btn btn-primary" data-act="ex-submit">Remettre ma copie</button>` : `<button class="btn btn-primary" data-act="ex-next">Suivante →</button>`}</div>
+      <div class="ex-grid" aria-label="Aller à une question">${z.items.map((x, k) => `<button type="button" data-act="ex-go" data-k="${k}" class="${k === z.i ? "cur" : ""} ${x.resp.trim() ? "done" : ""}" aria-label="Question ${k + 1}">${k + 1}</button>`).join("")}</div>
+      <div class="row between ex-foot"><span class="small muted" id="exAnsw">${answered()} / ${z.items.length} réponses rédigées</span>${last ? "" : `<button class="btn btn-bad btn-sm" data-act="ex-submit">Remettre ma copie</button>`}</div>
+    </div>`;
+    const ta = document.getElementById("exResp");
+    ta.addEventListener("input", () => {
+      it.resp = ta.value;
+      document.getElementById("exCount").textContent = ta.value.length + " / " + EX_MAXLEN;
+      const b = app.querySelector(`.ex-grid [data-k="${z.i}"]`); if (b) b.classList.toggle("done", !!ta.value.trim());
+      document.getElementById("exAnsw").textContent = answered() + " / " + z.items.length + " réponses rédigées";
+      exSaveSoon();
+    });
+    if (window.innerWidth > 700) ta.focus();
+    exStartTick();
+  }
+  function exStartTick() {
+    clearInterval(exTick);
+    const upd = () => {
+      const z = S.exam;
+      if (!exRunning()) { clearInterval(exTick); return; }
+      const left = Math.max(0, Math.round((z.endsAt - Date.now()) / 1000));
+      const el = document.getElementById("exTimer");
+      if (el) { el.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0"); el.classList.toggle("low", left <= 60); }
+      if (left <= 0) { clearInterval(exTick); finishExam("time"); }
+    };
+    upd(); exTick = setInterval(upd, 1000);
+  }
+  function exAction(act, el) {
+    const z = S.exam; if (!exRunning()) return;
+    const ta = document.getElementById("exResp"); if (ta) z.items[z.i].resp = ta.value;
+    if (act === "ex-prev" && z.i > 0) z.i--;
+    if (act === "ex-next" && z.i < z.items.length - 1) z.i++;
+    if (act === "ex-go") z.i = Math.max(0, Math.min(z.items.length - 1, Number(el.dataset.k) || 0));
+    if (act === "ex-submit") {
+      const empty = z.items.filter((x) => !x.resp.trim()).length;
+      if (!confirm(empty ? `Il reste ${empty} question${empty > 1 ? "s" : ""} sans réponse. Remettre quand même ta copie ? Tu ne pourras plus la modifier.` : "Remettre ta copie ? Tu ne pourras plus la modifier.")) return;
+      return finishExam("user");
+    }
+    exSave(); drawExamRun(); window.scrollTo(0, 0);
+  }
+  async function finishExam(reason) {
+    const z = S.exam; if (!z || z.done) return;
+    const ta = document.getElementById("exResp"); if (ta && z.items[z.i]) z.items[z.i].resp = ta.value;
+    clearInterval(exTick); clearTimeout(exSaveT);
+    z.items.forEach((it) => { it.g = gradeOne(it); });
+    z.score = z.items.reduce((a, x) => a + x.g.credit, 0);
+    z.note20 = Math.round((z.score / z.items.length) * 80) / 4;      // arrondi au quart de point
+    z.endedAt = Math.min(Date.now(), z.endsAt); z.reason = reason; z.done = true;
+    await idb.del("examrun");
+    document.documentElement.classList.remove("in-exam");
+    await saveExam();
+    const p = parts();
+    if (!(p[0] === "p" && p[1] === z.exam && p[2] === "examen")) return go("#/p/" + z.exam + "/examen");
+    drawExamResult(); window.scrollTo(0, 0);
+  }
+  async function saveExam() {
+    const z = S.exam; if (z.saved || z.pending) return;
+    const args = {
+      p_exam: z.exam, p_subject_id: z.subjectId, p_total: z.items.length, p_score: z.score, p_note20: z.note20,
+      p_duration_s: Math.round((z.endedAt - z.startedAt) / 1000), p_leaves: z.leaves,
+      p_details: z.items.map((x) => ({ q: x.id, c: x.g.credit, r: x.resp.slice(0, 600) }))
+    };
+    try {
+      if (S.offline) throw new Error("Failed to fetch");
+      const { error } = await sb.rpc("complete_exam", args);
+      if (error) throw error;
+      z.saved = true;
+    } catch (e) {
+      if (isNetErr(e)) { await queuePending({ uid: S.session.user.id, at: Date.now(), rpc: "complete_exam", args }); z.pending = true; }
+      else z.saveErr = errText(e);
+    }
+  }
+
+  /* ----- Résultat et corrigé ----- */
+  function exNotes(g) {
+    if (g.single) return g.missKw.length ? `<p class="ex-miss">✗ Notions attendues absentes de ta réponse : <b>${g.missKw.map(esc).join(", ")}</b></p>` : "";
+    return (g.found.length ? `<div class="ex-found"><small>✓ Éléments trouvés</small><ul>${g.found.map((t) => `<li>${esc(trunc(t))}</li>`).join("")}</ul></div>` : "") +
+      (g.missing.length ? `<div class="ex-missl"><small>✗ Éléments manquants ou incomplets</small><ul>${g.missing.map((t) => `<li>${esc(trunc(t))}</li>`).join("")}</ul></div>` : "");
+  }
+  function exCorr(x, k) {
+    const g = x.g, v = EX_V[g.verdict];
+    return `<div class="ex-corr ${g.verdict}">
+      <div class="row between"><span class="small muted">Question ${k + 1} · ${esc(x.sname)}</span><span class="badge ${v[0]}">${v[1]} · ${fmtNote(g.credit)}/1</span></div>
+      <p class="ex-cq"><b>${esc(x.question)}</b></p>
+      <div class="ex-mine"><small>Ta réponse</small>${x.resp.trim() ? `<p>${esc(x.resp.trim()).replace(/\n/g, "<br>")}</p>` : `<p class="muted"><i>Aucune réponse</i></p>`}</div>
+      ${g.verdict !== "ok" && g.verdict !== "none" ? exNotes(g) : ""}
+      <details ${g.verdict === "ok" ? "" : "open"}><summary>Corrigé officiel</summary><div class="answer">${formatAnswer(x.answer)}</div></details>
+    </div>`;
+  }
+  function drawExamResult() {
+    const z = S.exam, exam = examByCode(z.exam);
+    document.documentElement.classList.remove("in-exam");
+    try { jRefresh(); } catch (e) { /* */ }
+    const pct = Math.round((z.note20 / 20) * 100);
+    const cnt = (...v) => z.items.filter((x) => v.includes(x.g.verdict)).length;
+    const bySub = new Map();
+    z.items.forEach((x) => { const b = bySub.get(x.sname) || { n: 0, s: 0 }; b.n++; b.s += x.g.credit; bySub.set(x.sname, b); });
+    const weak = [...bySub].filter(([, b]) => b.s / b.n < 0.5).map(([k]) => k);
+    const reasonTxt = { time: "⏱️ Temps écoulé : ta copie a été remise automatiquement.", leaves: `🚫 Copie remise automatiquement après ${z.leaves} sorties de l'application.` }[z.reason] || "";
+    const saveTxt = z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera envoyé dès le retour d'Internet." : "Résultat non enregistré" + (z.saveErr ? " : " + z.saveErr : ".");
+    app.innerHTML = hero(exam, "Résultat de l'examen", exMention(z.note20) + " — " + z.scope, "Examen") + `<div class="study stack">
+      <div class="card center ex-score">
+        <div class="score-ring" style="--p:${pct}"><div>${fmtNote(z.note20)}<small>/20</small></div></div>
+        <h2>${esc(exMention(z.note20))}</h2>
+        <p class="muted">${z.note20 >= 10 ? "Moyenne atteinte ✓" : "En dessous de la moyenne : reprends les points ci-dessous puis retente l'épreuve."}</p>
+        ${reasonTxt ? `<div class="ex-warn">${esc(reasonTxt)}</div>` : ""}
+        <div class="ex-kpis"><div><b>${cnt("ok")}</b><span>Justes</span></div><div><b>${cnt("part", "weak")}</b><span>Partielles</span></div><div><b>${cnt("bad")}</b><span>Fausses</span></div><div><b>${cnt("none")}</b><span>Sans réponse</span></div></div>
+        <p class="small muted">Points : <b>${fmtNote(z.score)} / ${z.items.length}</b> · Durée : ${esc(fmtDur((z.endedAt - z.startedAt) / 1000))} · Sorties détectées : ${z.leaves}</p>
+        <p class="small muted">${esc(saveTxt)}</p>
+        <div class="row" style="justify-content:center"><button class="btn btn-primary" data-act="ex-again">Nouvel examen</button><a class="btn btn-ghost" href="#/p/${exam.code}/matieres">Réviser les matières</a></div>
+      </div>
+      ${bySub.size > 1 ? `<div class="card"><h3>Bilan par matière</h3><div class="table-wrap"><table class="t"><tr><th>Matière</th><th>Questions</th><th>Note /20</th></tr>${[...bySub].map(([k, b]) => { const n = Math.round((b.s / b.n) * 80) / 4; return `<tr><td>${esc(k)}</td><td>${b.n}</td><td><b>${fmtNote(n)}</b> <span class="muted small">${esc(exMention(n))}</span></td></tr>`; }).join("")}</table></div>${weak.length ? `<p class="small" style="margin-top:10px">📌 À retravailler en priorité : <b>${weak.map(esc).join(", ")}</b></p>` : ""}</div>` : ""}
+      <div class="card"><h3>Corrigé détaillé</h3>${z.items.map(exCorr).join("")}</div>
+      <p class="hint center">Correction automatique par notions clés : chaque réponse est comparée aux éléments attendus du corrigé officiel (fautes d'orthographe, pluriels et sigles tolérés). En cas de doute, fie-toi au corrigé officiel.</p>
+    </div>`;
+  }
+
+  /* ----- Surveillance de l'épreuve ----- */
+  document.addEventListener("visibilitychange", () => {
+    if (!exRunning() || !document.documentElement.classList.contains("in-exam")) return;
+    if (document.hidden) { S.exam.leaves++; exSave(); return; }
+    if (S.exam.leaves >= EX_MAX_LEAVES) return finishExam("leaves");
+    if (Date.now() >= S.exam.endsAt) return finishExam("time");
+    toast(`⚠️ Sortie de l'application détectée (${S.exam.leaves}/${EX_MAX_LEAVES}). Elle est notée sur ta copie.`, "err");
+    drawExamRun();
+  });
+  ["copy", "cut", "paste", "drop", "contextmenu"].forEach((t) => document.addEventListener(t, (e) => {
+    if (!exRunning() || !document.documentElement.classList.contains("in-exam")) return;
+    e.preventDefault();
+    if (t === "paste" || t === "drop") toast("Le collage est désactivé pendant l'examen.", "err");
+  }));
+  window.addEventListener("beforeunload", (e) => { if (exRunning()) { exSave(); e.preventDefault(); e.returnValue = ""; } });
+
   /* Déconnexion automatique après inactivité */
   let lastActive = Date.now();
   ["click", "keydown", "touchstart", "scroll"].forEach((t) => window.addEventListener(t, () => (lastActive = Date.now()), { passive: true }));
@@ -1321,6 +1681,11 @@
     } catch (e) {
       if (isNetErr(e)) await enterOffline();
       /* sinon l'écran d'erreur est géré par route() */
+    }
+    // reprise d'un examen interrompu (rechargement, fermeture de l'application…) : le chronomètre a continué
+    if (S.session && S.session.user) {
+      const run = await idb.get("examrun");
+      if (run && run.uid === S.session.user.id && !run.done) S.exam = run;
     }
     if (!S.offline && S.session) { flushPending(); setTimeout(prefetchOffline, 2500); }
     sb.auth.onAuthStateChange((event, session) => {
