@@ -1,8 +1,8 @@
 /* LUKOS RÉVISION — Service worker : garde l'application (fichiers, bibliothèque Supabase, polices) sur le téléphone
    pour qu'elle s'ouvre même sans Internet. Les données Supabase ne passent jamais par ce cache :
    le contenu hors connexion est géré par l'application (parcours activés uniquement). */
-const CACHE = "lukos-v13";
-const SHELL = ["./", "index.html", "app.css", "examen.css", "app.js", "config.js", "manifest.json", "lk192.png", "lkapple.png", "logo512.png", "logo-header.png", "lk512-maskable.png", "julien-ia.jpg"];
+const CACHE = "lukos-v15";
+const SHELL = ["./", "index.html", "app.css", "examen.css", "paiement.css", "app.js", "config.js", "manifest.json", "lk192.png", "lkapple.png", "logo512.png", "logo-header.png", "lk512-maskable.png", "julien-ia.jpg"];
 const CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(async (c) => {

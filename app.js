@@ -226,10 +226,12 @@
     if (p.error && /service/i.test(p.error.message || "")) p = await sb.from("profiles").select(PROFILE_COLS).eq("id", uid).maybeSingle();
     if (p.error) throw p.error;
     S.profile = p.data;
-    const [e, pay] = await Promise.all([
+    const payQ = (extra) => sb.from("payments").select("id,exam_code,amount_xof,method,status,transaction_reference,admin_note,created_at,reviewed_at" + extra).eq("user_id", uid).order("created_at", { ascending: false });
+    let [e, pay] = await Promise.all([
       sb.from("enrollments").select("exam_code,status,activated_at").eq("user_id", uid),
-      sb.from("payments").select("id,exam_code,amount_xof,method,status,transaction_reference,admin_note,created_at,reviewed_at").eq("user_id", uid).order("created_at", { ascending: false })
+      payQ(",proof_path")
     ]);
+    if (pay.error && /proof_path/i.test(pay.error.message || "")) pay = await payQ("");
     if (e.error) throw e.error;
     S.enr = {}; (e.data || []).forEach((r) => (S.enr[r.exam_code] = r));
     S.payments = pay.data || [];
@@ -756,57 +758,160 @@
   }
 
   /* ----- Activation / paiement ----- */
+  const PROOF_BUCKET = "lukos-preuves";
+  const PAY = { img: null, blob: null };
+  const digits = (s) => String(s || "").replace(/\D/g, "");
+  const initials = (u) => ((u.first_name || "?")[0] + (u.last_name || "")[0] || "").toUpperCase();
+  function copyText(v, el) {
+    const done = () => {
+      toast((el && el.dataset.l ? el.dataset.l : "Texte") + " copié : colle-le dans ton application de paiement.", "ok");
+      if (el) { const t = el.innerHTML; el.classList.add("copied"); el.innerHTML = "✓ Copié"; setTimeout(() => { el.classList.remove("copied"); el.innerHTML = t; }, 1600); }
+    };
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = v; ta.setAttribute("readonly", ""); ta.style.position = "absolute"; ta.style.left = "-9999px";
+      document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove(); ok ? done() : toast("Copie impossible : note " + v + ".", "err");
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(v).then(done).catch(fallback); else fallback();
+  }
+  // réduit la capture sur le téléphone (≈ 200 Ko) avant l'envoi
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !/^image\//.test(file.type || "image/")) return reject(new Error("Choisis une image (capture d'écran)."));
+      if (file.size > 15 * 1024 * 1024) return reject(new Error("Image trop lourde (15 Mo maximum)."));
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error("Lecture de l'image impossible."));
+      fr.onload = () => {
+        const im = new Image();
+        im.onerror = () => reject(new Error("Format d'image non reconnu. Fais une capture d'écran et réessaie."));
+        im.onload = () => {
+          const max = 1400, k = Math.min(1, max / Math.max(im.width, im.height));
+          const c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          const url = c.toDataURL("image/jpeg", 0.78);
+          c.toBlob((b) => (b ? resolve({ blob: b, url }) : reject(new Error("Compression impossible."))), "image/jpeg", 0.78);
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  function proofZone(label) {
+    return `<label class="proof-drop ${PAY.img ? "has" : ""}" id="proofDrop">
+        <input type="file" id="proofFile" accept="image/*" hidden>
+        ${PAY.img ? `<img src="${PAY.img}" alt="Aperçu de ta capture"><span class="proof-change">✓ Capture ajoutée · toucher pour changer</span>`
+        : `<span class="proof-ico" aria-hidden="true">📸</span><b>${esc(label || "Ajouter la capture du paiement")}</b><small>Choisis la capture d'écran dans ta galerie</small>`}
+      </label>`;
+  }
+  function bindProofZone() {
+    const f = document.getElementById("proofFile"); if (!f) return;
+    f.addEventListener("change", async () => {
+      const file = f.files && f.files[0]; if (!file) return;
+      const drop = document.getElementById("proofDrop"); drop.classList.add("busy");
+      try { const r = await compressImage(file); PAY.img = r.url; PAY.blob = r.blob; drop.outerHTML = proofZone(); bindProofZone(); }
+      catch (e) { drop.classList.remove("busy"); toast(e.message, "err"); }
+    });
+  }
+  async function uploadProof(payId) {
+    const uid = S.session.user.id, path = uid + "/" + String(payId).replace(/[^\w-]/g, "") + "-" + Date.now() + ".jpg";
+    const up = await sb.storage.from(PROOF_BUCKET).upload(path, PAY.blob, { contentType: "image/jpeg", upsert: false, cacheControl: "3600" });
+    if (up.error) throw up.error;
+    const { error } = await sb.rpc("attach_payment_proof", { p_payment: String(payId), p_path: path });
+    if (error) throw error;
+    PAY.img = null; PAY.blob = null;
+  }
+  function payMethods(exam) {
+    const m = (val, cls, logo, name, sub, num, checked) => `<label class="pm ${cls}">
+        <input type="radio" name="payMethod" value="${val}" ${checked ? "checked" : ""}>
+        <div class="pm-top"><span class="pm-logo">${logo}</span><span class="pm-name"><b>${name}</b><small>${sub}</small></span><span class="pm-check" aria-hidden="true">✓</span></div>
+        <div class="pm-num">${esc(num)}</div>
+        <button type="button" class="pm-copy" data-act="copy-txt" data-v="${esc(digits(num))}" data-l="Numéro ${name}">📋 Copier le numéro</button>
+      </label>`;
+    return `<div class="pay-methods">${m("wave", "pm-wave", "W", "Wave", "Application Wave", C.WAVE_NUMBER, true)}${m("orange_money", "pm-om", "OM", "Orange Money", "Max it ou Orange Money", C.ORANGE_MONEY_NUMBER, false)}</div>
+      <div class="pay-amount"><span>Montant exact à envoyer</span><b>${esc(fmtXof(exam.price_xof))}</b><button type="button" class="pm-copy" data-act="copy-txt" data-v="${esc(String(exam.price_xof))}" data-l="Montant">📋 Copier le montant</button></div>`;
+  }
   function renderActivation(exam) {
     homeBottomNav("home");
+    if (PAY.code !== exam.code) { PAY.img = null; PAY.blob = null; PAY.code = exam.code; }
     const e = S.enr[exam.code];
     const pend = S.payments.find((p) => p.exam_code === exam.code && p.status === "pending");
     const lastRej = S.payments.find((p) => p.exam_code === exam.code && p.status === "rejected");
-    let state = "";
-    if (e && e.status === "suspended") state = `<div class="feedback bad">Ton accès à ce parcours est suspendu. Contacte l'assistance au ${esc(C.CONTACT_DISPLAY)}.</div>`;
-    else if (pend) state = `<div class="feedback" style="background:var(--warn-bg);color:var(--warn)">⏳ Paiement déclaré le ${esc(fmtDate(pend.created_at))} (${esc(pend.method === "wave" ? "Wave" : "Orange Money")}${pend.transaction_reference ? ", réf. " + esc(pend.transaction_reference) : ""}). Il est en cours de vérification par l'administrateur.</div>
-      <div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-act="refresh-account">↻ Vérifier l'activation</button><a class="btn btn-ok btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(waLink(exam, pend.id))}">💬 Envoyer la preuve sur WhatsApp</a></div>`;
-    else if (lastRej) state = `<div class="feedback bad">Ton dernier paiement a été refusé${lastRej.admin_note ? " : " + esc(lastRej.admin_note) : ""}. Tu peux en déclarer un nouveau.</div>`;
-    app.innerHTML = hero(exam, "Activer " + exam.name, exam.full_name) +
-      `<div class="study stack"><div class="card">${state}
-        <h2 style="margin-top:${state ? "14px" : 0}">Accès complet au parcours ${esc(exam.name)} — ${esc(fmtXof(exam.price_xof))}</h2>
-        <p class="muted">Questions-réponses corrigées, quiz illimités, recherche, suivi de progression et documents de référence.</p>
-        ${exam.is_open ? `<div class="steps" style="margin-top:12px">
-          <div class="step"><div>Envoie <b>${esc(fmtXof(exam.price_xof))}</b> à l'un de ces numéros :<div class="paybox"><div class="card flat"><div class="muted small">Wave</div><div class="num">${esc(C.WAVE_NUMBER)}</div></div><div class="card flat"><div class="muted small">Orange Money</div><div class="num">${esc(C.ORANGE_MONEY_NUMBER)}</div></div></div></div></div>
-          <div class="step"><div style="flex:1">Déclare ton paiement ci-dessous :
-            <form id="payForm" novalidate><div class="radio-cards" style="margin-top:8px"><label><input type="radio" name="payMethod" value="wave" checked> Wave</label><label><input type="radio" name="payMethod" value="orange_money"> Orange Money</label></div>
-            <label for="payPhone">Numéro qui a payé</label><input id="payPhone" inputmode="tel" placeholder="77 000 00 00" value="${esc(phonePretty(S.profile.phone))}">
-            <label for="payRef">Référence de la transaction (facultatif mais recommandé)</label><input id="payRef" maxlength="80" placeholder="Ex. ID de transaction reçu par SMS">
-            <button class="btn btn-primary btn-block" style="margin-top:14px">${pend ? "Mettre à jour ma déclaration" : "Déclarer mon paiement"}</button><div class="msg" id="payMsg"></div></form></div></div>
-          <div class="step"><div>Envoie la capture du paiement sur WhatsApp. L'administrateur valide ton accès, généralement dans la journée.</div></div></div>`
-        : `<p class="feedback bad">Ce parcours n'est pas encore ouvert aux inscriptions.</p>`}
-      </div><a class="btn btn-ghost" href="#/">← Retour aux parcours</a></div>`;
+    const meta = EXAM_META[exam.code] || {};
+    const top = `<section class="pay-hero exam-${esc(exam.code)}">
+        <a class="pay-back" href="#/">${icon("back", 18)} Parcours</a>
+        <div class="pay-hero-ic">${icon(meta.icon || "book", 30)}</div>
+        <div class="pay-hero-t"><small>Accès complet</small><h1>${esc(exam.name)}</h1><p>${esc(exam.full_name || "")}</p></div>
+        <div class="pay-price">${esc(fmtXof(exam.price_xof))}<small>paiement unique</small></div>
+        <ul class="pay-perks"><li>📖 Fiches corrigées</li><li>🎯 Quiz illimités</li><li>🎓 Simulateur d'examen</li><li>🤖 Julien – IA</li><li>📴 Hors connexion</li></ul>
+      </section>`;
+    let body = "";
+    if (e && e.status === "suspended") body = `<div class="feedback bad">Ton accès à ce parcours est suspendu. Contacte l'assistance au ${esc(C.CONTACT_DISPLAY)}.</div>`;
+    else if (!exam.is_open) body = `<p class="feedback bad">Ce parcours n'est pas encore ouvert aux inscriptions.</p>`;
+    else if (pend) body = `<div class="card pay-status">
+        <h3>Paiement en cours de vérification</h3>
+        <ol class="pay-track"><li class="done"><span>✓</span>Paiement déclaré<small>${esc(fmtDate(pend.created_at))} · ${pend.method === "wave" ? "Wave" : "Orange Money"}</small></li>
+          <li class="${pend.proof_path ? "done" : "todo"}"><span>${pend.proof_path ? "✓" : "2"}</span>Capture du paiement<small>${pend.proof_path ? "Reçue" : "À envoyer ci-dessous"}</small></li>
+          <li class="wait"><span>⏳</span>Validation par l'administrateur<small>Généralement dans la journée</small></li></ol>
+        ${pend.proof_path ? "" : `<div class="pay-step-in">${proofZone("Ajouter ma capture")}<button class="btn btn-primary btn-block" data-act="pay-proof" data-id="${esc(pend.id)}">Envoyer ma capture</button></div>`}
+        <div class="row" style="margin-top:12px;justify-content:center"><button class="btn btn-ghost btn-sm" data-act="refresh-account">↻ Vérifier l'activation</button><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(waLink(exam, pend.id))}">💬 Une question ? WhatsApp</a></div>
+      </div>`;
+    else body = `${lastRej ? `<div class="feedback bad" style="margin-bottom:12px">Ton dernier paiement a été refusé${lastRej.admin_note ? " : " + esc(lastRej.admin_note) : ""}. Tu peux en déclarer un nouveau.</div>` : ""}
+      <form id="payForm" class="card pay-form" novalidate>
+        <div class="pay-step"><span class="pay-n">1</span><div><h3>Envoie ${esc(fmtXof(exam.price_xof))}</h3><p>Choisis ton moyen de paiement, copie le numéro et le montant.</p></div></div>
+        ${payMethods(exam)}
+        <div class="pay-step"><span class="pay-n">2</span><div><h3>Ajoute ta capture</h3><p>La capture d'écran de la confirmation de paiement.</p></div></div>
+        ${proofZone()}
+        <details class="pay-more"><summary>Payé depuis un autre numéro ? <span>(facultatif)</span></summary>
+          <label for="payPhone">Numéro qui a payé</label><input id="payPhone" inputmode="tel" placeholder="77 000 00 00" value="${esc(phonePretty(S.profile.phone))}">
+          <label for="payRef">Référence de la transaction</label><input id="payRef" maxlength="80" placeholder="ID reçu par SMS">
+        </details>
+        <div class="pay-step"><span class="pay-n">3</span><div><h3>Envoie ta preuve</h3><p>L'administrateur valide ton accès, généralement dans la journée.</p></div></div>
+        <button class="btn btn-primary btn-block pay-submit">Envoyer ma preuve de paiement</button><div class="msg" id="payMsg"></div>
+        <p class="pay-help">Un souci pour envoyer la capture ? <a target="_blank" rel="noopener noreferrer" href="${esc(waLinkHelp(exam))}">Écris-nous sur WhatsApp</a></p>
+      </form>`;
+    app.innerHTML = `<div class="pay-wrap">${top}${body}</div>`;
+    bindProofZone();
   }
   function waLink(exam, payId) {
     const t = `Bonjour LUKOS, j'ai payé ${fmtXof(exam.price_xof)} pour le parcours ${exam.name}.\nNom : ${S.profile.first_name} ${S.profile.last_name}\nTéléphone : ${S.profile.phone}\nRéférence LUKOS : ${payId}`;
+    return "https://wa.me/" + encodeURIComponent(C.WHATSAPP_NUMBER || "") + "?text=" + encodeURIComponent(t);
+  }
+  function waLinkHelp(exam) {
+    const t = `Bonjour LUKOS, je veux activer le parcours ${exam.name} (${fmtXof(exam.price_xof)}).\nNom : ${S.profile.first_name} ${S.profile.last_name}\nTéléphone : ${S.profile.phone}`;
     return "https://wa.me/" + encodeURIComponent(C.WHATSAPP_NUMBER || "") + "?text=" + encodeURIComponent(t);
   }
   async function submitPayment(ev) {
     ev.preventDefault(); if (busy) return;
     const code = parts()[1], exam = examByCode(code), msg = document.getElementById("payMsg");
     const method = (document.querySelector('input[name="payMethod"]:checked') || {}).value;
+    if (!PAY.blob) { msg.className = "msg err"; msg.textContent = "Ajoute d'abord la capture de ton paiement (étape 2)."; document.getElementById("proofDrop").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     const rawPhone = document.getElementById("payPhone").value.trim();
     const payer = rawPhone ? phoneNormalize(rawPhone) : null;
     if (rawPhone && !payer) { msg.className = "msg err"; msg.textContent = "Numéro payeur invalide."; return; }
-    busy = true; msg.className = "msg"; msg.textContent = "Enregistrement…";
+    busy = true; msg.className = "msg"; msg.textContent = "Envoi de ta preuve…";
+    const btn = document.querySelector(".pay-submit"); if (btn) btn.disabled = true;
     try {
       const { data, error } = await sb.rpc("submit_payment", { p_exam: code, p_method: method, p_sender_phone: payer, p_reference: document.getElementById("payRef").value.trim() || null });
       if (error) throw error;
-      // ouverture immédiate de WhatsApp vers le numéro des preuves de paiement
-      const link = waLink(exam, data);
-      msg.className = "msg ok"; msg.textContent = "Paiement déclaré. Ouverture de WhatsApp…";
-      let w = null;
-      try { w = window.open(link, "_blank"); if (w) w.opener = null; } catch (e) { w = null; }
-      if (!w) { location.href = link; return; }
-      await loadAccount();
-      route();
-      toast("Paiement déclaré. Envoie la capture du paiement dans WhatsApp.", "ok");
+      try { await uploadProof(data); toast("Preuve envoyée ✓ Ton paiement est en cours de vérification.", "ok"); }
+      catch (e2) { toast("Paiement déclaré, mais la capture n'a pas pu être envoyée (" + storageErrProof(e2) + "). Réessaie depuis cette page ou envoie-la sur WhatsApp.", "err"); }
+      await loadAccount(); route(); window.scrollTo(0, 0);
     } catch (e) { msg.className = "msg err"; msg.textContent = errText(e); }
+    finally { busy = false; if (btn) btn.disabled = false; }
+  }
+  async function sendPendingProof(id) {
+    if (busy) return;
+    if (!PAY.blob) return toast("Ajoute d'abord la capture de ton paiement.", "err");
+    busy = true;
+    try { await uploadProof(id); toast("Capture envoyée ✓", "ok"); await loadAccount(); route(); }
+    catch (e) { toast("Envoi impossible : " + storageErrProof(e), "err"); }
     finally { busy = false; }
+  }
+  function storageErrProof(e) {
+    const m = String((e && e.message) || e || "");
+    if (/bucket not found|attach_payment_proof|function .* does not exist|schema cache/i.test(m)) return "le script 06_preuves_paiement.sql n'est pas encore installé";
+    if (/size|too large|payload/i.test(m)) return "image trop lourde";
+    return isNetErr(e) ? "pas de connexion Internet" : errText(e);
   }
 
   /* ------------------------------------------------------------------ */
@@ -856,7 +961,7 @@
   /* ------------------------------------------------------------------ */
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
-  const AD = { payFilter: "pending", people: null, peopleQ: "", contentExam: "DAP", contentQ: "", importRows: null };
+  const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null };
   const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
     homeBottomNav("admin");
@@ -877,12 +982,14 @@
 
   async function loadPeople() {
     const profQ = (cols) => sb.from("profiles").select(cols).order("created_at", { ascending: false });
+    const payQ = (extra) => sb.from("payments").select("id,user_id,exam_code,amount_xof,method,sender_phone,transaction_reference,status,admin_note,created_at,reviewed_at" + extra).order("created_at", { ascending: false });
     let [p, e, pay] = await Promise.all([
       profQ(PROFILE_COLS + ",service"),
       sb.from("enrollments").select("user_id,exam_code,status,activated_at"),
-      sb.from("payments").select("id,user_id,exam_code,amount_xof,method,sender_phone,transaction_reference,status,admin_note,created_at,reviewed_at").order("created_at", { ascending: false })
+      payQ(",proof_path")
     ]);
     if (p.error && /service/i.test(p.error.message || "")) p = await profQ(PROFILE_COLS);
+    if (pay.error && /proof_path/i.test(pay.error.message || "")) pay = await payQ("");
     const err = p.error || e.error || pay.error; if (err) throw err;
     const byId = new Map((p.data || []).map((x) => [x.id, x]));
     AD.people = { profiles: p.data || [], enr: e.data || [], pay: pay.data || [], byId };
@@ -893,11 +1000,63 @@
     const P = await loadPeople();
     const list = P.pay.filter((x) => AD.payFilter === "all" || x.status === AD.payFilter);
     const lab = { pending: "En attente", successful: "Validés", rejected: "Refusés", all: "Tous" };
-    body.innerHTML = `<div class="seg" style="max-width:560px;margin-bottom:14px">${Object.keys(lab).map((k) => `<button data-act="ad-payfilter" data-f="${k}" class="${AD.payFilter === k ? "on" : ""}">${lab[k]} (${k === "all" ? P.pay.length : P.pay.filter((x) => x.status === k).length})</button>`).join("")}</div>
-      ${list.length ? list.map((x) => { const u = P.byId.get(x.user_id) || {}; return `<div class="card" style="margin-bottom:12px"><div class="row between"><div><b>${esc((u.first_name || "") + " " + (u.last_name || ""))}</b> <span class="muted">· ${esc(phonePretty(u.phone))}</span></div><span class="badge ${x.status === "pending" ? "warn" : x.status === "successful" ? "ok" : "bad"}">${esc(lab[x.status] || x.status).toUpperCase()}</span></div>
-        <p class="small muted" style="margin:6px 0">Parcours <b>${esc(examName(x.exam_code))}</b> · ${esc(fmtXof(x.amount_xof))} · ${x.method === "wave" ? "Wave" : "Orange Money"} · payeur ${esc(phonePretty(x.sender_phone))} · réf. <b>${esc(x.transaction_reference || "—")}</b> · déclaré le ${esc(fmtDate(x.created_at))}${x.reviewed_at ? " · traité le " + esc(fmtDate(x.reviewed_at)) : ""}${x.admin_note ? " · note : " + esc(x.admin_note) : ""}</p>
-        <p class="small muted" style="margin:0 0 8px">Référence LUKOS : ${esc(x.id)}</p>
-        <div class="row">${x.status === "pending" ? `<button class="btn btn-ok btn-sm" data-act="ad-pay" data-id="${esc(x.id)}" data-d="approve">✓ Valider et activer</button><button class="btn btn-bad btn-sm" data-act="ad-pay" data-id="${esc(x.id)}" data-d="reject">✕ Refuser</button>` : ""}${x.status === "successful" ? `<button class="btn btn-ghost btn-sm" data-act="ad-receipt" data-id="${esc(x.id)}">🧾 Reçu</button>` : ""}<a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone || "")}">📞 Appeler</a></div></div>`; }).join("") : emptyBox("Aucun paiement dans cette catégorie.")}`;
+    const nPend = P.pay.filter((x) => x.status === "pending");
+    const cash = P.pay.filter((x) => x.status === "successful").reduce((a, x) => a + Number(x.amount_xof || 0), 0);
+    const month = new Date().toISOString().slice(0, 7);
+    const cashMonth = P.pay.filter((x) => x.status === "successful" && String(x.reviewed_at || x.created_at).slice(0, 7) === month).reduce((a, x) => a + Number(x.amount_xof || 0), 0);
+    body.innerHTML = `<div class="adpay-kpis">
+        <div class="ak ak-warn"><span>⏳</span><b>${nPend.length}</b><small>À vérifier${nPend.some((x) => !x.proof_path) ? " · " + nPend.filter((x) => !x.proof_path).length + " sans capture" : ""}</small></div>
+        <div class="ak ak-ok"><span>✅</span><b>${P.pay.filter((x) => x.status === "successful").length}</b><small>Paiements validés</small></div>
+        <div class="ak ak-cash"><span>💰</span><b>${esc(fmtXof(cashMonth))}</b><small>Encaissé ce mois</small></div>
+        <div class="ak ak-tot"><span>📈</span><b>${esc(fmtXof(cash))}</b><small>Encaissé au total</small></div></div>
+      <div class="seg" style="max-width:560px;margin:14px 0">${Object.keys(lab).map((k) => `<button data-act="ad-payfilter" data-f="${k}" class="${AD.payFilter === k ? "on" : ""}">${lab[k]} (${k === "all" ? P.pay.length : P.pay.filter((x) => x.status === k).length})</button>`).join("")}</div>
+      ${list.length ? `<div class="adpay-list">${list.map((x) => payCard(x, P)).join("")}</div>` : emptyBox("Aucun paiement dans cette catégorie.")}`;
+    loadProofThumbs(body);
+  }
+  function payCard(x, P) {
+    const u = P.byId.get(x.user_id) || {}, wave = x.method === "wave";
+    const st = { pending: ["warn", "En attente"], successful: ["ok", "Validé"], rejected: ["bad", "Refusé"] }[x.status] || ["", x.status];
+    const line = (k, v) => (v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "");
+    return `<article class="paycard st-${esc(x.status)} ${wave ? "m-wave" : "m-om"}">
+      <header><span class="pay-av">${esc(initials(u))}</span><div class="pc-who"><b>${esc((u.first_name || "") + " " + (u.last_name || ""))}</b><small>${esc(phonePretty(u.phone))}${u.service ? " · " + esc(serviceLabel(u.service)) : ""}</small></div><span class="badge ${st[0]}">${esc(st[1]).toUpperCase()}</span></header>
+      <div class="pc-body">
+        <div class="pc-info">
+          <div class="pc-amt">${esc(fmtXof(x.amount_xof))}</div>
+          <div class="pc-chips"><span class="chip-m ${wave ? "wave" : "om"}">${wave ? "Wave" : "Orange Money"}</span><span class="chip-x">${esc(examName(x.exam_code))}</span></div>
+          <dl>${line("Payeur", esc(phonePretty(x.sender_phone)))}${line("Réf. transaction", esc(x.transaction_reference || ""))}${line("Déclaré le", esc(fmtDate(x.created_at)))}${line("Traité le", x.reviewed_at ? esc(fmtDate(x.reviewed_at)) : "")}${line("Note", esc(x.admin_note || ""))}${line("Réf. LUKOS", `<span class="small">${esc(x.id)}</span>`)}</dl>
+        </div>
+        ${x.proof_path ? `<button class="pc-proof" data-act="ad-proof" data-proof="${esc(x.proof_path)}" aria-label="Agrandir la capture"><span class="pc-load">Chargement de la capture…</span></button>`
+          : `<div class="pc-proof none"><span>📷</span><small>Pas de capture dans l'application${x.status === "pending" ? "<br>(vérifier WhatsApp)" : ""}</small></div>`}
+      </div>
+      <footer>${x.status === "pending" ? `<button class="btn btn-ok" data-act="ad-pay" data-id="${esc(x.id)}" data-d="approve">✓ Valider et activer</button><button class="btn btn-bad" data-act="ad-pay" data-id="${esc(x.id)}" data-d="reject">✕ Refuser</button>` : ""}${x.status === "successful" ? `<button class="btn btn-ghost btn-sm" data-act="ad-receipt" data-id="${esc(x.id)}">🧾 Reçu</button>` : ""}<a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone || "")}">📞 Appeler</a></footer>
+    </article>`;
+  }
+  const PROOF_CACHE = new Map();
+  async function proofDataUrl(path) {
+    if (PROOF_CACHE.has(path)) return PROOF_CACHE.get(path);
+    const { data, error } = await sb.storage.from(PROOF_BUCKET).download(path);
+    if (error || !data) throw error || new Error("Capture introuvable");
+    const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(data); });
+    PROOF_CACHE.set(path, url);
+    return url;
+  }
+  async function loadProofThumbs(root) {
+    const boxes = [...root.querySelectorAll(".pc-proof[data-proof]")];
+    for (const b of boxes) {
+      try { const url = await proofDataUrl(b.dataset.proof); b.innerHTML = `<img src="${url}" alt="Capture du paiement"><span class="pc-zoom">🔍 Agrandir</span>`; }
+      catch (e) { b.innerHTML = `<span class="pc-load">Capture indisponible</span>`; }
+    }
+  }
+  async function openProof(el) {
+    let url;
+    try { url = await proofDataUrl(el.dataset.proof); } catch (e) { return toast("Capture indisponible : " + errText(e), "err"); }
+    const ov = document.createElement("div");
+    ov.className = "proof-lightbox"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Capture du paiement");
+    ov.innerHTML = `<img src="${url}" alt="Capture du paiement"><button class="btn btn-ghost" type="button">✕ Fermer</button>`;
+    const close = () => { ov.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    ov.addEventListener("click", close); document.addEventListener("keydown", onKey);
+    document.body.appendChild(ov);
   }
   async function reviewPayment(id, decision) {
     let note = null;
@@ -919,20 +1078,32 @@
 
   async function adPeople(body) {
     const P = AD.people || (await loadPeople());
-    body.innerHTML = `<div class="row" style="margin-bottom:12px"><input id="peopleSearch" placeholder="Rechercher par nom ou téléphone…" value="${esc(AD.peopleQ)}" style="flex:1;min-width:220px"><button class="btn btn-ghost" data-act="ad-reload-people">↻ Actualiser</button></div><div id="peopleList"></div>`;
+    body.innerHTML = `<div class="seg" id="peopleSeg" style="max-width:720px;margin-bottom:12px"></div><div class="row" style="margin-bottom:12px"><input id="peopleSearch" placeholder="Rechercher par nom ou téléphone…" value="${esc(AD.peopleQ)}" style="flex:1;min-width:220px"><button class="btn btn-ghost" data-act="ad-reload-people">↻ Actualiser</button></div><div id="peopleList"></div>`;
     document.getElementById("peopleSearch").addEventListener("input", (e) => { AD.peopleQ = e.target.value; drawPeople(); });
     drawPeople(); void P;
   }
   function drawPeople() {
     const P = AD.people, out = document.getElementById("peopleList"); if (!out) return;
     const q = norm(AD.peopleQ).replace(/\s+/g, "");
-    const rows = P.profiles.filter((u) => u.role !== "admin" && (!q || norm(u.first_name + u.last_name + u.last_name + u.first_name + serviceLabel(u.service)).replace(/\s+/g, "").includes(q) || u.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "§")));
+    // catégorie de chaque compte : membre actif (paiement validé), paiement à vérifier, ou simple compte ouvert
+    const cat = (u) => {
+      if (P.enr.some((x) => x.user_id === u.id && x.status === "active")) return "actifs";
+      if (P.pay.some((x) => x.user_id === u.id && x.status === "pending") || P.enr.some((x) => x.user_id === u.id && x.status === "pending")) return "attente";
+      return "comptes";
+    };
+    const members = P.profiles.filter((u) => u.role !== "admin");
+    const FL = { actifs: "✅ Membres actifs", attente: "⏳ Paiement à vérifier", comptes: "👤 Comptes sans paiement", tous: "Tous" };
+    const seg = document.getElementById("peopleSeg");
+    if (seg) seg.innerHTML = Object.keys(FL).map((k) => `<button data-act="ad-peoplefilter" data-f="${k}" class="${AD.peopleFilter === k ? "on" : ""}">${FL[k]} (${k === "tous" ? members.length : members.filter((u) => cat(u) === k).length})</button>`).join("");
+    const rows = members.filter((u) => (AD.peopleFilter === "tous" || cat(u) === AD.peopleFilter) && (!q || norm(u.first_name + u.last_name + u.last_name + u.first_name + serviceLabel(u.service)).replace(/\s+/g, "").includes(q) || u.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "§")));
     const opts = { "": "Non inscrit", pending: "En attente", active: "Actif", suspended: "Suspendu", rejected: "Refusé" };
-    out.innerHTML = `<p class="muted small">${rows.length} candidat(s)</p>` + (rows.slice(0, 200).map((u) => {
+    const help = { actifs: "Comptes ayant au moins un parcours activé (paiement validé).", attente: "Comptes ayant déclaré un paiement qui n'a pas encore été vérifié.", comptes: "Comptes ouverts sans paiement validé ni paiement en attente.", tous: "Tous les comptes membres." }[AD.peopleFilter] || "";
+    out.innerHTML = `<p class="muted small">${rows.length} compte(s) · ${help}</p>` + (rows.slice(0, 200).map((u) => {
       const en = (c) => (P.enr.find((x) => x.user_id === u.id && x.exam_code === c) || {}).status || "";
-      return `<div class="card person" style="margin-bottom:10px"><div class="row between"><div><b>${esc(u.first_name + " " + u.last_name)}</b> ${u.is_blocked ? '<span class="badge bad">BLOQUÉ</span>' : ""}<div class="small muted">${esc(phonePretty(u.phone))}${u.service ? " · <b>" + esc(serviceLabel(u.service)) + "</b>" : ""} · inscrit le ${esc(fmtDate(u.created_at))}</div></div><div class="row"><a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone)}">📞</a><button class="btn btn-ghost btn-sm" data-act="ad-block" data-id="${esc(u.id)}" data-v="${u.is_blocked ? "0" : "1"}">${u.is_blocked ? "Débloquer" : "Bloquer"}</button><button class="btn btn-bad btn-sm" data-act="ad-del" data-id="${esc(u.id)}">Supprimer</button></div></div>
+      const c = cat(u), tag = c === "actifs" ? '<span class="badge ok">ACTIF</span>' : c === "attente" ? '<span class="badge warn">PAIEMENT À VÉRIFIER</span>' : '<span class="badge">SANS PAIEMENT</span>';
+      return `<div class="card person" style="margin-bottom:10px"><div class="row between"><div><b>${esc(u.first_name + " " + u.last_name)}</b> ${tag} ${u.is_blocked ? '<span class="badge bad">BLOQUÉ</span>' : ""}<div class="small muted">${esc(phonePretty(u.phone))}${u.service ? " · <b>" + esc(serviceLabel(u.service)) + "</b>" : ""} · inscrit le ${esc(fmtDate(u.created_at))}</div></div><div class="row"><a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone)}">📞</a><button class="btn btn-ghost btn-sm" data-act="ad-block" data-id="${esc(u.id)}" data-v="${u.is_blocked ? "0" : "1"}">${u.is_blocked ? "Débloquer" : "Bloquer"}</button><button class="btn btn-bad btn-sm" data-act="ad-del" data-id="${esc(u.id)}">Supprimer</button></div></div>
         <div class="exams-line">${S.exams.map((e) => `<label class="small" style="margin:0;display:flex;align-items:center;gap:6px">${esc(e.name)} <select data-act="ad-enr" data-id="${esc(u.id)}" data-exam="${esc(e.code)}">${Object.keys(opts).map((k) => `<option value="${k}" ${en(e.code) === k ? "selected" : ""} ${k === "" ? "disabled" : ""}>${opts[k]}</option>`).join("")}</select></label>`).join("")}</div></div>`;
-    }).join("") || emptyBox("Aucun candidat."));
+    }).join("") || emptyBox("Aucun compte dans cette catégorie."));
   }
   async function setEnrollment(el) {
     const { id, exam } = el.dataset, v = el.value;
@@ -1097,6 +1268,9 @@
       if (act === "auth-mode") { S.authMode = el.dataset.mode; return renderAuth(); }
       if (act === "open-exam") return go("#/p/" + el.dataset.exam);
       if (act === "refresh-account") { await loadAccount(); toast(hasAccess(parts()[1]) ? "Parcours activé !" : "Toujours en attente de validation.", hasAccess(parts()[1]) ? "ok" : ""); return route(); }
+      if (act === "copy-txt") { ev.preventDefault(); const pm = el.closest(".pm"); if (pm) pm.querySelector("input").checked = true; return copyText(el.dataset.v, el); }
+      if (act === "pay-proof") return sendPendingProof(el.dataset.id);
+      if (act === "ad-proof") return openProof(el);
       if (act.startsWith("rev-")) return revAction(act);
       if (act === "qz-again") { S.quiz = null; return route(); }
       if (act === "ex-again") { if (exRunning()) return; S.exam = null; return route(); }
@@ -1104,6 +1278,7 @@
       if (act.startsWith("qz-")) return quizAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
       if (act === "ad-payfilter") { AD.payFilter = el.dataset.f; return route(); }
+      if (act === "ad-peoplefilter") { AD.peopleFilter = el.dataset.f; return drawPeople(); }
       if (act === "ad-pay") return reviewPayment(el.dataset.id, el.dataset.d);
       if (act === "ad-receipt") return openReceipt(el.dataset.id);
       if (act === "ad-reload-people") { await loadPeople(); return drawPeople(); }

@@ -1,0 +1,143 @@
+/* =====================================================================
+   LUKOS-REVISION — Page de paiement (membre) + onglet Paiements (admin)
+   À charger après app.css (voir index.html)
+   ===================================================================== */
+.pay-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
+
+/* En-tête du parcours */
+.pay-hero { position: relative; overflow: hidden; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+  padding: 18px 18px 16px; border-radius: 22px; color: #fff; background: linear-gradient(135deg, #0b1f3a 0%, #17407a 60%, #2563b8 100%);
+  box-shadow: 0 12px 30px rgba(11, 31, 58, .22); }
+.pay-hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255, 255, 255, .07); }
+.pay-back { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 4px; color: rgba(255, 255, 255, .85); text-decoration: none; font-size: .88rem; font-weight: 600; }
+.pay-hero-ic { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: rgba(255, 255, 255, .14); }
+.pay-hero-t small { text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; opacity: .8; font-weight: 700; }
+.pay-hero-t h1 { margin: 2px 0 0; font-size: 1.6rem; line-height: 1.1; color: #fff; }
+.pay-hero-t p { margin: 4px 0 0; opacity: .85; font-size: .88rem; }
+.pay-price { position: relative; z-index: 1; text-align: right; font-size: 1.5rem; font-weight: 800; white-space: nowrap; }
+.pay-price small { display: block; font-size: .72rem; font-weight: 600; opacity: .8; }
+.pay-perks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; position: relative; z-index: 1; }
+.pay-perks li { padding: 5px 10px; border-radius: 999px; background: rgba(255, 255, 255, .13); font-size: .8rem; font-weight: 600; }
+
+/* Formulaire */
+.pay-form { padding: 18px; border-radius: 20px; }
+.pay-step { display: flex; gap: 12px; align-items: flex-start; margin: 18px 0 10px; }
+.pay-step:first-child { margin-top: 0; }
+.pay-step h3 { margin: 0; font-size: 1.05rem; }
+.pay-step p { margin: 2px 0 0; color: #5b6b82; font-size: .88rem; }
+.pay-n { flex: 0 0 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #1d4f91, #2563b8); box-shadow: 0 4px 10px rgba(29, 79, 145, .3); }
+
+.pay-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pm { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px; margin: 0; border-radius: 18px; cursor: pointer;
+  border: 2px solid transparent; transition: transform .15s, box-shadow .15s, border-color .15s; }
+.pm input { position: absolute; opacity: 0; pointer-events: none; }
+.pm-wave { background: linear-gradient(160deg, #e6f8ff, #c9efff); color: #064a6b; }
+.pm-om { background: linear-gradient(160deg, #fff3e6, #ffe0bf); color: #7a3300; }
+.pm:has(input:checked) { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(11, 31, 58, .14); }
+.pm-wave:has(input:checked) { border-color: #13b5ef; }
+.pm-om:has(input:checked) { border-color: #ff7900; }
+.pm-top { display: flex; align-items: center; gap: 10px; }
+.pm-logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; color: #fff; font-size: .95rem; flex: 0 0 40px; }
+.pm-wave .pm-logo { background: #13b5ef; }
+.pm-om .pm-logo { background: #ff7900; font-size: .8rem; }
+.pm-name { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.pm-name small { opacity: .75; font-size: .76rem; }
+.pm-check { margin-left: auto; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 900;
+  background: rgba(255, 255, 255, .7); color: transparent; border: 2px solid rgba(0, 0, 0, .12); }
+.pm-wave:has(input:checked) .pm-check { background: #13b5ef; border-color: #13b5ef; color: #fff; }
+.pm-om:has(input:checked) .pm-check { background: #ff7900; border-color: #ff7900; color: #fff; }
+.pm-num { font-size: 1.35rem; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.pm-copy { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: .88rem; padding: 10px 12px; border-radius: 12px;
+  background: #fff; color: inherit; box-shadow: 0 2px 6px rgba(0, 0, 0, .08); transition: transform .1s, background .2s; }
+.pm-copy:active { transform: scale(.97); }
+.pm-copy.copied { background: #2e7d32 !important; color: #fff !important; }
+
+.pay-amount { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border-radius: 16px;
+  background: #f3f6fb; border: 1px dashed #b8c6dc; }
+.pay-amount span { color: #5b6b82; font-size: .88rem; }
+.pay-amount b { font-size: 1.3rem; color: #0b1f3a; }
+.pay-amount .pm-copy { margin-left: auto; background: #0b1f3a; color: #fff; }
+
+/* Zone de capture */
+.proof-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 130px; margin: 0; padding: 16px;
+  text-align: center; cursor: pointer; border-radius: 18px; border: 2px dashed #9fb3d1; background: #f7f9fd; color: #14213a; transition: border-color .2s, background .2s; }
+.proof-drop:hover { border-color: #2563b8; background: #eef4fd; }
+.proof-drop .proof-ico { font-size: 2rem; }
+.proof-drop small { color: #5b6b82; }
+.proof-drop.busy { opacity: .6; pointer-events: none; }
+.proof-drop.has { border-style: solid; border-color: #2e7d32; background: #eef8f0; }
+.proof-drop img { max-width: 100%; max-height: 240px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, .12); }
+.proof-change { margin-top: 6px; font-weight: 700; color: #1b5e20; font-size: .88rem; }
+
+.pay-more { margin: 12px 0 0; padding: 10px 14px; border-radius: 14px; background: #f7f9fd; }
+.pay-more summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
+.pay-more summary span { color: #5b6b82; font-weight: 400; }
+.pay-submit { font-size: 1.05rem; padding: 14px; border-radius: 14px; }
+.pay-help { text-align: center; color: #5b6b82; font-size: .85rem; margin: 12px 0 0; }
+
+/* Suivi d'un paiement en attente */
+.pay-status { padding: 18px; border-radius: 20px; }
+.pay-status h3 { margin: 0 0 12px; }
+.pay-track { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pay-track li { display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; align-items: center; font-weight: 700; }
+.pay-track li span { grid-row: span 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; background: #e8edf5; color: #5b6b82; }
+.pay-track li small { font-weight: 400; color: #5b6b82; font-size: .82rem; }
+.pay-track li.done span { background: #2e7d32; color: #fff; }
+.pay-track li.todo span { background: #ff7900; color: #fff; }
+.pay-track li.wait span { background: #fff4d6; }
+.pay-step-in { display: flex; flex-direction: column; gap: 10px; }
+
+/* ----- Admin : onglet Paiements ----- */
+.adpay-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ak { padding: 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 2px; }
+.ak span { font-size: 1.2rem; }
+.ak b { font-size: 1.35rem; line-height: 1.2; }
+.ak small { font-size: .78rem; opacity: .85; }
+.ak-warn { background: #fff4e0; color: #8a4b00; }
+.ak-ok { background: #e7f5ea; color: #1b5e20; }
+.ak-cash { background: #e6f1fb; color: #0c447c; }
+.ak-tot { background: #efeafd; color: #3c2c89; }
+
+.adpay-list { display: flex; flex-direction: column; gap: 14px; }
+.paycard { border-radius: 18px; background: #fff; border: 1px solid #e3e9f2; box-shadow: 0 4px 14px rgba(11, 31, 58, .06); overflow: hidden; border-left: 6px solid #9fb3d1; }
+.paycard.m-wave { border-left-color: #13b5ef; }
+.paycard.m-om { border-left-color: #ff7900; }
+.paycard.st-successful { opacity: .92; }
+.paycard header { display: flex; align-items: center; gap: 12px; padding: 14px 16px 0; }
+.pay-av { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #1d4f91, #2563b8); }
+.pc-who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pc-who small { color: #5b6b82; }
+.pc-body { display: grid; grid-template-columns: 1fr 180px; gap: 14px; padding: 12px 16px; }
+.pc-amt { font-size: 1.5rem; font-weight: 800; color: #0b1f3a; }
+.pc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.chip-m, .chip-x { padding: 3px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+.chip-m.wave { background: #dff5fe; color: #064a6b; }
+.chip-m.om { background: #ffeedd; color: #7a3300; }
+.chip-x { background: #eef2f8; color: #33415c; }
+.pc-info dl { margin: 0; display: grid; gap: 4px; font-size: .86rem; }
+.pc-info dl div { display: flex; gap: 8px; }
+.pc-info dt { color: #5b6b82; min-width: 112px; }
+.pc-info dd { margin: 0; font-weight: 600; word-break: break-all; }
+.pc-proof { appearance: none; position: relative; display: grid; place-items: center; min-height: 150px; padding: 0; overflow: hidden; cursor: zoom-in;
+  border-radius: 14px; border: 1px solid #e3e9f2; background: #f3f6fb; font: inherit; color: #5b6b82; }
+.pc-proof img { width: 100%; height: 100%; max-height: 220px; object-fit: cover; object-position: top; }
+.pc-zoom { position: absolute; bottom: 6px; right: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(11, 31, 58, .75); color: #fff; font-size: .75rem; font-weight: 700; }
+.pc-load { font-size: .82rem; padding: 10px; }
+.pc-proof.none { cursor: default; text-align: center; gap: 4px; padding: 12px; }
+.pc-proof.none span { font-size: 1.6rem; opacity: .6; }
+.paycard footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 14px; border-top: 1px solid #eef2f8; background: #fafbfd; }
+.paycard footer .btn-ok, .paycard footer .btn-bad { flex: 1; min-width: 150px; }
+
+.proof-lightbox { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 16px; background: rgba(5, 12, 24, .88); cursor: zoom-out; }
+.proof-lightbox img { max-width: 100%; max-height: 85vh; border-radius: 10px; box-shadow: 0 10px 40px rgba(0, 0, 0, .5); }
+.proof-lightbox .btn { background: #fff; }
+
+@media (max-width: 620px) {
+  .pay-hero { grid-template-columns: auto 1fr; }
+  .pay-price { grid-column: 1 / -1; text-align: left; }
+  .pay-methods { grid-template-columns: 1fr; }
+  .adpay-kpis { grid-template-columns: 1fr 1fr; }
+  .pc-body { grid-template-columns: 1fr; }
+  .pc-proof { min-height: 200px; }
+}
