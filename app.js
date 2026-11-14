@@ -112,8 +112,15 @@
   const S = {
     session: null, profile: null, exams: [], enr: {}, payments: [], attempts: {}, exam: null,
     data: {},          // data[exam] = { subjects:[], questions:[], bySubject:Map }
-    authMode: "login", quiz: null, rev: null
+    authMode: "login", quiz: null, rev: null,
+    act: null          // statut d'activation du compte (délai de 5 jours)
   };
+  // styles des bandeaux « délai d'activation »
+  (function () {
+    const st = document.createElement("style");
+    st.textContent = ".act-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 14px;border-radius:14px;margin:0 0 14px;border:1px solid;line-height:1.45}.act-bar b{display:block;margin-bottom:2px}.act-bar>span{flex:1;min-width:200px}.act-warn{background:#fff7e6;border-color:#f5c26b;color:#7a4b00}.act-bad{background:#fdecec;border-color:#f0a3a3;color:#8a1c1c}.act-wait{background:#eaf3ff;border-color:#9cc3f5;color:#0b3a75}";
+    document.head.appendChild(st);
+  })();
   const isAdmin = () => S.profile && S.profile.role === "admin" && !S.profile.is_blocked;
   const examByCode = (c) => S.exams.find((e) => e.code === c);
   const hasAccess = (c) => isAdmin() || (S.enr[c] && S.enr[c].status === "active" && !S.profile.is_blocked);
@@ -235,6 +242,12 @@
     if (e.error) throw e.error;
     S.enr = {}; (e.data || []).forEach((r) => (S.enr[r.exam_code] = r));
     S.payments = pay.data || [];
+    // délai d'activation (script comptes_expires.sql) : ignoré si le script n'est pas installé
+    S.act = null;
+    if (S.profile && S.profile.role !== "admin") {
+      const a = await sb.rpc("lk_my_activation_status");
+      if (!a.error && Array.isArray(a.data) && a.data.length) S.act = a.data[0];
+    }
     await saveAccountCache();
   }
   async function fetchExamRaw(code) {
@@ -455,7 +468,7 @@
     try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
     await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
-    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.quiz = null; S.rev = null; S.exam = null; clearInterval(exTick);
+    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.act = null; S.quiz = null; S.rev = null; S.exam = null; clearInterval(exTick);
     go("#/");
   }
 
@@ -473,10 +486,31 @@
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
     return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))}</span>` : `<span class="badge">BIENTÔT</span>`;
   }
+  /* Bandeau « délai d'activation » (5 jours après l'inscription) */
+  const fmtDay = (d) => d ? new Date(new Date(d).getTime() - 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
+  function actBanner(withBtn) {
+    const a = S.act;
+    if (isAdmin() || !a || a.state === "active") return "";
+    if (S.payments.some((p) => p.status === "pending")) {
+      return withBtn ? `<div class="act-bar act-wait"><span><b>⏳ Paiement en cours de vérification</b>Ton compte est conservé pendant la vérification de ton paiement.</span></div>` : "";
+    }
+    const n = Number(a.days_left) || 0, day = esc(fmtDay(a.deadline));
+    const T = {
+      countdown: ["act-warn", "⚠️ Active un parcours pour garder ton compte",
+        n <= 1 ? `C'est ton <b>dernier jour</b> : ton compte sera supprimé si aucun parcours n'est activé avant le ${day}.`
+               : `Ton compte sera supprimé dans <b>${n} jours</b> (le ${day}) si aucun parcours n'est activé.`],
+      expired: ["act-bad", "⛔ Délai d'activation dépassé", "Le délai de 5 jours pour activer un parcours est dépassé. Active un parcours dès maintenant pour conserver ton compte, sinon il sera supprimé."],
+      reminder: ["act-bad", "📢 Dernier rappel", `Active un parcours avant le <b>${day}</b>, sinon ton compte sera supprimé.`],
+      reminder_expired: ["act-bad", "⛔ Date limite dépassée", `La date limite du ${day} est passée. Ton compte peut être supprimé à tout moment : active un parcours maintenant pour le conserver.`]
+    }[a.state];
+    if (!T) return "";
+    return `<div class="act-bar ${T[0]}" role="status"><span><b>${T[1]}</b>${T[2]}</span>${withBtn ? `<button type="button" class="btn btn-primary btn-sm" data-act="act-go">Activer un parcours</button>` : ""}</div>`;
+  }
   function renderHome() {
     homeBottomNav("home");
     const name = esc(S.profile.first_name);
     app.innerHTML = `<section class="home-hero"><div class="home-hello">Bonjour ${name}</div><p>Choisis ton parcours de révision.</p></section>
+      ${actBanner(true)}
       ${!isAdmin() && S.profile.service === null ? serviceCard() : ""}
       <div class="label-up">MES PARCOURS</div>
       <div class="exam-list">${S.exams.map((e) => `
@@ -869,7 +903,7 @@
         <button class="btn btn-primary btn-block pay-submit">Envoyer ma preuve de paiement</button><div class="msg" id="payMsg"></div>
         <p class="pay-help">Un souci pour envoyer la capture ? <a target="_blank" rel="noopener noreferrer" href="${esc(waLinkHelp(exam))}">Écris-nous sur WhatsApp</a></p>
       </form>`;
-    app.innerHTML = `<div class="pay-wrap">${top}${body}</div>`;
+    app.innerHTML = `<div class="pay-wrap">${top}${actBanner(false)}${body}</div>`;
     bindProofZone();
   }
   function waLink(exam, payId) {
@@ -961,13 +995,13 @@
   /* ------------------------------------------------------------------ */
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
-  const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null };
-  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
+  const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
+  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
     homeBottomNav("admin");
     app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
     const body = document.getElementById("adminBody");
-    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
+    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -978,6 +1012,9 @@
     body.innerHTML = `<div class="kpis"><div class="kpi"><b>${data.candidates}</b><span>Candidats inscrits</span></div><div class="kpi"><b>${data.pending_payments}</b><span>Paiements à vérifier</span></div><div class="kpi"><b>${esc(fmtXof(data.revenue_xof))}</b><span>Encaissements validés</span></div><div class="kpi"><b>${data.quizzes}</b><span>Quiz réalisés</span></div><div class="kpi"><b>${data.blocked}</b><span>Comptes bloqués</span></div></div>
       <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
       ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
+    sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
+      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 5 jours →</a></p>`);
+    });
   }
 
   async function loadPeople() {
@@ -1111,6 +1148,85 @@
     const { error } = await sb.rpc("admin_set_enrollment", { p_user: id, p_exam: exam, p_status: v });
     if (error) { toast(errText(error), "err"); drawPeople(); return; }
     toast("Statut mis à jour.", "ok"); await loadPeople(); drawPeople();
+  }
+
+  /* ----- Comptes expirés : sans parcours activé après le délai de 5 jours ----- */
+  const EXP_ST = { expired: ["bad", "DÉLAI DÉPASSÉ"], reminder: ["warn", "RAPPEL EN COURS"], reminder_expired: ["bad", "RAPPEL EXPIRÉ"] };
+  const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+  async function adExpired(body) {
+    const { data, error } = await sb.rpc("lk_admin_expired_accounts");
+    if (error) {
+      if (/lk_admin_expired_accounts|does not exist|schema cache/i.test(error.message || "")) { body.innerHTML = emptyBox("Le script comptes_expires.sql n'est pas encore installé dans Supabase."); return; }
+      throw error;
+    }
+    AD.exp = data || [];
+    const min = isoDay(Date.now() + 86400000);
+    if (!AD.expDate || AD.expDate < min) AD.expDate = isoDay(Date.now() + 3 * 86400000);
+    body.innerHTML = `<div class="card" style="margin-bottom:12px"><p class="small muted" style="margin-top:0">Candidats sans parcours activé 5 jours après leur inscription (pour les comptes créés avant le lancement, le délai part du 17/11/2026). Aucun compte n'est supprimé sans ton action.</p>
+      <div class="row"><label for="expDate" style="margin:0">Date limite du rappel</label><input type="date" id="expDate" value="${esc(AD.expDate)}" min="${min}" style="width:auto">
+        <button class="btn btn-primary btn-sm" data-act="ad-exp-remind-sel">📢 Rappel aux comptes cochés</button>
+        <button class="btn btn-bad btn-sm" data-act="ad-exp-del-sel">🗑 Supprimer les comptes cochés</button>
+        <button class="btn btn-ghost btn-sm" data-act="ad-exp-reload">↻ Actualiser</button></div></div>
+      <div class="seg" id="expSeg" style="max-width:760px;margin-bottom:12px"></div>
+      <label class="check" style="margin-bottom:10px"><input type="checkbox" id="expAll" data-act="ad-exp-all"> Tout cocher (liste affichée)</label>
+      <div id="expList"></div>`;
+    document.getElementById("expDate").addEventListener("change", (e) => { AD.expDate = e.target.value; });
+    drawExpired();
+  }
+  function drawExpired() {
+    const out = document.getElementById("expList"); if (!out || !AD.exp) return;
+    const FL = { tous: "Tous", expired: "Délai dépassé", reminder: "Rappel en cours", reminder_expired: "Rappel expiré" };
+    const seg = document.getElementById("expSeg");
+    if (seg) seg.innerHTML = Object.keys(FL).map((k) => `<button data-act="ad-expfilter" data-f="${k}" class="${AD.expFilter === k ? "on" : ""}">${FL[k]} (${k === "tous" ? AD.exp.length : AD.exp.filter((u) => u.state === k).length})</button>`).join("");
+    const all = document.getElementById("expAll"); if (all) all.checked = false;
+    const rows = AD.exp.filter((u) => AD.expFilter === "tous" || u.state === AD.expFilter);
+    out.innerHTML = rows.length ? rows.map((u) => {
+      const st = EXP_ST[u.state] || ["", String(u.state || "").toUpperCase()], locked = u.state === "reminder";
+      return `<div class="card person" style="margin-bottom:10px"><div class="row between">
+        <label class="check" style="margin:0;align-items:flex-start"><input type="checkbox" class="exp-chk" value="${esc(u.user_id)}"><span>
+          <b>${esc((u.first_name || "") + " " + (u.last_name || ""))}</b> <span class="badge ${st[0]}">${st[1]}</span>${u.pending_payment ? ' <span class="badge warn">⏳ PAIEMENT À VÉRIFIER</span>' : ""}
+          <span class="small muted" style="display:block">${esc(phonePretty(u.phone))}${u.service ? " · <b>" + esc(serviceLabel(u.service)) + "</b>" : ""} · inscrit le ${esc(fmtDate(u.created_at))} (il y a ${Number(u.days_since_signup) || 0} j)</span>
+          <span class="small" style="display:block">${u.state === "expired" ? "Délai terminé le " : "Date limite du rappel : "}<b>${esc(fmtDay(u.deadline))}</b>${u.reminder_sent_at ? " · rappel envoyé le " + esc(fmtDate(u.reminder_sent_at)) : ""}</span></span></label>
+        <div class="row"><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(waRemind(u))}">💬 WhatsApp</a><button class="btn btn-soft btn-sm" data-act="ad-exp-remind" data-id="${esc(u.user_id)}">📢 Rappel</button><button class="btn btn-bad btn-sm" data-act="ad-exp-del" data-id="${esc(u.user_id)}" ${locked ? 'disabled title="Rappel en cours : attends la date limite"' : ""}>Supprimer</button></div>
+      </div></div>`;
+    }).join("") : emptyBox(AD.exp.length ? "Aucun compte dans cette catégorie." : "Aucun compte expiré pour le moment ✓");
+  }
+  function waRemind(u, day) {
+    const d = day || (u.state !== "expired" ? fmtDay(u.deadline) : "");
+    const open = S.exams.filter((e) => e.is_open), price = open.length ? Math.min(...open.map((e) => Number(e.price_xof) || 0)) : 2000;
+    const t = `Bonjour ${u.first_name || ""}, ici LUKOS-REVISION.\nTon compte a été créé le ${new Date(u.created_at).toLocaleDateString("fr-FR")}, mais aucun parcours n'est encore activé.\n` +
+      (d ? `Active un parcours (${fmtXof(price)}) avant le ${d}, sinon ton compte sera supprimé.` : `Ton délai d'activation est dépassé : active un parcours (${fmtXof(price)}) dès maintenant pour conserver ton compte.`) +
+      `\nLien de l'application : ${location.origin + location.pathname}`;
+    return "https://wa.me/" + digits(u.phone) + "?text=" + encodeURIComponent(t);
+  }
+  const expChecked = () => [...document.querySelectorAll(".exp-chk:checked")].map((c) => c.value);
+  async function expReload() { const body = document.getElementById("adminBody"); if (body) await adExpired(body); }
+  async function expRemind(ids, single) {
+    const inp = document.getElementById("expDate"), v = inp && inp.value;
+    if (!ids.length) return toast("Coche au moins un compte.", "err");
+    if (!v) return toast("Choisis d'abord la date limite du rappel.", "err");
+    AD.expDate = v;
+    const day = new Date(v + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    if (!confirm(`Envoyer un rappel à ${ids.length} compte(s) avec la date limite du ${day} ?\nLe candidat le verra dans l'application.`)) return;
+    let w = null;
+    if (single) { try { w = window.open("", "_blank"); } catch (e) { w = null; } }
+    const { data, error } = await sb.rpc("lk_admin_send_reminder", { p_users: ids, p_deadline: v });
+    if (error) { if (w) w.close(); return toast(errText(error), "err"); }
+    const u = single && AD.exp.find((x) => x.user_id === ids[0]);
+    if (w && u) w.location.href = waRemind(u, day); else if (w) w.close();
+    toast(`Rappel enregistré pour ${data} compte(s).${single ? "" : " Envoie maintenant le message WhatsApp à chacun avec le bouton 💬."}`, "ok");
+    await expReload();
+  }
+  async function expDelete(ids) {
+    if (!ids.length) return toast("Coche au moins un compte.", "err");
+    const info = (id) => AD.exp.find((x) => x.user_id === id) || {};
+    const lock = ids.filter((id) => info(id).state === "reminder").length, pend = ids.filter((id) => info(id).pending_payment).length;
+    if (lock === ids.length) return toast("Ces comptes ont un rappel en cours : attends la date limite.", "err");
+    if (!confirm(`SUPPRESSION DÉFINITIVE de ${ids.length - lock} compte(s), avec leurs paiements et leur progression.` + (pend ? `\n⚠️ ${pend} compte(s) ont un paiement à vérifier.` : "") + (lock ? `\n${lock} compte(s) avec un rappel en cours seront conservés.` : "") + "\nContinuer ?")) return;
+    const { data, error } = await sb.rpc("lk_admin_delete_accounts", { p_users: ids });
+    if (error) return toast(errText(error), "err");
+    toast(`${data} compte(s) supprimé(s).`, "ok"); AD.people = null;
+    await expReload();
   }
 
   async function adContent(body) {
@@ -1277,6 +1393,14 @@
       if (act.startsWith("ex-")) return exAction(act, el);
       if (act.startsWith("qz-")) return quizAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
+      if (act === "act-go") { const l = document.querySelector(".exam-list"); if (l) l.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      if (act === "ad-expfilter") { AD.expFilter = el.dataset.f; return drawExpired(); }
+      if (act === "ad-exp-all") { document.querySelectorAll(".exp-chk").forEach((c) => (c.checked = el.checked)); return; }
+      if (act === "ad-exp-reload") return expReload();
+      if (act === "ad-exp-remind") return expRemind([el.dataset.id], true);
+      if (act === "ad-exp-remind-sel") return expRemind(expChecked(), false);
+      if (act === "ad-exp-del") return expDelete([el.dataset.id]);
+      if (act === "ad-exp-del-sel") return expDelete(expChecked());
       if (act === "ad-payfilter") { AD.payFilter = el.dataset.f; return route(); }
       if (act === "ad-peoplefilter") { AD.peopleFilter = el.dataset.f; return drawPeople(); }
       if (act === "ad-pay") return reviewPayment(el.dataset.id, el.dataset.d);
