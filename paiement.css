@@ -141,3 +141,33 @@
   .pc-body { grid-template-columns: 1fr; }
   .pc-proof { min-height: 200px; }
 }
+
+/* ===== Paiement simplifié : Wave uniquement (v16) ===== */
+.wave-only { text-align: center; }
+.wave-msg { margin: 0 0 14px; font-size: 1.05rem; line-height: 1.5; color: #14213a; }
+.wave-msg b { color: #0b1f3a; }
+.wave-box { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 14px; border-radius: 18px;
+  background: linear-gradient(160deg, #e6f8ff, #c9efff); border: 2px solid #13b5ef; color: #064a6b; }
+.wave-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; font-size: .85rem; }
+.wave-label .pm-logo { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 10px; background: #13b5ef; font-size: .85rem; }
+.wave-num { font-size: 2rem; font-weight: 900; letter-spacing: .06em; color: #0b1f3a; font-variant-numeric: tabular-nums; }
+.wave-copy { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 800; font-size: 1rem; padding: 12px 22px; border-radius: 12px;
+  background: #13b5ef; color: #fff; box-shadow: 0 4px 12px rgba(19, 181, 239, .35); }
+.wave-copy:active { transform: scale(.97); }
+.wave-copy.copied { background: #2e7d32 !important; }
+.wave-step { margin: 20px 0 8px; font-weight: 800; color: #0b1f3a; font-size: 1rem; }
+#payForm .proof-drop { min-height: 240px; border-width: 3px; border-color: #13b5ef; background: #f5fcff; }
+#payForm .proof-drop .proof-ico { font-size: 3.2rem; }
+#payForm .proof-drop b { font-size: 1.1rem; color: #064a6b; }
+#payForm .proof-drop.has { border-color: #2e7d32; background: #eef8f0; }
+#payForm .proof-drop img { max-height: 340px; }
+#payForm .pay-submit { margin-top: 18px; padding: 18px; font-size: 1.15rem; font-weight: 800; border: 0; border-radius: 14px; color: #fff;
+  background: #1fa855; box-shadow: 0 8px 20px rgba(31, 168, 85, .35); }
+#payForm .pay-submit:disabled { background: #9fb3a6; box-shadow: none; }
+
+/* Bouton WhatsApp flottant (assistance) */
+.wa-fab { position: fixed; right: 14px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); z-index: 900; display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px 10px 12px; border-radius: 999px; background: #25d366; color: #fff; text-decoration: none; font-weight: 800; font-size: .95rem;
+  box-shadow: 0 8px 22px rgba(37, 211, 102, .45); }
+.wa-fab:active { transform: scale(.96); }
+@media print { .wa-fab { display: none; } }

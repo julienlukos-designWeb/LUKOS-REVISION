@@ -375,7 +375,18 @@
       `<button class="out hide-m" data-act="logout">Déconnexion</button>`;
   }
   function setFooter() {
-    document.getElementById("foot").textContent = "© " + new Date().getFullYear() + " LUKOS-REVISION — Conçu par " + (C.AUTHOR || "LUKOS") + " • Assistance : " + (C.CONTACT_DISPLAY || "");
+    document.getElementById("foot").textContent = "© " + new Date().getFullYear() + " LUKOS-REVISION — Conçu par " + (C.AUTHOR || "LUKOS") + " • Assistance WhatsApp : " + (C.CONTACT_DISPLAY || "");
+    addWhatsAppButton();
+  }
+  /* Bouton WhatsApp toujours visible (assistance) */
+  function addWhatsAppButton() {
+    if (document.getElementById("waFab") || !C.WHATSAPP_NUMBER) return;
+    const a = document.createElement("a");
+    a.id = "waFab"; a.className = "wa-fab"; a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.setAttribute("aria-label", "Contacter l'assistance sur WhatsApp");
+    a.href = "https://wa.me/" + encodeURIComponent(C.WHATSAPP_NUMBER) + "?text=" + encodeURIComponent("Bonjour LUKOS, j'ai besoin d'aide sur l'application LUKOS-REVISION.");
+    a.innerHTML = `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.2-3.8 1.2 1.2-3.7-.3-.4a10.4 10.4 0 0 1-1.7-5.8C5.1 10 10 5.3 16 5.3S26.9 10 26.9 15.8 22 26.4 16 26.4zm6-7.8c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5v-.5l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.7s1.2 3.2 1.4 3.4c.2.2 2.4 3.6 5.8 5 2.9 1.1 3.5.9 4.1.8.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5-.1-.2-.3-.3-.6-.4z"/></svg><span>Assistance</span>`;
+    document.body.appendChild(a);
   }
 
   /* ------------------------------------------------------------------ */
@@ -834,7 +845,7 @@
     return `<label class="proof-drop ${PAY.img ? "has" : ""}" id="proofDrop">
         <input type="file" id="proofFile" accept="image/*" hidden>
         ${PAY.img ? `<img src="${PAY.img}" alt="Aperçu de ta capture"><span class="proof-change">✓ Capture ajoutée · toucher pour changer</span>`
-        : `<span class="proof-ico" aria-hidden="true">📸</span><b>${esc(label || "Ajouter la capture du paiement")}</b><small>Choisis la capture d'écran dans ta galerie</small>`}
+        : `<span class="proof-ico" aria-hidden="true">📸</span><b>${esc(label || "Appuie ici pour insérer la capture du paiement Wave")}</b><small>Choisis la capture d'écran dans ta galerie</small>`}
       </label>`;
   }
   function bindProofZone() {
@@ -855,14 +866,14 @@
     PAY.img = null; PAY.blob = null;
   }
   function payMethods(exam) {
-    const m = (val, cls, logo, name, sub, num, checked) => `<label class="pm ${cls}">
-        <input type="radio" name="payMethod" value="${val}" ${checked ? "checked" : ""}>
-        <div class="pm-top"><span class="pm-logo">${logo}</span><span class="pm-name"><b>${name}</b><small>${sub}</small></span><span class="pm-check" aria-hidden="true">✓</span></div>
-        <div class="pm-num">${esc(num)}</div>
-        <button type="button" class="pm-copy" data-act="copy-txt" data-v="${esc(digits(num))}" data-l="Numéro ${name}">📋 Copier le numéro</button>
-      </label>`;
-    return `<div class="pay-methods">${m("wave", "pm-wave", "W", "Wave", "Application Wave", C.WAVE_NUMBER, true)}${m("orange_money", "pm-om", "OM", "Orange Money", "Max it ou Orange Money", C.ORANGE_MONEY_NUMBER, false)}</div>
-      <div class="pay-amount"><span>Montant exact à envoyer</span><b>${esc(fmtXof(exam.price_xof))}</b><button type="button" class="pm-copy" data-act="copy-txt" data-v="${esc(String(exam.price_xof))}" data-l="Montant">📋 Copier le montant</button></div>`;
+    return `<div class="wave-only">
+        <p class="wave-msg">Pour activer ce parcours, envoie <b>${esc(fmtXof(exam.price_xof))}</b> <b>uniquement par Wave</b> au numéro ci-dessous.</p>
+        <div class="wave-box">
+          <span class="wave-label"><span class="pm-logo">W</span> Numéro Wave</span>
+          <div class="wave-num">${esc(C.WAVE_NUMBER)}</div>
+          <button type="button" class="wave-copy" data-act="copy-txt" data-v="${esc(digits(C.WAVE_NUMBER))}" data-l="Numéro Wave">📋 Copier le numéro</button>
+        </div>
+      </div>`;
   }
   function renderActivation(exam) {
     homeBottomNav("home");
@@ -891,17 +902,11 @@
       </div>`;
     else body = `${lastRej ? `<div class="feedback bad" style="margin-bottom:12px">Ton dernier paiement a été refusé${lastRej.admin_note ? " : " + esc(lastRej.admin_note) : ""}. Tu peux en déclarer un nouveau.</div>` : ""}
       <form id="payForm" class="card pay-form" novalidate>
-        <div class="pay-step"><span class="pay-n">1</span><div><h3>Envoie ${esc(fmtXof(exam.price_xof))}</h3><p>Choisis ton moyen de paiement, copie le numéro et le montant.</p></div></div>
         ${payMethods(exam)}
-        <div class="pay-step"><span class="pay-n">2</span><div><h3>Ajoute ta capture</h3><p>La capture d'écran de la confirmation de paiement.</p></div></div>
-        ${proofZone()}
-        <details class="pay-more"><summary>Payé depuis un autre numéro ? <span>(facultatif)</span></summary>
-          <label for="payPhone">Numéro qui a payé</label><input id="payPhone" inputmode="tel" placeholder="77 000 00 00" value="${esc(phonePretty(S.profile.phone))}">
-          <label for="payRef">Référence de la transaction</label><input id="payRef" maxlength="80" placeholder="ID reçu par SMS">
-        </details>
-        <div class="pay-step"><span class="pay-n">3</span><div><h3>Envoie ta preuve</h3><p>L'administrateur valide ton accès, généralement dans la journée.</p></div></div>
-        <button class="btn btn-primary btn-block pay-submit">Envoyer ma preuve de paiement</button><div class="msg" id="payMsg"></div>
-        <p class="pay-help">Un souci pour envoyer la capture ? <a target="_blank" rel="noopener noreferrer" href="${esc(waLinkHelp(exam))}">Écris-nous sur WhatsApp</a></p>
+        <p class="wave-step">Après le paiement, insère ici la capture 👇</p>
+        ${proofZone("Appuie ici pour insérer la capture du paiement Wave")}
+        <button class="btn btn-block pay-submit">✅ Envoyer ma preuve de paiement</button><div class="msg" id="payMsg"></div>
+        <p class="pay-help">L'administrateur valide ton accès, généralement dans la journée.<br>Un souci ? <a target="_blank" rel="noopener noreferrer" href="${esc(waLinkHelp(exam))}">Écris-nous sur WhatsApp</a></p>
       </form>`;
     app.innerHTML = `<div class="pay-wrap">${top}${actBanner(false)}${body}</div>`;
     bindProofZone();
@@ -917,18 +922,18 @@
   async function submitPayment(ev) {
     ev.preventDefault(); if (busy) return;
     const code = parts()[1], exam = examByCode(code), msg = document.getElementById("payMsg");
-    const method = (document.querySelector('input[name="payMethod"]:checked') || {}).value;
-    if (!PAY.blob) { msg.className = "msg err"; msg.textContent = "Ajoute d'abord la capture de ton paiement (étape 2)."; document.getElementById("proofDrop").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
-    const rawPhone = document.getElementById("payPhone").value.trim();
+    const method = "wave";
+    if (!PAY.blob) { msg.className = "msg err"; msg.textContent = "Insère d'abord la capture de ton paiement Wave."; document.getElementById("proofDrop").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    const rawPhone = "";
     const payer = rawPhone ? phoneNormalize(rawPhone) : null;
     if (rawPhone && !payer) { msg.className = "msg err"; msg.textContent = "Numéro payeur invalide."; return; }
     busy = true; msg.className = "msg"; msg.textContent = "Envoi de ta preuve…";
     const btn = document.querySelector(".pay-submit"); if (btn) btn.disabled = true;
     try {
-      const { data, error } = await sb.rpc("submit_payment", { p_exam: code, p_method: method, p_sender_phone: payer, p_reference: document.getElementById("payRef").value.trim() || null });
+      const { data, error } = await sb.rpc("submit_payment", { p_exam: code, p_method: method, p_sender_phone: payer, p_reference: null });
       if (error) throw error;
       try { await uploadProof(data); toast("Preuve envoyée ✓ Ton paiement est en cours de vérification.", "ok"); }
-      catch (e2) { toast("Paiement déclaré, mais la capture n'a pas pu être envoyée (" + storageErrProof(e2) + "). Réessaie depuis cette page ou envoie-la sur WhatsApp.", "err"); }
+      catch (e2) { toast("Paiement déclaré, mais la capture n'a pas pu être envoyée (" + storageErrProof(e2) + "). Réessaie depuis cette page ou envoie-la sur WhatsApp au " + (C.WHATSAPP_DISPLAY || "") + ".", "err"); }
       await loadAccount(); route(); window.scrollTo(0, 0);
     } catch (e) { msg.className = "msg err"; msg.textContent = errText(e); }
     finally { busy = false; if (btn) btn.disabled = false; }
@@ -1495,7 +1500,7 @@
 
   /* ----- Questions sur l'utilisation de l'application ----- */
   const JIA_FAQ = [
-    { k: ["payer", "paiement", "wave", "orange", "money", "prix", "tarif", "combien coute", "fcfa", "acheter"], a: () => `Pour activer un parcours :\n• Ouvre le parcours souhaité puis « Activer ce parcours ».\n• Envoie le montant indiqué par Wave au ${C.WAVE_NUMBER || "numéro affiché"} ou par Orange Money au ${C.ORANGE_MONEY_NUMBER || "numéro affiché"}.\n• Saisis ton numéro et la référence de la transaction dans le formulaire.\n• L'administrateur valide ton paiement, puis le parcours s'ouvre.` },
+    { k: ["payer", "paiement", "wave", "orange", "money", "prix", "tarif", "combien coute", "fcfa", "acheter"], a: () => `Pour activer un parcours :\n• Ouvre le parcours souhaité puis « Activer ce parcours ».\n• Envoie le montant indiqué uniquement par Wave au ${C.WAVE_NUMBER || "numéro affiché"} (bouton « Copier le numéro »).\n• Insère la capture du paiement Wave puis touche « Envoyer ma preuve de paiement ».\n• L'administrateur valide ton paiement, puis le parcours s'ouvre.` },
     { k: ["active", "activation", "attente", "valide", "validation", "pas ouvert", "bloque", "acces"], a: () => `Après ton paiement, ton parcours reste « en attente » jusqu'à la validation par l'administrateur.\n• Touche « J'ai été validé ? Actualiser » sur la page du parcours.\n• Si c'est long, écris sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"} avec ta référence de transaction.` },
     { k: ["installer", "installation", "telecharger", "application", "ecran accueil", "playstore", "iphone", "android"], a: () => `Pour installer LUKOS-REVISION sur ton téléphone :\n• Android (Chrome) : touche « Installer » dans le message affiché, ou menu ⋮ › « Installer l'application ».\n• iPhone (Safari) : bouton Partager › « Sur l'écran d'accueil ».\nL'application s'ouvre ensuite comme une vraie application, en plein écran.` },
     { k: ["mot de passe", "passe", "oublie", "connexion", "connecter", "inscription", "inscrire", "compte"], a: () => `• Pour t'inscrire : écran d'accueil › « Créer un compte » (prénom, nom, téléphone, mot de passe).\n• Pour changer ton mot de passe : « Mon compte » › « Changer le mot de passe ».\n• Mot de passe oublié : contacte l'administrateur sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"}.` },
