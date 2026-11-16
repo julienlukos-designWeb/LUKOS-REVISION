@@ -1,0 +1,56 @@
+/* =====================================================================
+   LUKOS-REVISION — Module d'apprentissage RDG-RSA
+   ===================================================================== */
+.exam-row.exam-crs { border-color: #e0b43a; box-shadow: 0 6px 0 #b8860b, 0 10px 22px rgba(184, 134, 11, .18); }
+.exam-crs .exam-ico { background: linear-gradient(135deg, #8a6100, #d9a521); color: #fff; }
+.exam-crs .exam-go { color: #8a6100; }
+.exam-row.exam-crs.locked { filter: saturate(.55); opacity: .85; }
+
+.crs-hero { background: linear-gradient(135deg, #5c3d00 0%, #8a6100 55%, #c48f12 100%) !important; }
+.crs-prog { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.crs-prog .bar { height: 10px; border-radius: 999px; background: #eef2f8; overflow: hidden; }
+.crs-prog .bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #c48f12, #e8b93a); }
+.crs-prog .btn { white-space: normal; text-align: center; line-height: 1.3; }
+.crs-search { margin-top: 12px; }
+.crs-search input { width: 100%; }
+.crs-hit { display: block; padding: 10px 4px; border-bottom: 1px solid #eef2f8; text-decoration: none; color: inherit; }
+.crs-hit b { display: block; color: #5c3d00; font-size: .95rem; }
+.crs-hit small { color: #5b6b82; line-height: 1.35; }
+
+.crs-parts { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.crs-part { background: #fff; border: 1px solid #e3e9f2; border-radius: 18px; box-shadow: 0 4px 14px rgba(11, 31, 58, .06); overflow: hidden; }
+.crs-part > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+.crs-part > summary::-webkit-details-marker { display: none; }
+.crs-part > summary::after { content: "▾"; margin-left: auto; color: #8a6100; transition: transform .2s; }
+.crs-part[open] > summary::after { transform: rotate(180deg); }
+.crs-pn { flex: 0 0 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #8a6100, #d9a521); }
+.crs-pt { display: flex; flex-direction: column; min-width: 0; }
+.crs-pt small { color: #5b6b82; font-size: .8rem; margin-top: 2px; }
+.crs-pbody { padding: 0 10px 10px; }
+.crs-chap { margin: 10px 6px 4px; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #8a6100; }
+.crs-item { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-radius: 12px; text-decoration: none; color: #14213a; }
+.crs-item:active, .crs-item:hover { background: #fbf6e9; }
+.crs-no { flex: 0 0 34px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: .85rem; background: #f3eedf; color: #5c3d00; }
+.crs-it { flex: 1; font-size: .93rem; line-height: 1.3; }
+.crs-ck { flex: 0 0 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; font-weight: 900; }
+.crs-item.read .crs-ck { background: #2e7d32; color: #fff; }
+.crs-item.read .crs-no { background: #e7f5ea; color: #1b5e20; }
+.badge.upd { background: #fff1d6; color: #8a4b00; font-size: .68rem; vertical-align: middle; }
+
+.crs-lesson { margin-top: 14px; padding: 18px; }
+.crs-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.crs-meta span:not(.badge) { padding: 3px 10px; border-radius: 999px; background: #f3eedf; color: #5c3d00; font-size: .76rem; font-weight: 700; }
+.crs-body { font-size: 1.02rem; line-height: 1.65; color: #14213a; }
+.crs-body p { margin: 0 0 10px; }
+.crs-body ul, .crs-body ol { margin: 0 0 10px; padding-left: 22px; }
+.crs-body li { margin-bottom: 4px; }
+.crs-body b { color: #0b1f3a; }
+.crs-tw { overflow-x: auto; margin: 6px -4px 14px; padding: 0 4px; -webkit-overflow-scrolling: touch; }
+.crs-tw table { border-collapse: collapse; min-width: 100%; font-size: .82rem; line-height: 1.35; }
+.crs-tw td { border: 1px solid #d9e1ec; padding: 6px 8px; vertical-align: top; min-width: 90px; }
+.crs-tw tr:first-child td { background: #f3eedf; font-weight: 700; }
+.crs-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; margin: 14px 0 24px; }
+.crs-nav .btn { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+.crs-lock { margin-top: 16px; }
+.label-up.crs-label { margin-top: 22px; }
+.exam-crs .exam-ico { box-shadow: 0 4px 0 #6b4a00; }

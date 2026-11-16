@@ -158,13 +158,15 @@
     if (!S.session || !S.profile) return;
     const uid = S.session.user.id;
     const old = await idb.get("acct");
-    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; }
+    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; CRS.data = null; CRS.read = null; }
     S.verifiedAt = Date.now();
     await idb.set("acct", { uid, profile: S.profile, enr: S.enr, exams: S.exams, payments: S.payments, verifiedAt: S.verifiedAt });
     // accès retiré ou suspendu : on efface le contenu gardé sur le téléphone
     S.offMeta = (await idb.get("offmeta")) || {};
     for (const code of Object.keys(S.offMeta)) if (!hasAccess(code)) { await idb.del("exam:" + code); delete S.offMeta[code]; }
     await idb.set("offmeta", S.offMeta);
+    // module RDG-RSA : retiré du téléphone si plus aucun parcours actif
+    if (!crsUnlocked()) { await idb.del("course:" + CRS.code); CRS.data = null; CRS.idx = null; }
   }
   async function enterOffline() {
     const acct = await idb.get("acct");
@@ -334,6 +336,7 @@
       if (exRunning() && !(p[0] === "p" && p[1] === S.exam.exam && p[2] === "examen")) { toast("Examen en cours : remets ta copie avant de quitter l'épreuve.", "err"); return go("#/p/" + S.exam.exam + "/examen"); }
       if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
+      if (p[0] === "cours") return await renderCourse(p[1]);
       if (p[0] === "profil") return renderProfile();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
       return renderHome();
@@ -530,6 +533,7 @@
           <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}${S.offMeta[e.code] && hasAccess(e.code) ? ` <span class="badge off">📥 HORS CONNEXION</span>` : ""}</span></span>
           <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
+      ${crsHomeCard()}
       <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
   }
   function serviceCard() {
@@ -1388,6 +1392,7 @@
       if (act === "logout") return logout();
       if (act === "auth-mode") { S.authMode = el.dataset.mode; return renderAuth(); }
       if (act === "open-exam") return go("#/p/" + el.dataset.exam);
+      if (act === "open-course") return go("#/cours");
       if (act === "refresh-account") { await loadAccount(); toast(hasAccess(parts()[1]) ? "Parcours activé !" : "Toujours en attente de validation.", hasAccess(parts()[1]) ? "ok" : ""); return route(); }
       if (act === "copy-txt") { ev.preventDefault(); const pm = el.closest(".pm"); if (pm) pm.querySelector("input").checked = true; return copyText(el.dataset.v, el); }
       if (act === "pay-proof") return sendPendingProof(el.dataset.id);
@@ -1529,6 +1534,7 @@
       if (!hasAccess(p[1])) return { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
       return { mode: "exam", label: "Recherche dans " + ex.name, codes: [p[1]], exam: ex };
     }
+    if (p[0] === "cours" && crsUnlocked()) return { mode: "course", label: "Recherche dans le cours " + CRS.name, codes: [] };
     const codes = S.exams.filter((e) => hasAccess(e.code)).map((e) => e.code);
     return { mode: "home", label: codes.length ? "Recherche dans tes parcours activés" : "Aide et activation des parcours", codes };
   }
@@ -1536,11 +1542,13 @@
     const n = S.profile ? esc(S.profile.first_name) : "";
     if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>. Je peux t'aider à créer ton compte, te connecter, installer l'application ou payer ton parcours.`;
     if (c.mode === "locked") return `Bonjour ${n} 👋 Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi. Je peux t'expliquer comment le payer et l'activer.`;
+    if (c.mode === "course") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(CRS.name)}</b> (discipline, salut, permissions, punitions…) : je trouve le passage et l'article correspondant.`;
     if (c.mode === "exam") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi n'importe quelle question du parcours <b>${esc(c.exam.name)}</b> : je trouve la réponse tout de suite, même avec des fautes ou des abréviations (CAT, MGO, ARI…).`;
     return c.codes.length ? `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Je cherche dans tous tes parcours activés : ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")}.` : `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Active un parcours pour que je puisse répondre à tes questions de révision. Je peux t'expliquer comment faire.`;
   }
   function jSuggest(c) {
     if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "Comment payer ?"];
+    if (c.mode === "course") return ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"];
     if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Contacter l'administrateur"];
     const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"] };
     const code = c.codes[0];
@@ -1604,6 +1612,14 @@
     const c = jContext();
     JIA.busy = true;
     try {
+      if (c.mode === "course") {
+        await crsLoad();
+        const cr = crsSearch(raw);
+        const faq = jFaq(raw);
+        if (cr.length && !(faq && cr[0].s < 3)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
+        if (faq) return jPush("bot", formatAnswer(faq));
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. « permission », « salut », « arrêts ») ou un numéro d'article (ex. « article 45 »).`);
+      }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
         const res = jSearch(raw, c.codes);
@@ -1613,6 +1629,7 @@
           return jPush("bot", out.html, out.extra);
         }
         if (faq) return jPush("bot", formatAnswer(faq));
+        if (crsUnlocked()) { try { await crsLoad(); const cr = crsSearch(raw); if (cr.length) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); } } catch (e) { /* cours non installé */ } }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.`);
       }
@@ -1632,6 +1649,7 @@
     const a = el.dataset.jia;
     if (a === "close") return jClose();
     if (a === "ask") return jAsk(el.dataset.q);
+    if (a === "crs") { jClose(); return go("#/cours/" + el.dataset.no); }
     if (a === "show") { const q = jFind(el.dataset.code, el.dataset.id); if (!q) return; const out = jRender({ it: { x: q, code: el.dataset.code } }, [], jContext()); jPush("me", esc(q.question)); return jPush("bot", out.html, out.extra); }
     if (a === "fiche") {
       const code = el.dataset.code, q = jFind(code, el.dataset.id); if (!q) return;
@@ -1641,6 +1659,154 @@
     }
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && JIA.open) jClose(); });
+
+  /* ------------------------------------------------------------------ */
+  /* Module d'apprentissage RDG-RSA (cours, sans quiz)                  */
+  /* Ouvert automatiquement à tout membre ayant au moins 1 parcours actif */
+  /* ------------------------------------------------------------------ */
+  const CRS = { code: "RDG-RSA", name: "RDG-RSA", full: "Règlement de discipline générale dans les Forces armées", data: null, idx: null, read: null, uid: null, q: "" };
+  const crsUnlocked = () => !!S.profile && (isAdmin() || (!S.profile.is_blocked && Object.values(S.enr || {}).some((e) => e && e.status === "active")));
+  const crsKey = () => "course:" + CRS.code;
+  async function crsLoad() {
+    if (CRS.data) return CRS.data;
+    let rows = null;
+    if (!S.offline) {
+      try {
+        const { data, error } = await sb.from("course_lessons").select("part_no,part_title,chapter_no,chapter_title,position,article_no,title,body_html,updated_2013").eq("course", CRS.code).order("position");
+        if (error) throw error;
+        rows = data || [];
+        if (rows.length) await idb.set(crsKey(), rows);
+      } catch (e) { rows = await idb.get(crsKey()); if (!rows || !rows.length) throw e; }
+    } else rows = await idb.get(crsKey());
+    if (!rows || !rows.length) throw new Error(S.offline ? "Le cours n'est pas encore téléchargé sur ce téléphone. Connecte-toi une fois à Internet pour l'ouvrir." : "Le cours n'est pas encore installé (script 08_module_rdg_rsa.sql).");
+    CRS.data = rows; CRS.idx = null;
+    return rows;
+  }
+  async function crsLoadRead() {
+    const uid = S.session && S.session.user.id;
+    if (CRS.read && CRS.uid === uid) return CRS.read;
+    const r = (await idb.get("crsread:" + uid)) || { ids: [], last: null };
+    CRS.read = { ids: new Set(r.ids || []), last: r.last || null }; CRS.uid = uid;
+    return CRS.read;
+  }
+  async function crsMarkRead(no) {
+    const r = await crsLoadRead(); r.ids.add(no); r.last = no;
+    await idb.set("crsread:" + CRS.uid, { ids: [...r.ids], last: r.last });
+  }
+  function crsHomeCard() {
+    const ok = crsUnlocked();
+    return `<div class="label-up crs-label">MODULE D'APPRENTISSAGE</div>
+      <div class="exam-list"><button class="exam-row exam-crs ${ok ? "" : "locked"}" data-act="open-course">
+        <span class="exam-ico">${icon("shield", 28)}</span>
+        <span class="exam-txt"><b>${esc(CRS.name)}</b><small>${esc(CRS.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
+        <span class="exam-go">${icon("next", 22)}</span>
+      </button></div>`;
+  }
+  function crsHero(title, sub, crumb) {
+    return `<section class="hero crs-hero"><div class="hero-top"><a class="icon-btn" href="${crumb ? "#/cours" : "#/"}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/cours">${esc(CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+  }
+  async function renderCourse(no) {
+    homeBottomNav("home");
+    document.body.className = "crs-page";
+    if (!crsUnlocked()) {
+      app.innerHTML = `${crsHero(CRS.name, CRS.full)}<div class="card center crs-lock"><div style="font-size:2.6rem">🔒</div><h2>Module réservé aux membres actifs</h2><p>Ce cours s'ouvre <b>automatiquement et gratuitement</b> dès que tu as au moins un parcours activé.</p><a class="btn btn-primary" href="#/">Activer un parcours</a></div>`;
+      return;
+    }
+    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du cours ${esc(CRS.name)}…</p></div>`;
+    const rows = await crsLoad(); await crsLoadRead();
+    if (no) return crsLesson(rows, parseInt(no, 10));
+    crsSummary(rows);
+  }
+  function crsSummary(rows) {
+    const r = CRS.read, n = rows.length, done = rows.filter((x) => r.ids.has(x.article_no)).length, pct = n ? Math.round(done * 100 / n) : 0;
+    const last = rows.find((x) => x.article_no === r.last);
+    const nextUnread = rows.find((x) => !r.ids.has(x.article_no));
+    const resume = last || nextUnread || rows[0];
+    let html = "", part = null, chap = null;
+    rows.forEach((x) => {
+      if (x.part_no !== part) {
+        if (part !== null) html += `</div></details>`;
+        const inPart = rows.filter((y) => y.part_no === x.part_no), pd = inPart.filter((y) => r.ids.has(y.article_no)).length;
+        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>Articles ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} lus</small></span></summary><div class="crs-pbody">`;
+        part = x.part_no; chap = null;
+      }
+      if (x.chapter_no !== chap) { html += `<div class="crs-chap">${esc(x.chapter_title)}</div>`; chap = x.chapter_no; }
+      html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="#/cours/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
+    });
+    if (part !== null) html += `</div></details>`;
+    app.innerHTML = `${crsHero(CRS.name, CRS.full + " — " + n + " articles")}
+      <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} articles lus</span></div><div class="bar"><i style="width:${pct}%"></i></div>
+        ${resume ? `<a class="btn btn-primary btn-block" href="#/cours/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : Article ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
+      <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. permission, salut, punition…)" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
+      <div class="crs-parts">${html}</div>
+      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique l'article.</span></div>`;
+    const q = document.getElementById("crsQ");
+    const run = () => { CRS.q = q.value; crsShowSearch(q.value); };
+    q.addEventListener("input", run); if (CRS.q) run();
+  }
+  function crsShowSearch(raw) {
+    const box = document.getElementById("crsRes"); if (!box) return;
+    if (String(raw || "").trim().length < 2) { box.innerHTML = ""; return; }
+    const res = crsSearch(raw, 8);
+    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="#/cours/${x.it.no}"><b>Article ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
+      : `<p class="muted small" style="margin:10px 2px 0">Aucun résultat pour « ${esc(raw)} ».</p>`;
+  }
+  async function crsLesson(rows, no) {
+    const i = rows.findIndex((x) => x.article_no === no);
+    if (i < 0) return go("#/cours");
+    const x = rows[i], prev = rows[i - 1], next = rows[i + 1];
+    await crsMarkRead(no);
+    app.innerHTML = `${crsHero("Article " + x.article_no, x.title, "Article " + x.article_no)}
+      <article class="card crs-lesson">
+        <div class="crs-meta"><span>Partie ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
+        <div class="crs-body">${x.body_html}</div>
+      </article>
+      <div class="crs-nav">
+        ${prev ? `<a class="btn btn-ghost" href="#/cours/${prev.article_no}">← Article ${prev.article_no}</a>` : `<span></span>`}
+        <a class="btn btn-ghost" href="#/cours">Sommaire</a>
+        ${next ? `<a class="btn btn-primary" href="#/cours/${next.article_no}">Article ${next.article_no} →</a>` : `<a class="btn btn-primary" href="#/cours">Terminé ✓</a>`}
+      </div>`;
+  }
+  /* Recherche dans le cours (utilisée par la page et par Julien – IA) */
+  function crsIndex() {
+    if (CRS.idx) return CRS.idx;
+    const div = document.createElement("div"), items = [];
+    (CRS.data || []).forEach((L) => {
+      div.innerHTML = L.body_html;
+      const head = jExpand(jTok("article " + L.article_no + " " + L.title + " " + L.chapter_title));
+      const blocks = [...div.querySelectorAll("p, li, tr")].filter((b) => !(b.tagName === "P" && b.closest("li, td")));
+      const texts = blocks.map((b) => b.textContent.replace(/\s+/g, " ").trim()).filter((t) => t.length > 2);
+      if (!texts.length) texts.push(L.title);
+      texts.forEach((t, k) => items.push({ no: L.article_no, title: L.title, chap: L.chapter_title, k, text: t, t: new Set(head), b: new Set(jTok(t)) }));
+    });
+    return (CRS.idx = items);
+  }
+  function crsSearch(raw, max) {
+    if (!CRS.data) return [];
+    const m = norm(raw).match(/\bart(?:icle)?\.?\s*(\d{1,3})\b/);
+    if (m) { const it = crsIndex().find((x) => x.no === parseInt(m[1], 10)); if (it) return [{ s: 99, it }]; }
+    const words = jExpand(jTok(raw)); if (!words.length) return [];
+    const res = [];
+    crsIndex().forEach((it) => {
+      let s = 0, hit = 0;
+      words.forEach((w) => { const mt = jMatch(w, it.t), mb = jMatch(w, it.b); if (mt || mb) { s += 2 * mt + 1.5 * mb; hit++; } });
+      if (!hit) return;
+      s = s * (hit / words.length) * (hit / words.length);
+      if (it.k === 0) s += 0.2;
+      res.push({ s, it });
+    });
+    res.sort((a, b) => b.s - a.s);
+    const seen = new Set();
+    return res.filter((r) => !seen.has(r.it.no) && seen.add(r.it.no)).slice(0, max || 4).filter((r, i, arr) => r.s >= Math.max(0.9, arr[0].s * 0.35));
+  }
+  function crsAnswer(res) {
+    const r = res[0], it = r.it;
+    const all = crsIndex().filter((x) => x.no === it.no);
+    const ctx = all.slice(Math.max(0, it.k), it.k + 2).map((x) => `<p>${esc(x.text)}</p>`).join("");
+    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">Article ${it.no} – ${esc(it.title)}</div>`;
+    const more = res.length > 1 ? `<div class="jia-alts"><small>Articles proches :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-no="${a.it.no}">Article ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
+    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-no="${it.no}">📖 Lire l'article ${it.no}</button></div>` + more };
+  }
 
   /* ------------------------------------------------------------------ */
   /* Simulateur d'examen : réponses rédigées, chronomètre, note sur 20   */
