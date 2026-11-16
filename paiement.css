@@ -165,9 +165,9 @@
   background: #1fa855; box-shadow: 0 8px 20px rgba(31, 168, 85, .35); }
 #payForm .pay-submit:disabled { background: #9fb3a6; box-shadow: none; }
 
-/* Bouton WhatsApp flottant (assistance) */
-.wa-fab { position: fixed; right: 14px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); z-index: 900; display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 16px 10px 12px; border-radius: 999px; background: #25d366; color: #fff; text-decoration: none; font-weight: 800; font-size: .95rem;
-  box-shadow: 0 8px 22px rgba(37, 211, 102, .45); }
-.wa-fab:active { transform: scale(.96); }
+/* Bouton WhatsApp flottant (assistance) — petit, à gauche pour ne pas cacher Julien – IA ni les boutons du bas */
+.wa-fab { position: fixed; left: 12px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 900; width: 48px; height: 48px;
+  display: grid; place-items: center; border-radius: 50%; background: #25d366; text-decoration: none; box-shadow: 0 6px 16px rgba(37, 211, 102, .45); }
+.wa-fab:active { transform: scale(.94); }
+body:has(.jia-panel:not([hidden])) .wa-fab { display: none; }
 @media print { .wa-fab { display: none; } }

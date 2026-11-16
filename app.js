@@ -385,7 +385,7 @@
     a.id = "waFab"; a.className = "wa-fab"; a.target = "_blank"; a.rel = "noopener noreferrer";
     a.setAttribute("aria-label", "Contacter l'assistance sur WhatsApp");
     a.href = "https://wa.me/" + encodeURIComponent(C.WHATSAPP_NUMBER) + "?text=" + encodeURIComponent("Bonjour LUKOS, j'ai besoin d'aide sur l'application LUKOS-REVISION.");
-    a.innerHTML = `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.2-3.8 1.2 1.2-3.7-.3-.4a10.4 10.4 0 0 1-1.7-5.8C5.1 10 10 5.3 16 5.3S26.9 10 26.9 15.8 22 26.4 16 26.4zm6-7.8c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5v-.5l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.7s1.2 3.2 1.4 3.4c.2.2 2.4 3.6 5.8 5 2.9 1.1 3.5.9 4.1.8.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5-.1-.2-.3-.3-.6-.4z"/></svg><span>Assistance</span>`;
+    a.innerHTML = `<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.2-3.8 1.2 1.2-3.7-.3-.4a10.4 10.4 0 0 1-1.7-5.8C5.1 10 10 5.3 16 5.3S26.9 10 26.9 15.8 22 26.4 16 26.4zm6-7.8c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5v-.5l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.7s1.2 3.2 1.4 3.4c.2.2 2.4 3.6 5.8 5 2.9 1.1 3.5.9 4.1.8.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5-.1-.2-.3-.3-.6-.4z"/></svg>`;
     document.body.appendChild(a);
   }
 
@@ -961,12 +961,12 @@
     const p = S.profile;
     const stLabel = { pending: ["warn", "EN ATTENTE"], successful: ["ok", "VALIDÉ"], rejected: ["bad", "REFUSÉ"] };
     app.innerHTML = `<h1>Mon compte</h1><div class="grid-2">
-      <div class="card"><h3>Mes informations</h3><form id="profileForm">
-        <label for="pFirst">Prénom</label><input id="pFirst" value="${esc(p.first_name)}" maxlength="60" required>
-        <label for="pLast">Nom</label><input id="pLast" value="${esc(p.last_name)}" maxlength="60" required>
-        ${p.service !== undefined ? `<label for="pService">Service / Corps</label><select id="pService">${serviceOptions(p.service || "")}</select>` : ""}
+      <div class="card"><h3>Mes informations</h3>
+        <label>Prénom</label><input value="${esc(p.first_name)}" disabled>
+        <label>Nom</label><input value="${esc(p.last_name)}" disabled>
+        ${p.service !== undefined ? `<label>Service / Corps</label><input value="${esc(p.service || "—")}" disabled>` : ""}
         <label>Téléphone (identifiant)</label><input value="${esc(phonePretty(p.phone))}" disabled>
-        <button class="btn btn-dark" style="margin-top:14px">Enregistrer</button><div class="msg" id="profMsg"></div></form>
+        <p class="muted" style="margin-top:10px;font-size:.88rem">Une erreur dans tes informations ? Contacte l'assistance sur WhatsApp au ${esc(C.WHATSAPP_DISPLAY || "")}.</p>
         <div class="sep"></div><h3>Changer de mot de passe</h3><form id="passForm"><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" minlength="8"><label for="np2">Confirmer</label><input id="np2" type="password" autocomplete="new-password" minlength="8"><button class="btn btn-ghost" style="margin-top:14px">Modifier le mot de passe</button><div class="msg" id="passMsg"></div></form></div>
       <div class="stack"><div class="card"><h3>Mes parcours</h3>${S.exams.map((e) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(e.name)}</b>${statusBadge(e.code)}</div>`).join("")}</div>
         <div class="card"><h3>Mes paiements</h3>${S.payments.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Parcours</th><th>Montant</th><th>État</th></tr>${S.payments.map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc((examByCode(x.exam_code) || {}).name || x.exam_code)}</td><td>${esc(fmtXof(x.amount_xof))}</td><td><span class="badge ${stLabel[x.status][0]}">${stLabel[x.status][1]}</span></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucun paiement.</p>`}</div>
@@ -1425,7 +1425,7 @@
   document.addEventListener("change", (ev) => { const el = ev.target; if (el.matches && el.matches('select[data-act="ad-enr"]')) setEnrollment(el); });
   document.addEventListener("submit", (ev) => {
     const id = ev.target.id;
-    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, examForm: startExam, serviceForm: saveService, payForm: submitPayment, profileForm: saveProfile, passForm: changePass, qForm: saveQuestion };
+    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, examForm: startExam, serviceForm: saveService, payForm: submitPayment, passForm: changePass, qForm: saveQuestion };
     if (map[id]) return map[id](ev);
     if (ev.target.dataset.examForm) { ev.preventDefault(); saveExam(ev.target); }
   });
