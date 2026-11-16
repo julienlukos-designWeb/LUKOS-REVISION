@@ -530,7 +530,7 @@
           <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}${S.offMeta[e.code] && hasAccess(e.code) ? ` <span class="badge off">📥 HORS CONNEXION</span>` : ""}</span></span>
           <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
-      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave ou Orange Money. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
   }
   function serviceCard() {
     return `<form class="card ex-service" id="serviceForm"><b>Complète ton profil</b><p class="small muted">Indique ton service ou corps pour que nous puissions mieux t'accompagner.</p>

@@ -169,5 +169,5 @@
 .wa-fab { position: fixed; left: 12px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 900; width: 48px; height: 48px;
   display: grid; place-items: center; border-radius: 50%; background: #25d366; text-decoration: none; box-shadow: 0 6px 16px rgba(37, 211, 102, .45); }
 .wa-fab:active { transform: scale(.94); }
-body:has(.jia-panel:not([hidden])) .wa-fab { display: none; }
+body:has(.jia-panel:not([hidden])) .wa-fab, body:has(.inst-overlay) .wa-fab, body:has(#payForm) .wa-fab { display: none; }
 @media print { .wa-fab { display: none; } }
