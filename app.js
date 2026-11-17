@@ -1,5 +1,5 @@
 /* =====================================================================
-   LUKOS-REVISION — Application (DAP · DQEG · CAT-1/CAT-2 INFANTERIE · CAT-1/CAT-2 BNSP)
+   LUKOS-REVISION — Application (DAP · DQEG · CAT-1/CAT-2 INFANTERIE · CAT-1/CAT-2 BNSP · POLICE)
    Conçu par Julien Dath Yanghane SENE (LUKOS)
    Sécurité : aucune donnée n'est insérée dans la page sans échappement,
    aucun gestionnaire d'événement « inline », toutes les écritures passent
@@ -100,11 +100,12 @@
     DAP:  { icon: "book", tagline: "Prépare ton DAP avec méthode et efficacité." },
     DQEG: { icon: "cap", tagline: "Prépare ton DQEG avec méthode et efficacité." },
     CAT:  { icon: "star", tagline: "Prépare tes CAT-1/CAT-2 Infanterie avec méthode et efficacité." },
-    BNSP: { icon: "flame", tagline: "Prépare tes CAT-1/CAT-2 BNSP (sapeurs-pompiers) avec méthode et efficacité." }
+    BNSP: { icon: "flame", tagline: "Prépare tes CAT-1/CAT-2 BNSP (sapeurs-pompiers) avec méthode et efficacité." },
+    POLICE: { icon: "shield", tagline: "Prépare le concours professionnel des sous-officiers de la Police nationale : cours complet, révision, quiz et examen blanc." }
   };
 
   /* Service / corps du membre */
-  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"]];
+  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"], ["police", "Police nationale"]];
   const serviceLabel = (v) => (SERVICES.find((s) => s[0] === v) || [])[1] || "";
   const serviceOptions = (cur) => `<option value="" ${cur ? "" : "selected"} disabled>Choisis ton service ou corps</option>` + SERVICES.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("");
   const PROFILE_COLS = "id,first_name,last_name,phone,role,is_blocked,created_at";
@@ -158,15 +159,15 @@
     if (!S.session || !S.profile) return;
     const uid = S.session.user.id;
     const old = await idb.get("acct");
-    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; CRS.data = null; CRS.read = null; }
+    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; Object.values(COURSES).forEach((c) => { c.data = null; c.read = null; c.idx = null; }); }
     S.verifiedAt = Date.now();
     await idb.set("acct", { uid, profile: S.profile, enr: S.enr, exams: S.exams, payments: S.payments, verifiedAt: S.verifiedAt });
     // accès retiré ou suspendu : on efface le contenu gardé sur le téléphone
     S.offMeta = (await idb.get("offmeta")) || {};
     for (const code of Object.keys(S.offMeta)) if (!hasAccess(code)) { await idb.del("exam:" + code); delete S.offMeta[code]; }
     await idb.set("offmeta", S.offMeta);
-    // module RDG-RSA : retiré du téléphone si plus aucun parcours actif
-    if (!crsUnlocked()) { await idb.del("course:" + CRS.code); CRS.data = null; CRS.idx = null; }
+    // cours (RDG-RSA, cours d'un parcours) : retirés du téléphone si l'accès n'est plus actif
+    for (const c of Object.values(COURSES)) if (!crsOk(c)) { await idb.del(crsKey(c)); c.data = null; c.idx = null; }
   }
   async function enterOffline() {
     const acct = await idb.get("acct");
@@ -220,6 +221,8 @@
         if (m && Date.now() - m < 86400000) continue;
         await loadExamData(e.code, true).catch(() => {});
       }
+      // cours propres à un parcours activé : gardés aussi sur le téléphone
+      for (const c of Object.values(COURSES)) if (c.exam && crsOk(c) && !c.data) await crsLoad(c).catch(() => {});
     } finally { prefetching = false; }
   }
 
@@ -336,7 +339,7 @@
       if (exRunning() && !(p[0] === "p" && p[1] === S.exam.exam && p[2] === "examen")) { toast("Examen en cours : remets ta copie avant de quitter l'épreuve.", "err"); return go("#/p/" + S.exam.exam + "/examen"); }
       if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
-      if (p[0] === "cours") return await renderCourse(p[1]);
+      if (p[0] === "cours") { crsUse("RDG-RSA"); return await renderCourse(p[1]); }
       if (p[0] === "profil") return renderProfile();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
       return renderHome();
@@ -402,7 +405,7 @@
     const login = S.authMode === "login";
     app.innerHTML = `<div class="auth-wrap"><div class="auth">
       <div class="auth-head"><img class="big-logo" src="logo512.png" alt="Logo LUKOS-REVISION DAP / DQEG / CAT1-2" width="120" height="120"><h1>LUKOS-REVISION</h1><p class="muted">Ta plateforme de préparation aux examens</p>
-      <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT-1/CAT-2 INFANTERIE</span><span class="badge exam-BNSP acc">CAT-1/CAT-2 BNSP</span></div></div>
+      <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT-1/CAT-2 INFANTERIE</span><span class="badge exam-BNSP acc">CAT-1/CAT-2 BNSP</span><span class="badge exam-POLICE acc">POLICE · SOUS-OFFICIERS</span></div></div>
       <div class="card">
         <div class="seg" role="tablist"><button data-act="auth-mode" data-mode="login" class="${login ? "on" : ""}">Se connecter</button><button data-act="auth-mode" data-mode="signup" class="${!login ? "on" : ""}">Créer un compte</button></div>
         ${login ? `<form id="loginForm" autocomplete="on" novalidate>
@@ -452,7 +455,7 @@
     const p1 = document.getElementById("sPass").value, p2 = document.getElementById("sPass2").value;
     if (first.length < 2 || last.length < 2) return (msg.textContent = "Prénom et nom obligatoires.");
     const service = document.getElementById("sService").value;
-    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
+    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée, BNSP ou Police).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
     if (p1.length < 8) return (msg.textContent = "Le mot de passe doit contenir au moins 8 caractères.");
     if (!/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return (msg.textContent = "Le mot de passe doit contenir des lettres et des chiffres.");
@@ -558,7 +561,9 @@
   /* Parcours                                                           */
   /* ------------------------------------------------------------------ */
   function examBottomNav(code, cur) {
-    const items = [["accueil", "home", "Accueil"], ["matieres", "book", "Matières"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"], ["documents", "file", "Documents"]];
+    const items = courseOfExam(code)
+      ? [["accueil", "home", "Accueil"], ["cours", "file", "Cours"], ["matieres", "book", "Révision"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"]]
+      : [["accueil", "home", "Accueil"], ["matieres", "book", "Matières"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"], ["documents", "file", "Documents"]];
     bottomnav.className = "bottomnav show exam-" + code;
     bottomnav.innerHTML = items.map(([k, i, l]) => `<a href="#/p/${code}/${k}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(i, 20)}<span>${l}</span></a>`).join("");
   }
@@ -572,6 +577,7 @@
     document.body.className = "exam-" + code;
     if (!hasAccess(code)) return renderActivation(exam);
     examBottomNav(code, page === "revision" ? "matieres" : page === "examen" ? "quiz" : page);
+    if (page === "cours" && courseOfExam(code)) { crsUse(courseOfExam(code).code); return await renderCourse(rest[0]); }
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
     const d = await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
@@ -602,6 +608,7 @@
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
+      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>Cours complet</b><small>${esc(courseOfExam(exam.code).full)} — à lire leçon par leçon, avec ta progression</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
@@ -1447,6 +1454,8 @@
     cos: "commandant operations secours", pls: "position laterale securite", rcp: "reanimation cardio pulmonaire", bi: "bouche incendie", pi: "poteau incendie",
     ria: "robinet incendie arme", ssi: "systeme securite incendie", mpe: "motopompe", co2: "anhydride carbonique", nrbc: "nucleaire radiologique biologique chimique",
     avp: "accident voie publique", sp: "sapeurs pompiers", ept: "etablissement", ers: "etablissement repertorie", orsec: "organisation reponse securite civile",
+    opj: "officier police judiciaire", apj: "agent police judiciaire", cpp: "code procedure penale", rg: "renseignements generaux", paf: "police air frontieres",
+    dgpn: "direction generale police nationale", enp: "ecole nationale police", gmi: "groupement mobile intervention", thc: "tetrahydrocannabinol", lsd: "lsd",
     dap: "dap", dqeg: "dqeg", gnsp: "groupement national sapeurs pompiers", bnsp: "brigade nationale sapeurs pompiers", lrac: "lance roquette antichar"
   };
   const jTok = (s) => norm(s).replace(/['’]/g, " ").split(/[^a-z0-9]+/).filter((w) => w && w.length > 1 && !JIA_STOP.has(w)).map((w) => (w.length > 3 && /[sx]$/.test(w) && !/(ss|us|is|as)$/.test(w) ? w.slice(0, -1) : w));
@@ -1530,11 +1539,13 @@
     if (exRunning()) return { mode: "quiz", label: "En pause pendant l'examen", codes: [] };
     if (p[0] === "p" && examByCode(p[1])) {
       const ex = examByCode(p[1]);
+      const pc = p[2] === "cours" && courseOfExam(p[1]);
+      if (pc && crsOk(pc)) return { mode: "course", label: "Recherche dans le cours " + ex.name, codes: [], course: pc.code };
       if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
       if (!hasAccess(p[1])) return { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
       return { mode: "exam", label: "Recherche dans " + ex.name, codes: [p[1]], exam: ex };
     }
-    if (p[0] === "cours" && crsUnlocked()) return { mode: "course", label: "Recherche dans le cours " + CRS.name, codes: [] };
+    if (p[0] === "cours" && crsOk(COURSES["RDG-RSA"])) return { mode: "course", label: "Recherche dans le cours " + COURSES["RDG-RSA"].name, codes: [], course: "RDG-RSA" };
     const codes = S.exams.filter((e) => hasAccess(e.code)).map((e) => e.code);
     return { mode: "home", label: codes.length ? "Recherche dans tes parcours activés" : "Aide et activation des parcours", codes };
   }
@@ -1542,15 +1553,15 @@
     const n = S.profile ? esc(S.profile.first_name) : "";
     if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>. Je peux t'aider à créer ton compte, te connecter, installer l'application ou payer ton parcours.`;
     if (c.mode === "locked") return `Bonjour ${n} 👋 Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi. Je peux t'expliquer comment le payer et l'activer.`;
-    if (c.mode === "course") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(CRS.name)}</b> (discipline, salut, permissions, punitions…) : je trouve le passage et l'article correspondant.`;
+    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}.`; }
     if (c.mode === "exam") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi n'importe quelle question du parcours <b>${esc(c.exam.name)}</b> : je trouve la réponse tout de suite, même avec des fautes ou des abréviations (CAT, MGO, ARI…).`;
     return c.codes.length ? `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Je cherche dans tous tes parcours activés : ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")}.` : `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Active un parcours pour que je puisse répondre à tes questions de révision. Je peux t'expliquer comment faire.`;
   }
   function jSuggest(c) {
     if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "Comment payer ?"];
-    if (c.mode === "course") return ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"];
+    if (c.mode === "course") return COURSES[c.course].sugg;
     if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Contacter l'administrateur"];
-    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"] };
+    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"], POLICE: ["Éléments constitutifs de l'infraction", "Qu'est-ce que le flagrant délit ?", "La rébellion"] };
     const code = c.codes[0];
     return (ex[code] || ["CAT devant une hémorragie", "Qu'est-ce que la MGO ?"]).concat(["Comment se passe le quiz ?"]);
   }
@@ -1574,7 +1585,7 @@
   }
   function jRefresh() {
     const c = jContext();
-    const key = c.mode + ":" + c.codes.join(",") + ":" + (c.exam ? c.exam.code : "");
+    const key = c.mode + ":" + c.codes.join(",") + ":" + (c.exam ? c.exam.code : "") + ":" + (c.course || "");
     jFab.hidden = c.mode === "quiz" || !configured;
     if (c.mode === "quiz" && JIA.open) jClose();
     document.getElementById("jiaCtx").textContent = c.label;
@@ -1613,12 +1624,13 @@
     JIA.busy = true;
     try {
       if (c.mode === "course") {
+        crsUse(c.course);
         await crsLoad();
         const cr = crsSearch(raw);
         const faq = jFaq(raw);
         if (cr.length && !(faq && cr[0].s < 3)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
         if (faq) return jPush("bot", formatAnswer(faq));
-        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. « permission », « salut », « arrêts ») ou un numéro d'article (ex. « article 45 »).`);
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.`);
       }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
@@ -1629,7 +1641,8 @@
           return jPush("bot", out.html, out.extra);
         }
         if (faq) return jPush("bot", formatAnswer(faq));
-        if (crsUnlocked()) { try { await crsLoad(); const cr = crsSearch(raw); if (cr.length) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); } } catch (e) { /* cours non installé */ } }
+        // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
+        for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, raw); if (out) return jPush("bot", out.html, out.extra); }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.`);
       }
@@ -1649,7 +1662,7 @@
     const a = el.dataset.jia;
     if (a === "close") return jClose();
     if (a === "ask") return jAsk(el.dataset.q);
-    if (a === "crs") { jClose(); return go("#/cours/" + el.dataset.no); }
+    if (a === "crs") { jClose(); crsUse(el.dataset.course || "RDG-RSA"); return go(CRS.base + "/" + el.dataset.no); }
     if (a === "show") { const q = jFind(el.dataset.code, el.dataset.id); if (!q) return; const out = jRender({ it: { x: q, code: el.dataset.code } }, [], jContext()); jPush("me", esc(q.question)); return jPush("bot", out.html, out.extra); }
     if (a === "fiche") {
       const code = el.dataset.code, q = jFind(code, el.dataset.id); if (!q) return;
@@ -1661,64 +1674,82 @@
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && JIA.open) jClose(); });
 
   /* ------------------------------------------------------------------ */
-  /* Module d'apprentissage RDG-RSA (cours, sans quiz)                  */
-  /* Ouvert automatiquement à tout membre ayant au moins 1 parcours actif */
+  /* Cours (lecture, sans quiz)                                          */
+  /*  - RDG-RSA : module offert à tout membre ayant au moins 1 parcours   */
+  /*  - Cours propres à un parcours (ex. POLICE) : ouverts avec ce parcours */
   /* ------------------------------------------------------------------ */
-  const CRS = { code: "RDG-RSA", name: "RDG-RSA", full: "Règlement de discipline générale dans les Forces armées", data: null, idx: null, read: null, uid: null, q: "" };
-  const crsUnlocked = () => !!S.profile && (isAdmin() || (!S.profile.is_blocked && Object.values(S.enr || {}).some((e) => e && e.status === "active")));
-  const crsKey = () => "course:" + CRS.code;
-  async function crsLoad() {
-    if (CRS.data) return CRS.data;
+  const COURSES = {
+    "RDG-RSA": { code: "RDG-RSA", name: "RDG-RSA", full: "Règlement de discipline générale dans les Forces armées", exam: null,
+      base: "#/cours", unit: "Article", partLabel: "Partie", heroClass: "crs-hero", readKey: (uid) => "crsread:" + uid,
+      hint: "permission, salut, punition…", sugg: ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE": { code: "POLICE", name: "Cours Police nationale", full: "Référentiel pédagogique du fonctionnaire de police", exam: "POLICE",
+      base: "#/p/POLICE/cours", unit: "Leçon", fem: true, partLabel: "Module", heroClass: "", readKey: (uid) => "crsread:POLICE:" + uid,
+      hint: "infraction, flagrant délit, rébellion…", sugg: ["Éléments constitutifs de l'infraction", "La légitime défense", "Accident mortel", "Le proxénétisme"],
+      data: null, idx: null, read: null, uid: null, q: "" }
+  };
+  let CRS = COURSES["RDG-RSA"];                       // cours affiché en ce moment
+  const crsUse = (code) => (CRS = COURSES[code] || COURSES["RDG-RSA"]);
+  const courseOfExam = (code) => Object.values(COURSES).find((c) => c.exam === code) || null;
+  const crsOk = (c) => !!S.profile && (isAdmin() || (!S.profile.is_blocked && (c.exam ? hasAccess(c.exam) : Object.values(S.enr || {}).some((e) => e && e.status === "active"))));
+  const crsUnlocked = () => crsOk(CRS);
+  const crsKey = (c) => "course:" + (c || CRS).code;
+  async function crsLoad(c) {
+    c = c || CRS;
+    if (c.data) return c.data;
     let rows = null;
     if (!S.offline) {
       try {
-        const { data, error } = await sb.from("course_lessons").select("part_no,part_title,chapter_no,chapter_title,position,article_no,title,body_html,updated_2013").eq("course", CRS.code).order("position");
+        const { data, error } = await sb.from("course_lessons").select("part_no,part_title,chapter_no,chapter_title,position,article_no,title,body_html,updated_2013").eq("course", c.code).order("position");
         if (error) throw error;
         rows = data || [];
-        if (rows.length) await idb.set(crsKey(), rows);
-      } catch (e) { rows = await idb.get(crsKey()); if (!rows || !rows.length) throw e; }
-    } else rows = await idb.get(crsKey());
-    if (!rows || !rows.length) throw new Error(S.offline ? "Le cours n'est pas encore téléchargé sur ce téléphone. Connecte-toi une fois à Internet pour l'ouvrir." : "Le cours n'est pas encore installé (script 08_module_rdg_rsa.sql).");
-    CRS.data = rows; CRS.idx = null;
+        if (rows.length) await idb.set(crsKey(c), rows);
+      } catch (e) { rows = await idb.get(crsKey(c)); if (!rows || !rows.length) throw e; }
+    } else rows = await idb.get(crsKey(c));
+    if (!rows || !rows.length) throw new Error(S.offline ? "Le cours n'est pas encore téléchargé sur ce téléphone. Connecte-toi une fois à Internet pour l'ouvrir." : "Le cours n'est pas encore installé sur le serveur.");
+    c.data = rows; c.idx = null;
     return rows;
   }
   async function crsLoadRead() {
     const uid = S.session && S.session.user.id;
     if (CRS.read && CRS.uid === uid) return CRS.read;
-    const r = (await idb.get("crsread:" + uid)) || { ids: [], last: null };
+    const r = (await idb.get(CRS.readKey(uid))) || { ids: [], last: null };
     CRS.read = { ids: new Set(r.ids || []), last: r.last || null }; CRS.uid = uid;
     return CRS.read;
   }
   async function crsMarkRead(no) {
     const r = await crsLoadRead(); r.ids.add(no); r.last = no;
-    await idb.set("crsread:" + CRS.uid, { ids: [...r.ids], last: r.last });
+    await idb.set(CRS.readKey(CRS.uid), { ids: [...r.ids], last: r.last });
   }
   function crsHomeCard() {
-    const ok = crsUnlocked();
+    const c = COURSES["RDG-RSA"], ok = crsOk(c);
     return `<div class="label-up crs-label">MODULE D'APPRENTISSAGE</div>
       <div class="exam-list"><button class="exam-row exam-crs ${ok ? "" : "locked"}" data-act="open-course">
         <span class="exam-ico">${icon("shield", 28)}</span>
-        <span class="exam-txt"><b>${esc(CRS.name)}</b><small>${esc(CRS.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
+        <span class="exam-txt"><b>${esc(c.name)}</b><small>${esc(c.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
         <span class="exam-go">${icon("next", 22)}</span>
       </button></div>`;
   }
   function crsHero(title, sub, crumb) {
-    return `<section class="hero crs-hero"><div class="hero-top"><a class="icon-btn" href="${crumb ? "#/cours" : "#/"}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/cours">${esc(CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+    const ex = CRS.exam && examByCode(CRS.exam);
+    const root = ex ? `<a href="#/">Parcours</a> › <a href="#/p/${esc(ex.code)}">${esc(ex.name)}</a> › ` : `<a href="#/">Parcours</a> › `;
+    const back = crumb ? CRS.base : (ex ? "#/p/" + ex.code : "#/");
+    return `<section class="hero ${CRS.heroClass}"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb">${root}${crumb ? `<a href="${CRS.base}">${esc(CRS.exam ? "Cours" : CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.exam ? "Cours" : CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
   }
   async function renderCourse(no) {
-    homeBottomNav("home");
-    document.body.className = "crs-page";
+    if (!CRS.exam) { homeBottomNav("home"); document.body.className = "crs-page"; }
     if (!crsUnlocked()) {
       app.innerHTML = `${crsHero(CRS.name, CRS.full)}<div class="card center crs-lock"><div style="font-size:2.6rem">🔒</div><h2>Module réservé aux membres actifs</h2><p>Ce cours s'ouvre <b>automatiquement et gratuitement</b> dès que tu as au moins un parcours activé.</p><a class="btn btn-primary" href="#/">Activer un parcours</a></div>`;
       return;
     }
-    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du cours ${esc(CRS.name)}…</p></div>`;
+    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du cours…</p></div>`;
     const rows = await crsLoad(); await crsLoadRead();
     if (no) return crsLesson(rows, parseInt(no, 10));
     crsSummary(rows);
   }
   function crsSummary(rows) {
     const r = CRS.read, n = rows.length, done = rows.filter((x) => r.ids.has(x.article_no)).length, pct = n ? Math.round(done * 100 / n) : 0;
+    const U = CRS.unit, Up = U.toLowerCase() + "s";
     const last = rows.find((x) => x.article_no === r.last);
     const nextUnread = rows.find((x) => !r.ids.has(x.article_no));
     const resume = last || nextUnread || rows[0];
@@ -1727,19 +1758,19 @@
       if (x.part_no !== part) {
         if (part !== null) html += `</div></details>`;
         const inPart = rows.filter((y) => y.part_no === x.part_no), pd = inPart.filter((y) => r.ids.has(y.article_no)).length;
-        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>Articles ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} lus</small></span></summary><div class="crs-pbody">`;
+        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>${esc(U)}s ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} ${CRS.fem ? "lues" : "lus"}</small></span></summary><div class="crs-pbody">`;
         part = x.part_no; chap = null;
       }
       if (x.chapter_no !== chap) { html += `<div class="crs-chap">${esc(x.chapter_title)}</div>`; chap = x.chapter_no; }
-      html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="#/cours/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
+      html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="${CRS.base}/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
     });
     if (part !== null) html += `</div></details>`;
-    app.innerHTML = `${crsHero(CRS.name, CRS.full + " — " + n + " articles")}
-      <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} articles lus</span></div><div class="bar"><i style="width:${pct}%"></i></div>
-        ${resume ? `<a class="btn btn-primary btn-block" href="#/cours/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : Article ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
-      <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. permission, salut, punition…)" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
+    app.innerHTML = `${crsHero(CRS.exam ? "Cours" : CRS.name, CRS.full + " — " + n + " " + Up)}
+      <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} ${Up} ${CRS.fem ? "lues" : "lus"}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
+        ${resume ? `<a class="btn btn-primary btn-block" href="${CRS.base}/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : ${esc(U)} ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
+      <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. ${esc(CRS.hint)})" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
       <div class="crs-parts">${html}</div>
-      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique l'article.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique ${U === "Article" ? "l'article" : "la leçon"}.</span></div>`;
     const q = document.getElementById("crsQ");
     const run = () => { CRS.q = q.value; crsShowSearch(q.value); };
     q.addEventListener("input", run); if (CRS.q) run();
@@ -1748,23 +1779,23 @@
     const box = document.getElementById("crsRes"); if (!box) return;
     if (String(raw || "").trim().length < 2) { box.innerHTML = ""; return; }
     const res = crsSearch(raw, 8);
-    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="#/cours/${x.it.no}"><b>Article ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
+    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="${CRS.base}/${x.it.no}"><b>${esc(CRS.unit)} ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
       : `<p class="muted small" style="margin:10px 2px 0">Aucun résultat pour « ${esc(raw)} ».</p>`;
   }
   async function crsLesson(rows, no) {
     const i = rows.findIndex((x) => x.article_no === no);
-    if (i < 0) return go("#/cours");
-    const x = rows[i], prev = rows[i - 1], next = rows[i + 1];
+    if (i < 0) return go(CRS.base);
+    const x = rows[i], prev = rows[i - 1], next = rows[i + 1], U = CRS.unit;
     await crsMarkRead(no);
-    app.innerHTML = `${crsHero("Article " + x.article_no, x.title, "Article " + x.article_no)}
+    app.innerHTML = `${crsHero(U + " " + x.article_no, x.title, U + " " + x.article_no)}
       <article class="card crs-lesson">
-        <div class="crs-meta"><span>Partie ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
+        <div class="crs-meta"><span>${esc(CRS.partLabel)} ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
         <div class="crs-body">${x.body_html}</div>
       </article>
       <div class="crs-nav">
-        ${prev ? `<a class="btn btn-ghost" href="#/cours/${prev.article_no}">← Article ${prev.article_no}</a>` : `<span></span>`}
-        <a class="btn btn-ghost" href="#/cours">Sommaire</a>
-        ${next ? `<a class="btn btn-primary" href="#/cours/${next.article_no}">Article ${next.article_no} →</a>` : `<a class="btn btn-primary" href="#/cours">Terminé ✓</a>`}
+        ${prev ? `<a class="btn btn-ghost" href="${CRS.base}/${prev.article_no}">← ${esc(U)} ${prev.article_no}</a>` : `<span></span>`}
+        <a class="btn btn-ghost" href="${CRS.base}">Sommaire</a>
+        ${next ? `<a class="btn btn-primary" href="${CRS.base}/${next.article_no}">${esc(U)} ${next.article_no} →</a>` : `<a class="btn btn-primary" href="${CRS.base}">Terminé ✓</a>`}
       </div>`;
   }
   /* Recherche dans le cours (utilisée par la page et par Julien – IA) */
@@ -1773,8 +1804,8 @@
     const div = document.createElement("div"), items = [];
     (CRS.data || []).forEach((L) => {
       div.innerHTML = L.body_html;
-      const head = jExpand(jTok("article " + L.article_no + " " + L.title + " " + L.chapter_title));
-      const blocks = [...div.querySelectorAll("p, li, tr")].filter((b) => !(b.tagName === "P" && b.closest("li, td")));
+      const head = jExpand(jTok(CRS.unit + " " + L.article_no + " " + L.title + " " + L.chapter_title));
+      const blocks = [...div.querySelectorAll("p, li, tr, h3")].filter((b) => !(b.tagName === "P" && b.closest("li, td")));
       const texts = blocks.map((b) => b.textContent.replace(/\s+/g, " ").trim()).filter((t) => t.length > 2);
       if (!texts.length) texts.push(L.title);
       texts.forEach((t, k) => items.push({ no: L.article_no, title: L.title, chap: L.chapter_title, k, text: t, t: new Set(head), b: new Set(jTok(t)) }));
@@ -1783,7 +1814,7 @@
   }
   function crsSearch(raw, max) {
     if (!CRS.data) return [];
-    const m = norm(raw).match(/\bart(?:icle)?\.?\s*(\d{1,3})\b/);
+    const m = norm(raw).match(/\b(?:art(?:icle)?|lecon)\.?\s*(\d{1,3})\b/);
     if (m) { const it = crsIndex().find((x) => x.no === parseInt(m[1], 10)); if (it) return [{ s: 99, it }]; }
     const words = jExpand(jTok(raw)); if (!words.length) return [];
     const res = [];
@@ -1800,12 +1831,17 @@
     return res.filter((r) => !seen.has(r.it.no) && seen.add(r.it.no)).slice(0, max || 4).filter((r, i, arr) => r.s >= Math.max(0.9, arr[0].s * 0.35));
   }
   function crsAnswer(res) {
-    const r = res[0], it = r.it;
+    const r = res[0], it = r.it, U = CRS.unit, cc = esc(CRS.code);
     const all = crsIndex().filter((x) => x.no === it.no);
     const ctx = all.slice(Math.max(0, it.k), it.k + 2).map((x) => `<p>${esc(x.text)}</p>`).join("");
-    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">Article ${it.no} – ${esc(it.title)}</div>`;
-    const more = res.length > 1 ? `<div class="jia-alts"><small>Articles proches :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-no="${a.it.no}">Article ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
-    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-no="${it.no}">📖 Lire l'article ${it.no}</button></div>` + more };
+    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">${esc(U)} ${it.no} – ${esc(it.title)}</div>`;
+    const more = res.length > 1 ? `<div class="jia-alts"><small>${U === "Article" ? "Articles proches" : "Leçons proches"} :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-course="${cc}" data-no="${a.it.no}">${esc(U)} ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
+    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-course="${cc}" data-no="${it.no}">📖 Lire ${U === "Article" ? "l'article" : "la leçon"} ${it.no}</button></div>` + more };
+  }
+  /* cherche dans un cours donné (pour Julien – IA) */
+  async function crsTry(c, raw) {
+    if (!c || !crsOk(c)) return null;
+    try { crsUse(c.code); await crsLoad(c); const cr = crsSearch(raw); return cr.length ? crsAnswer(cr) : null; } catch (e) { return null; }
   }
 
   /* ------------------------------------------------------------------ */
