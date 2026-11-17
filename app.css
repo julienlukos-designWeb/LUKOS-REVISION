@@ -387,3 +387,14 @@ html.has-inst-bar main{padding-top:72px}
 .offnote.ok{background:var(--ok-bg);color:var(--ok)}
 .badge.off{background:var(--ok-bg);color:var(--ok)}
 @media (max-width:720px){.off-bar{font-size:.8rem}}
+/* ----- Suggestions ----- */
+.bn-suggestions{background:#FFF3D1;color:#8a6100;box-shadow:0 4px 0 #F1D98F}
+.bn-suggestions.on{background:var(--gold);color:var(--navy);box-shadow:0 4px 0 var(--gold-d)}
+.sug-card h3{display:flex;align-items:center;gap:8px}
+.sug-card textarea{width:100%;resize:vertical;min-height:130px;font:inherit}
+.sug-item{padding:10px 0;border-bottom:1px solid var(--line)}
+.sug-item:last-child{border-bottom:0}
+.sug-item p,.sug-msg{margin:6px 0 0;white-space:pre-wrap;word-break:break-word}
+.sug-adm{margin-bottom:10px}
+.sug-adm.unread{border-left:4px solid var(--gold)}
+.sug-msg{background:#F6F8FB;border-radius:10px;padding:10px 12px;margin:10px 0}

@@ -93,7 +93,8 @@
     next: '<path d="M9 18l6-6-6-6"/>',
     back: '<path d="M15 18l-6-6 6-6"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
-    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    idea: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>'
   };
   const icon = (k, w) => IC(ICONS[k], w);
   const EXAM_META = {
@@ -341,6 +342,7 @@
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
       if (p[0] === "cours") { crsUse("RDG-RSA"); return await renderCourse(p[1]); }
       if (p[0] === "profil") return renderProfile();
+      if (p[0] === "suggestions") return await renderSuggestions();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
       return renderHome();
     } catch (e) {
@@ -377,6 +379,7 @@
     topnav.innerHTML =
       `<a href="#/" class="${p === "" ? "on" : ""}">Parcours</a>` +
       `<a href="#/profil" class="${p === "profil" ? "on" : ""}">Mon compte</a>` +
+      (!isAdmin() ? `<a href="#/suggestions" class="${p === "suggestions" ? "on" : ""}">Suggestions</a>` : "") +
       (isAdmin() ? `<a href="#/admin" class="${p === "admin" ? "on" : ""}">Administration</a>` : "") +
       `<button class="out hide-m" data-act="logout">Déconnexion</button>`;
   }
@@ -552,7 +555,7 @@
     await loadAccount(); toast("Profil complété ✓", "ok"); route();
   }
   function homeBottomNav(cur) {
-    const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : []);
+    const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : [["suggestions", "#/suggestions", "idea", "Suggestions"]]);
     bottomnav.className = "bottomnav show home-nav n" + items.length;
     bottomnav.innerHTML = items.map(([k, h, ic, l]) => `<a href="${h}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(ic, 20)}<span>${l}</span></a>`).join("");
   }
@@ -983,6 +986,54 @@
         <div class="card"><h3>Mes paiements</h3>${S.payments.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Parcours</th><th>Montant</th><th>État</th></tr>${S.payments.map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc((examByCode(x.exam_code) || {}).name || x.exam_code)}</td><td>${esc(fmtXof(x.amount_xof))}</td><td><span class="badge ${stLabel[x.status][0]}">${stLabel[x.status][1]}</span></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucun paiement.</p>`}</div>
         <button class="btn btn-bad btn-block" data-act="logout">Se déconnecter</button></div></div>`;
   }
+  /* ------------------------------------------------------------------ */
+  /* Suggestions des membres                                            */
+  /* ------------------------------------------------------------------ */
+  const SUG_MAX = 1000;
+  async function renderSuggestions() {
+    homeBottomNav("suggestions");
+    if (S.offline) { app.innerHTML = `<h1>Suggestions</h1><div class="card center"><h2>Hors connexion</h2><p>Connecte-toi à Internet pour envoyer une suggestion.</p></div>`; return; }
+    app.innerHTML = `<h1>Suggestions</h1>
+      <div class="card sug-card"><h3>${icon("idea", 22)} Ton avis compte</h3>
+        <p class="muted">Une idée pour améliorer LUKOS-REVISION ? Une erreur dans une question, un nouveau parcours que tu souhaites ? Écris-la ici : elle est envoyée directement à l'administrateur.</p>
+        <form id="sugForm"><label for="sugTxt">Ta suggestion</label>
+          <textarea id="sugTxt" rows="6" maxlength="${SUG_MAX}" placeholder="Écris ta suggestion ici…" required></textarea>
+          <div class="row between small muted" style="margin-top:4px"><span>Ton prénom, ton nom et ton numéro sont joints automatiquement.</span><span id="sugCount">0 / ${SUG_MAX}</span></div>
+          <button class="btn btn-primary btn-block" type="submit" style="margin-top:12px">Envoyer ma suggestion</button>
+          <div class="msg" id="sugMsg"></div></form></div>
+      <div class="card"><h3>Mes suggestions envoyées</h3><div id="sugList"><div class="center-load"><div class="spinner"></div></div></div></div>`;
+    const t = document.getElementById("sugTxt"), cnt = document.getElementById("sugCount");
+    t.addEventListener("input", () => (cnt.textContent = t.value.length + " / " + SUG_MAX));
+    document.getElementById("sugForm").addEventListener("submit", sendSuggestion);
+    await sugMine();
+  }
+  async function sugMine() {
+    const box = document.getElementById("sugList"); if (!box) return;
+    const { data, error } = await sb.from("suggestions").select("id,message,created_at,is_read").eq("user_id", S.session.user.id).order("created_at", { ascending: false }).limit(30);
+    if (error) { box.innerHTML = `<p class="muted small">${/suggestions/i.test(error.message || "") ? "Les suggestions ne sont pas encore activées sur le serveur." : esc(errText(error))}</p>`; return; }
+    box.innerHTML = (data || []).length ? data.map((x) => `<div class="sug-item"><div class="row between small muted"><span>${esc(fmtDate(x.created_at))}</span>${x.is_read ? `<span class="badge ok">✓ LUE</span>` : `<span class="badge warn">ENVOYÉE</span>`}</div><p>${esc(x.message)}</p></div>`).join("")
+      : `<p class="muted small" style="margin:0">Tu n'as encore envoyé aucune suggestion.</p>`;
+  }
+  async function sendSuggestion(ev) {
+    ev.preventDefault();
+    const t = document.getElementById("sugTxt"), msg = document.getElementById("sugMsg"), btn = ev.target.querySelector("button[type=submit]");
+    const txt = t.value.trim();
+    if (txt.length < 5) { msg.className = "msg err"; msg.textContent = "Écris au moins quelques mots."; return; }
+    btn.disabled = true;
+    try {
+      const { error } = await sb.from("suggestions").insert({ message: txt });
+      if (error) throw error;
+      t.value = ""; document.getElementById("sugCount").textContent = "0 / " + SUG_MAX;
+      msg.className = "msg ok"; msg.textContent = "Merci ! Ta suggestion a bien été envoyée.";
+      toast("Suggestion envoyée. Merci !", "ok");
+      await sugMine();
+    } catch (e) {
+      const m = String((e && e.message) || "");
+      msg.className = "msg err";
+      msg.textContent = /limite|limit/i.test(m) ? "Tu as atteint la limite de 5 suggestions par jour. Réessaie demain." : /suggestions/i.test(m) ? "Les suggestions ne sont pas encore activées sur le serveur." : "Envoi impossible : " + errText(e);
+    } finally { btn.disabled = false; }
+  }
+
   async function saveProfile(ev) {
     ev.preventDefault();
     const msg = document.getElementById("profMsg");
@@ -1012,12 +1063,12 @@
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
-  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
+  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["suggestions", "Suggestions"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
     homeBottomNav("admin");
     app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
     const body = document.getElementById("adminBody");
-    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
+    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1028,6 +1079,9 @@
     body.innerHTML = `<div class="kpis"><div class="kpi"><b>${data.candidates}</b><span>Candidats inscrits</span></div><div class="kpi"><b>${data.pending_payments}</b><span>Paiements à vérifier</span></div><div class="kpi"><b>${esc(fmtXof(data.revenue_xof))}</b><span>Encaissements validés</span></div><div class="kpi"><b>${data.quizzes}</b><span>Quiz réalisés</span></div><div class="kpi"><b>${data.blocked}</b><span>Comptes bloqués</span></div></div>
       <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
       ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
+    sb.from("suggestions").select("id", { count: "exact", head: true }).eq("is_read", false).then(({ count }) => {
+      if (count && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/suggestions">💡 ${count} nouvelle(s) suggestion(s) des membres →</a></p>`);
+    });
     sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
       if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 15 jours →</a></p>`);
     });
@@ -1379,6 +1433,31 @@
     toast("Parcours mis à jour.", "ok"); await loadExams(); route();
   }
 
+  /* ----- Suggestions reçues ----- */
+  async function adSuggestions(body) {
+    const { data, error } = await sb.from("suggestions").select("id,user_id,first_name,last_name,phone,service,message,created_at,is_read").order("created_at", { ascending: false }).limit(500);
+    if (error) { body.innerHTML = `<div class="card"><p class="msg err">${/suggestions/i.test(error.message || "") ? "La table des suggestions n'existe pas encore : exécute le script 12_suggestions.sql dans Supabase." : esc(errText(error))}</p></div>`; return; }
+    const f = AD.sugF || "toutes", all = data || [], unread = all.filter((x) => !x.is_read).length;
+    const rows = f === "nonlues" ? all.filter((x) => !x.is_read) : all;
+    const wa = (x) => "https://wa.me/" + digits(x.phone) + "?text=" + encodeURIComponent(`Bonjour ${x.first_name || ""}, ici LUKOS-REVISION. Merci pour ta suggestion du ${new Date(x.created_at).toLocaleDateString("fr-FR")} : `);
+    body.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row between"><p style="margin:0"><b>${all.length}</b> suggestion(s) reçue(s) · <b>${unread}</b> non lue(s)</p>
+        <div class="row"><button class="btn btn-sm ${f === "toutes" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="toutes">Toutes</button><button class="btn btn-sm ${f === "nonlues" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="nonlues">Non lues</button></div></div></div>
+      ${rows.length ? rows.map((x) => `<div class="card sug-adm ${x.is_read ? "" : "unread"}">
+        <div class="row between"><div><b>${esc((x.first_name || "") + " " + (x.last_name || ""))}</b>${x.is_read ? "" : ` <span class="badge warn">NOUVELLE</span>`}
+          <div class="small muted">📞 ${esc(phonePretty(x.phone))}${x.service ? " · " + esc(serviceLabel(x.service)) : ""} · envoyée le ${esc(fmtDate(x.created_at))}${x.user_id ? "" : " · compte supprimé"}</div></div></div>
+        <p class="sug-msg">${esc(x.message)}</p>
+        <div class="row"><a class="btn btn-sm btn-ghost" href="${wa(x)}" target="_blank" rel="noopener">💬 Répondre sur WhatsApp</a>
+          ${x.is_read ? "" : `<button class="btn btn-sm btn-primary" data-act="sug-read" data-id="${x.id}">✓ Marquer comme lue</button>`}
+          <button class="btn btn-sm btn-bad" data-act="sug-del" data-id="${x.id}">Supprimer</button></div></div>`).join("")
+        : `<div class="card center"><p class="muted" style="margin:0">${f === "nonlues" ? "Aucune suggestion non lue." : "Aucune suggestion reçue pour l'instant."}</p></div>`}`;
+  }
+  async function sugAdmin(act, id) {
+    const q = act === "sug-read" ? sb.from("suggestions").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id) : sb.from("suggestions").delete().eq("id", id);
+    const { error } = await q; if (error) throw error;
+    toast(act === "sug-read" ? "Suggestion marquée comme lue." : "Suggestion supprimée.", "ok");
+    const body = document.getElementById("adminBody"); if (body) await adSuggestions(body);
+  }
+
   async function adLog(body) {
     const { data, error } = await sb.from("audit_log").select("id,actor,action,target,details,created_at").order("id", { ascending: false }).limit(200);
     if (error) throw error;
@@ -1397,6 +1476,9 @@
       if (act === "reload") return location.reload();
       if (act === "retry-online") { if (!navigator.onLine) return toast("Toujours pas de connexion Internet.", "err"); await leaveOffline(); if (S.offline) toast("Connexion impossible pour le moment.", "err"); return; }
       if (act === "logout") return logout();
+      if (act === "sug-f") { AD.sugF = el.dataset.f; const b = document.getElementById("adminBody"); if (b) await adSuggestions(b); return; }
+      if (act === "sug-read") return await sugAdmin(act, el.dataset.id);
+      if (act === "sug-del") { if (!confirm("Supprimer définitivement cette suggestion ?")) return; return await sugAdmin(act, el.dataset.id); }
       if (act === "auth-mode") { S.authMode = el.dataset.mode; return renderAuth(); }
       if (act === "open-exam") return go("#/p/" + el.dataset.exam);
       if (act === "open-course") return go("#/cours");
