@@ -114,7 +114,7 @@
     session: null, profile: null, exams: [], enr: {}, payments: [], attempts: {}, exam: null,
     data: {},          // data[exam] = { subjects:[], questions:[], bySubject:Map }
     authMode: "login", quiz: null, rev: null,
-    act: null          // statut d'activation du compte (délai de 5 jours)
+    act: null          // statut d'activation du compte (délai de 15 jours)
   };
   // styles des bandeaux « délai d'activation »
   (function () {
@@ -503,7 +503,7 @@
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
     return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))}</span>` : `<span class="badge">BIENTÔT</span>`;
   }
-  /* Bandeau « délai d'activation » (5 jours après l'inscription) */
+  /* Bandeau « délai d'activation » (15 jours après l'inscription) */
   const fmtDay = (d) => d ? new Date(new Date(d).getTime() - 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
   function actBanner(withBtn) {
     const a = S.act;
@@ -516,7 +516,7 @@
       countdown: ["act-warn", "⚠️ Active un parcours pour garder ton compte",
         n <= 1 ? `C'est ton <b>dernier jour</b> : ton compte sera supprimé si aucun parcours n'est activé avant le ${day}.`
                : `Ton compte sera supprimé dans <b>${n} jours</b> (le ${day}) si aucun parcours n'est activé.`],
-      expired: ["act-bad", "⛔ Délai d'activation dépassé", "Le délai de 5 jours pour activer un parcours est dépassé. Active un parcours dès maintenant pour conserver ton compte, sinon il sera supprimé."],
+      expired: ["act-bad", "⛔ Délai d'activation dépassé", "Le délai de 15 jours pour activer un parcours est dépassé. Active un parcours dès maintenant pour conserver ton compte, sinon il sera supprimé."],
       reminder: ["act-bad", "📢 Dernier rappel", `Active un parcours avant le <b>${day}</b>, sinon ton compte sera supprimé.`],
       reminder_expired: ["act-bad", "⛔ Date limite dépassée", `La date limite du ${day} est passée. Ton compte peut être supprimé à tout moment : active un parcours maintenant pour le conserver.`]
     }[a.state];
@@ -1029,7 +1029,7 @@
       <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
       ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
     sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
-      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 5 jours →</a></p>`);
+      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 15 jours →</a></p>`);
     });
   }
 
@@ -1166,7 +1166,7 @@
     toast("Statut mis à jour.", "ok"); await loadPeople(); drawPeople();
   }
 
-  /* ----- Comptes expirés : sans parcours activé après le délai de 5 jours ----- */
+  /* ----- Comptes expirés : sans parcours activé après le délai de 15 jours ----- */
   const EXP_ST = { expired: ["bad", "DÉLAI DÉPASSÉ"], reminder: ["warn", "RAPPEL EN COURS"], reminder_expired: ["bad", "RAPPEL EXPIRÉ"] };
   const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
   async function adExpired(body) {
@@ -1178,7 +1178,7 @@
     AD.exp = data || [];
     const min = isoDay(Date.now() + 86400000);
     if (!AD.expDate || AD.expDate < min) AD.expDate = isoDay(Date.now() + 3 * 86400000);
-    body.innerHTML = `<div class="card" style="margin-bottom:12px"><p class="small muted" style="margin-top:0">Candidats sans parcours activé 5 jours après leur inscription (pour les comptes créés avant le lancement, le délai part du 17/11/2026). Aucun compte n'est supprimé sans ton action.</p>
+    body.innerHTML = `<div class="card" style="margin-bottom:12px"><p class="small muted" style="margin-top:0">Candidats sans parcours activé 15 jours après leur inscription (pour les comptes créés avant le lancement, le délai part du 17/11/2026). Aucun compte n'est supprimé sans ton action.</p>
       <div class="row"><label for="expDate" style="margin:0">Date limite du rappel</label><input type="date" id="expDate" value="${esc(AD.expDate)}" min="${min}" style="width:auto">
         <button class="btn btn-primary btn-sm" data-act="ad-exp-remind-sel">📢 Rappel aux comptes cochés</button>
         <button class="btn btn-bad btn-sm" data-act="ad-exp-del-sel">🗑 Supprimer les comptes cochés</button>
