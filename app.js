@@ -608,7 +608,7 @@
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
-      ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets du DAP 2019 à 2023 avec leur corrigé officiel</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets de l'examen ${esc(exam.name)} avec leur corrigé officiel</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
@@ -1825,7 +1825,7 @@
   /* Annales de l'examen final (sujets officiels corrigés)               */
   /* ------------------------------------------------------------------ */
   const ANN = { data: {} };
-  const ANN_EXAMS = ["DAP"];   // parcours disposant d'annales
+  const ANN_EXAMS = ["DAP", "DQEG"];   // parcours disposant d'annales
   async function annLoad(code) {
     if (ANN.data[code]) return ANN.data[code];
     const key = "annals:" + code;
@@ -1855,15 +1855,15 @@
       const ys = [...A.years.keys()];
       app.innerHTML = hero(exam, "Annales de l'examen", ys.length + " sessions officielles corrigées (" + Math.min(...ys) + "–" + Math.max(...ys) + ")", "Annales") +
         `<div class="study stack">
-        <div class="tip" style="margin-top:0">${icon("info", 22)}<span>Les vrais sujets du DAP avec leur corrigé. Lis-les par session, ou passe-les en <b>examen blanc officiel</b> dans le simulateur (choisis « Sujet officiel »).</span></div>
-        <div class="ann-years">${ys.map((y) => { const m = A.years.get(y), n = [...m.values()].reduce((a, l) => a + l.length, 0); return `<a class="ann-year" href="#/p/${exam.code}/annales/${y}"><b>DAP ${y}</b><span>${m.size} matières · ${n} questions</span><small>${[...m.keys()].slice(0, 4).map(esc).join(" · ")}${m.size > 4 ? "…" : ""}</small></a>`; }).join("")}</div>
+        <div class="tip" style="margin-top:0">${icon("info", 22)}<span>Les vrais sujets du ${esc(exam.name)} avec leur corrigé. Lis-les par session, ou passe-les en <b>examen blanc officiel</b> dans le simulateur (choisis « Sujet officiel »).</span></div>
+        <div class="ann-years">${ys.map((y) => { const m = A.years.get(y), n = [...m.values()].reduce((a, l) => a + l.length, 0); return `<a class="ann-year" href="#/p/${exam.code}/annales/${y}"><b>${esc(exam.name)} ${y}</b><span>${m.size} matières · ${n} questions</span><small>${[...m.keys()].slice(0, 4).map(esc).join(" · ")}${m.size > 4 ? "…" : ""}</small></a>`; }).join("")}</div>
         <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎯</span><span><b>Passer un sujet officiel en examen blanc</b><small>Simulateur › Épreuve › « Sujet officiel »</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a></div>`;
       return;
     }
     const m = A.years.get(Number(year));
     if (!m) return go("#/p/" + exam.code + "/annales");
     const subjects = [...m.keys()];
-    app.innerHTML = hero(exam, "Sujet officiel DAP " + year, "Corrigé officiel — " + subjects.length + " matières", "Annales " + year) +
+    app.innerHTML = hero(exam, "Sujet officiel " + exam.name + " " + year, "Corrigé officiel — " + subjects.length + " matières", "Annales " + year) +
       `<div class="study stack">
       <div class="row" style="justify-content:space-between"><a class="btn btn-ghost btn-sm" href="#/p/${exam.code}/annales">← Toutes les sessions</a><button class="btn btn-soft btn-sm" data-act="ann-all">Afficher tous les corrigés</button></div>
       ${subjects.map((s, k) => `<details class="ann-subj" ${k === 0 ? "open" : ""}><summary><b>${esc(s)}</b><span class="badge acc">${m.get(s).length} questions</span></summary>
@@ -1999,7 +1999,7 @@
     if (!d.questions.length) { app.innerHTML = top + emptyBox("Le simulateur sera disponible dès que les questions de ce parcours seront publiées."); return; }
     const hist = await loadExamAttempts(exam.code).catch(() => []);
     const A = ANN_EXAMS.includes(exam.code) ? await annLoad(exam.code).catch(() => null) : null;
-    const annOpts = A && A.rows.length ? `<optgroup label="🎯 Sujets officiels (annales corrigées)">${[...A.years.keys()].map((y) => [...A.years.get(y).entries()].map(([s, l]) => { const n = l.filter((q) => q.answer).length; return n ? `<option value="A|${y}|${esc(s)}">Sujet officiel DAP ${y} — ${esc(s)} (${n} q.)</option>` : ""; }).join("")).join("")}</optgroup>` : "";
+    const annOpts = A && A.rows.length ? `<optgroup label="🎯 Sujets officiels (annales corrigées)">${[...A.years.keys()].map((y) => [...A.years.get(y).entries()].map(([s, l]) => { const n = l.filter((q) => q.answer).length; return n ? `<option value="A|${y}|${esc(s)}">Sujet officiel ${esc(exam.name)} ${y} — ${esc(s)} (${n} q.)</option>` : ""; }).join("")).join("")}</optgroup>` : "";
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Tout le parcours";
     const avg = hist.length ? hist.reduce((a, x) => a + Number(x.note20), 0) / hist.length : 0;
     app.innerHTML = top + `<div class="study stack"><div class="card"><form id="examForm">
@@ -2037,8 +2037,8 @@
       if (!off.length) return toast("Aucune question corrigée dans ce sujet.", "err");
       const [, y, sj] = sid.split("|"), t0 = Date.now();
       S.exam = {
-        uid: S.session.user.id, exam: code, subjectId: null, scope: "Sujet officiel DAP " + y + " — " + sj, official: true,
-        items: off.map((q) => ({ id: null, subject_id: null, sname: "DAP " + y + " · " + sj, question: q.question, answer: q.answer, resp: "" })),
+        uid: S.session.user.id, exam: code, subjectId: null, scope: "Sujet officiel " + code + " " + y + " — " + sj, official: true,
+        items: off.map((q) => ({ id: null, subject_id: null, sname: code + " " + y + " · " + sj, question: q.question, answer: q.answer, resp: "" })),
         i: 0, pace, startedAt: t0, endsAt: t0 + off.length * pace * 1000, leaves: 0, done: false
       };
       exSave(); drawExamRun(); window.scrollTo(0, 0); return;
