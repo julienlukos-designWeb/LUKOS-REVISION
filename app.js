@@ -104,7 +104,7 @@
   };
 
   /* Service / corps du membre */
-  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"]];
+  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"], ["police", "Police nationale"]];
   const serviceLabel = (v) => (SERVICES.find((s) => s[0] === v) || [])[1] || "";
   const serviceOptions = (cur) => `<option value="" ${cur ? "" : "selected"} disabled>Choisis ton service ou corps</option>` + SERVICES.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("");
   const PROFILE_COLS = "id,first_name,last_name,phone,role,is_blocked,created_at";
@@ -466,7 +466,7 @@
     const p1 = document.getElementById("sPass").value, p2 = document.getElementById("sPass2").value;
     if (first.length < 2 || last.length < 2) return (msg.textContent = "Prénom et nom obligatoires.");
     const service = document.getElementById("sService").value;
-    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
+    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée, BNSP ou Police).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
     if (p1.length < 6) return (msg.textContent = "Le mot de passe doit contenir au moins 6 caractères.");
     if (p1.replace(/\D/g, "").includes(phone.slice(4))) return (msg.textContent = "Le mot de passe ne doit pas contenir ton numéro.");
