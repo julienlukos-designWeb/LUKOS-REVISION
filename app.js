@@ -412,15 +412,15 @@
         <div class="seg" role="tablist"><button data-act="auth-mode" data-mode="login" class="${login ? "on" : ""}">Se connecter</button><button data-act="auth-mode" data-mode="signup" class="${!login ? "on" : ""}">Créer un compte</button></div>
         ${login ? `<form id="loginForm" autocomplete="on" novalidate>
           <label for="lPhone">Numéro de téléphone</label><input id="lPhone" inputmode="tel" autocomplete="username" placeholder="77 000 00 00" required>
-          <label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required minlength="8">
+          <label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required minlength="6">
           <button class="btn btn-dark btn-block" style="margin-top:16px">Se connecter</button>
           <div class="msg" id="authMsg"></div></form>`
         : `<form id="signupForm" autocomplete="on" novalidate>
           <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px"><div><label for="sFirst">Prénom</label><input id="sFirst" autocomplete="given-name" required maxlength="60"></div><div><label for="sLast">Nom</label><input id="sLast" autocomplete="family-name" required maxlength="60"></div></div>
           <label for="sService">Service / Corps</label><select id="sService" required>${serviceOptions("")}</select>
           <label for="sPhone">Numéro de téléphone</label><input id="sPhone" inputmode="tel" autocomplete="tel" placeholder="77 000 00 00" required>
-          <label for="sPass">Mot de passe (8 caractères minimum)</label><input id="sPass" type="password" autocomplete="new-password" required minlength="8">
-          <label for="sPass2">Confirmer le mot de passe</label><input id="sPass2" type="password" autocomplete="new-password" required minlength="8">
+          <label for="sPass">Mot de passe (6 caractères minimum)</label><input id="sPass" type="password" autocomplete="new-password" required minlength="6">
+          <label for="sPass2">Confirmer le mot de passe</label><input id="sPass2" type="password" autocomplete="new-password" required minlength="6">
           <label class="check"><input type="checkbox" id="sCgu" required> J'accepte que mes données (nom, téléphone) soient utilisées pour gérer mon accès.</label>
           <button class="btn btn-dark btn-block" style="margin-top:16px">Créer mon compte</button>
           <p class="hint">Numéro sénégalais commençant par 70, 75, 76, 77 ou 78. Ton numéro te servira d'identifiant.</p>
@@ -459,7 +459,7 @@
     const service = document.getElementById("sService").value;
     if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
-    if (p1.length < 8) return (msg.textContent = "Le mot de passe doit contenir au moins 8 caractères.");
+    if (p1.length < 6) return (msg.textContent = "Le mot de passe doit contenir au moins 6 caractères.");
     if (!/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return (msg.textContent = "Le mot de passe doit contenir des lettres et des chiffres.");
     if (p1.replace(/\D/g, "").includes(phone.slice(4))) return (msg.textContent = "Le mot de passe ne doit pas contenir ton numéro.");
     if (p1 !== p2) return (msg.textContent = "Les mots de passe ne correspondent pas.");
@@ -503,7 +503,7 @@
     if (e && e.status === "suspended") return `<span class="badge bad">SUSPENDU</span>`;
     if (pend) return `<span class="badge warn">⏳ PAIEMENT EN VÉRIFICATION</span>`;
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
-    return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))}</span>` : `<span class="badge">BIENTÔT</span>`;
+    return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))} · ACCÈS ILLIMITÉ</span>` : `<span class="badge">BIENTÔT</span>`;
   }
   /* Bandeau « délai d'activation » (5 jours après l'inscription) */
   const fmtDay = (d) => d ? new Date(new Date(d).getTime() - 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
@@ -984,7 +984,7 @@
         ${p.service !== undefined ? `<label>Service / Corps</label><input value="${esc(p.service || "—")}" disabled>` : ""}
         <label>Téléphone (identifiant)</label><input value="${esc(phonePretty(p.phone))}" disabled>
         <p class="muted" style="margin-top:10px;font-size:.88rem">Une erreur dans tes informations ? Contacte l'assistance sur WhatsApp au ${esc(C.WHATSAPP_DISPLAY || "")}.</p>
-        <div class="sep"></div><h3>Changer de mot de passe</h3><form id="passForm"><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" minlength="8"><label for="np2">Confirmer</label><input id="np2" type="password" autocomplete="new-password" minlength="8"><button class="btn btn-ghost" style="margin-top:14px">Modifier le mot de passe</button><div class="msg" id="passMsg"></div></form></div>
+        <div class="sep"></div><h3>Changer de mot de passe</h3><form id="passForm"><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" minlength="6"><label for="np2">Confirmer</label><input id="np2" type="password" autocomplete="new-password" minlength="6"><button class="btn btn-ghost" style="margin-top:14px">Modifier le mot de passe</button><div class="msg" id="passMsg"></div></form></div>
       <div class="stack"><div class="card"><h3>Mes parcours</h3>${S.exams.map((e) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(e.name)}</b>${statusBadge(e.code)}</div>`).join("")}<p class="small muted" style="margin:10px 0 0">Chaque parcours s'active par un <b>paiement unique</b> : pas d'abonnement mensuel, l'accès reste illimité dans le temps.</p></div>
         <div class="card"><h3>Mes paiements</h3>${S.payments.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Parcours</th><th>Montant</th><th>État</th></tr>${S.payments.map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc((examByCode(x.exam_code) || {}).name || x.exam_code)}</td><td>${esc(fmtXof(x.amount_xof))}</td><td><span class="badge ${stLabel[x.status][0]}">${stLabel[x.status][1]}</span></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucun paiement.</p>`}</div>
         <button class="btn btn-bad btn-block" data-act="logout">Se déconnecter</button></div></div>`;
@@ -1007,7 +1007,7 @@
     ev.preventDefault();
     const msg = document.getElementById("passMsg");
     const a = document.getElementById("np1").value, b = document.getElementById("np2").value;
-    if (a.length < 8 || !/[A-Za-z]/.test(a) || !/\d/.test(a)) { msg.className = "msg err"; msg.textContent = "8 caractères minimum, avec lettres et chiffres."; return; }
+    if (a.length < 6) { msg.className = "msg err"; msg.textContent = "6 caractères minimum."; return; }
     if (a !== b) { msg.className = "msg err"; msg.textContent = "Les mots de passe ne correspondent pas."; return; }
     const { error } = await sb.auth.updateUser({ password: a });
     if (error) { msg.className = "msg err"; msg.textContent = errText(error); return; }
