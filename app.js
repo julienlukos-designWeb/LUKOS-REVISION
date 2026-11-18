@@ -1,6 +1,6 @@
 /* =====================================================================
    LUKOS-REVISION — Application (DAP · DQEG · CAT-1/CAT-2 INFANTERIE · CAT-1/CAT-2 BNSP)
-   Conçu par Julien Dath Yanghane SENE (LUKOS)
+   Conçu par Gend Julien Dath Yanghane SENE (LUKOS)
    Sécurité : aucune donnée n'est insérée dans la page sans échappement,
    aucun gestionnaire d'événement « inline », toutes les écritures passent
    par des fonctions serveur (RPC) qui revérifient les droits.
