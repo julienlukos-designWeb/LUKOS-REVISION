@@ -499,7 +499,7 @@
     const ex = examByCode(code);
     const e = S.enr[code];
     const pend = S.payments.find((p) => p.exam_code === code && p.status === "pending");
-    if (e && e.status === "active") return `<span class="badge ok">✓ ACTIF</span>`;
+    if (e && e.status === "active") return `<span class="badge ok">✓ ACTIF · ACCÈS ILLIMITÉ</span>`;
     if (e && e.status === "suspended") return `<span class="badge bad">SUSPENDU</span>`;
     if (pend) return `<span class="badge warn">⏳ PAIEMENT EN VÉRIFICATION</span>`;
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
@@ -539,7 +539,7 @@
           <span class="exam-go">${icon("next", 22)}</span>
         </button>`).join("")}</div>
       ${crsHomeCard()}
-      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. <b>Paiement unique, sans abonnement mensuel</b> : l'accès est illimité dans le temps. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
   }
   function serviceCard() {
     return `<form class="card ex-service" id="serviceForm"><b>Complète ton profil</b><p class="small muted">Indique ton service ou corps pour que nous puissions mieux t'accompagner.</p>
@@ -884,6 +884,7 @@
   function payMethods(exam) {
     return `<div class="wave-only">
         <p class="wave-msg">Pour activer ce parcours, envoie <b>${esc(fmtXof(exam.price_xof))}</b> <b>uniquement par Wave</b> au numéro ci-dessous.</p>
+        <p class="pay-once">✅ <b>Paiement unique, une seule fois.</b> Ce n'est pas un abonnement mensuel : une fois activé, le parcours reste accessible <b>sans limite de durée</b>.</p>
         <div class="wave-box">
           <span class="wave-label"><span class="pm-logo">W</span> Numéro Wave</span>
           <div class="wave-num">${esc(C.WAVE_NUMBER)}</div>
@@ -902,7 +903,7 @@
         <a class="pay-back" href="#/">${icon("back", 18)} Parcours</a>
         <div class="pay-hero-ic">${icon(meta.icon || "book", 30)}</div>
         <div class="pay-hero-t"><small>Accès complet</small><h1>${esc(exam.name)}</h1><p>${esc(exam.full_name || "")}</p></div>
-        <div class="pay-price">${esc(fmtXof(exam.price_xof))}<small>paiement unique</small></div>
+        <div class="pay-price">${esc(fmtXof(exam.price_xof))}<small>paiement unique · accès illimité</small></div>
         <ul class="pay-perks"><li>📖 Fiches corrigées</li><li>🎯 Quiz illimités</li><li>🎓 Simulateur d'examen</li><li>🤖 Julien – IA</li><li>📴 Hors connexion</li></ul>
       </section>`;
     let body = "";
@@ -984,7 +985,7 @@
         <label>Téléphone (identifiant)</label><input value="${esc(phonePretty(p.phone))}" disabled>
         <p class="muted" style="margin-top:10px;font-size:.88rem">Une erreur dans tes informations ? Contacte l'assistance sur WhatsApp au ${esc(C.WHATSAPP_DISPLAY || "")}.</p>
         <div class="sep"></div><h3>Changer de mot de passe</h3><form id="passForm"><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" minlength="8"><label for="np2">Confirmer</label><input id="np2" type="password" autocomplete="new-password" minlength="8"><button class="btn btn-ghost" style="margin-top:14px">Modifier le mot de passe</button><div class="msg" id="passMsg"></div></form></div>
-      <div class="stack"><div class="card"><h3>Mes parcours</h3>${S.exams.map((e) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(e.name)}</b>${statusBadge(e.code)}</div>`).join("")}</div>
+      <div class="stack"><div class="card"><h3>Mes parcours</h3>${S.exams.map((e) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(e.name)}</b>${statusBadge(e.code)}</div>`).join("")}<p class="small muted" style="margin:10px 0 0">Chaque parcours s'active par un <b>paiement unique</b> : pas d'abonnement mensuel, l'accès reste illimité dans le temps.</p></div>
         <div class="card"><h3>Mes paiements</h3>${S.payments.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Parcours</th><th>Montant</th><th>État</th></tr>${S.payments.map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc((examByCode(x.exam_code) || {}).name || x.exam_code)}</td><td>${esc(fmtXof(x.amount_xof))}</td><td><span class="badge ${stLabel[x.status][0]}">${stLabel[x.status][1]}</span></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucun paiement.</p>`}</div>
         <button class="btn btn-bad btn-block" data-act="logout">Se déconnecter</button></div></div>`;
   }

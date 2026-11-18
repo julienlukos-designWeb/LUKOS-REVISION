@@ -171,3 +171,6 @@
 .wa-fab:active { transform: scale(.94); }
 body:has(.jia-panel:not([hidden])) .wa-fab, body:has(.inst-overlay) .wa-fab, body:has(#payForm) .wa-fab { display: none; }
 @media print { .wa-fab { display: none; } }
+
+/* Paiement unique (pas d'abonnement) */
+.pay-once { margin: 0 0 14px; padding: 10px 12px; border-radius: 14px; background: #e7f5ea; color: #1b5e20; font-size: .92rem; line-height: 1.45; text-align: left; }
