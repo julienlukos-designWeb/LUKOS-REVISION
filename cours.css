@@ -54,18 +54,3 @@
 .crs-lock { margin-top: 16px; }
 .label-up.crs-label { margin-top: 22px; }
 .exam-crs .exam-ico { box-shadow: 0 4px 0 #6b4a00; }
-
-/* ----- Cours propres à un parcours (ex. Police nationale) ----- */
-.crs-banner { background: linear-gradient(135deg, #5c3d00, #8a6100 55%, #c48f12) !important; box-shadow: 0 8px 24px rgba(138, 97, 0, .22); }
-.crs-body h3 { margin: 18px 0 8px; font-size: 1.02rem; line-height: 1.35; color: var(--acc-d, #0b1f3a); }
-.crs-body h3:first-child { margin-top: 0; }
-.crs-body blockquote { margin: 0 0 12px; padding: 8px 14px; border-left: 3px solid var(--acc-line, #d9e1ec); color: #33415c; font-style: italic; }
-.crs-body blockquote p { margin: 0; }
-.crs-box { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--acc-soft, #f1f4f9); border-left: 4px solid var(--acc, #0b1f3a); }
-.crs-box p:last-child, .crs-box ul:last-child { margin-bottom: 0; }
-.crs-body .table-wrap { margin: 6px 0 14px; }
-.crs-body table.t { font-size: .88rem; }
-.crs-body table.t th { background: var(--acc-soft, #f3eedf); color: var(--acc-d, #0b1f3a); }
-/* onglet « Cours » de la barre du bas */
-.bn-cours { background: #fbf1d9; color: #8a6100; box-shadow: 0 4px 0 #e8cf8f; }
-.bn-cours.on { background: #b8860b; color: #fff; box-shadow: 0 4px 0 #8a6100; }

@@ -1,5 +1,5 @@
 /* =====================================================================
-   LUKOS-REVISION — Application (DAP · DQEG · CAT-1/CAT-2 INFANTERIE · CAT-1/CAT-2 BNSP · POLICE)
+   LUKOS-REVISION — Application (DAP · DQEG · CAT-1/CAT-2 INFANTERIE · CAT-1/CAT-2 BNSP)
    Conçu par Julien Dath Yanghane SENE (LUKOS)
    Sécurité : aucune donnée n'est insérée dans la page sans échappement,
    aucun gestionnaire d'événement « inline », toutes les écritures passent
@@ -93,20 +93,18 @@
     next: '<path d="M9 18l6-6-6-6"/>',
     back: '<path d="M15 18l-6-6 6-6"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
-    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-    idea: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>'
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
   };
   const icon = (k, w) => IC(ICONS[k], w);
   const EXAM_META = {
     DAP:  { icon: "book", tagline: "Prépare ton DAP avec méthode et efficacité." },
     DQEG: { icon: "cap", tagline: "Prépare ton DQEG avec méthode et efficacité." },
     CAT:  { icon: "star", tagline: "Prépare tes CAT-1/CAT-2 Infanterie avec méthode et efficacité." },
-    BNSP: { icon: "flame", tagline: "Prépare tes CAT-1/CAT-2 BNSP (sapeurs-pompiers) avec méthode et efficacité." },
-    POLICE: { icon: "shield", tagline: "Prépare le concours professionnel des sous-officiers de la Police nationale : cours complet, révision, quiz et examen blanc." }
+    BNSP: { icon: "flame", tagline: "Prépare tes CAT-1/CAT-2 BNSP (sapeurs-pompiers) avec méthode et efficacité." }
   };
 
   /* Service / corps du membre */
-  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"], ["police", "Police nationale"]];
+  const SERVICES = [["gendarmerie", "Gendarmerie"], ["armee", "Armée"], ["bnsp", "BNSP (Sapeurs-pompiers)"]];
   const serviceLabel = (v) => (SERVICES.find((s) => s[0] === v) || [])[1] || "";
   const serviceOptions = (cur) => `<option value="" ${cur ? "" : "selected"} disabled>Choisis ton service ou corps</option>` + SERVICES.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("");
   const PROFILE_COLS = "id,first_name,last_name,phone,role,is_blocked,created_at";
@@ -115,7 +113,7 @@
     session: null, profile: null, exams: [], enr: {}, payments: [], attempts: {}, exam: null,
     data: {},          // data[exam] = { subjects:[], questions:[], bySubject:Map }
     authMode: "login", quiz: null, rev: null,
-    act: null          // statut d'activation du compte (délai de 15 jours)
+    act: null          // statut d'activation du compte (délai de 5 jours)
   };
   // styles des bandeaux « délai d'activation »
   (function () {
@@ -160,15 +158,15 @@
     if (!S.session || !S.profile) return;
     const uid = S.session.user.id;
     const old = await idb.get("acct");
-    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; Object.values(COURSES).forEach((c) => { c.data = null; c.read = null; c.idx = null; }); }
+    if (old && old.uid !== uid) { await idb.clear(); S.offMeta = {}; CRS.data = null; CRS.read = null; }
     S.verifiedAt = Date.now();
     await idb.set("acct", { uid, profile: S.profile, enr: S.enr, exams: S.exams, payments: S.payments, verifiedAt: S.verifiedAt });
     // accès retiré ou suspendu : on efface le contenu gardé sur le téléphone
     S.offMeta = (await idb.get("offmeta")) || {};
     for (const code of Object.keys(S.offMeta)) if (!hasAccess(code)) { await idb.del("exam:" + code); delete S.offMeta[code]; }
     await idb.set("offmeta", S.offMeta);
-    // cours (RDG-RSA, cours d'un parcours) : retirés du téléphone si l'accès n'est plus actif
-    for (const c of Object.values(COURSES)) if (!crsOk(c)) { await idb.del(crsKey(c)); c.data = null; c.idx = null; }
+    // module RDG-RSA : retiré du téléphone si plus aucun parcours actif
+    if (!crsUnlocked()) { await idb.del("course:" + CRS.code); CRS.data = null; CRS.idx = null; }
   }
   async function enterOffline() {
     const acct = await idb.get("acct");
@@ -222,8 +220,6 @@
         if (m && Date.now() - m < 86400000) continue;
         await loadExamData(e.code, true).catch(() => {});
       }
-      // cours propres à un parcours activé : gardés aussi sur le téléphone
-      for (const c of Object.values(COURSES)) if (c.exam && crsOk(c) && !c.data) await crsLoad(c).catch(() => {});
     } finally { prefetching = false; }
   }
 
@@ -261,8 +257,12 @@
     if (subj.error) throw subj.error;
     const questions = [];
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await sb.from("questions").select("id,subject_id,question,answer,position,is_active")
+      const cols = S.noTags ? "id,subject_id,question,answer,position,is_active" : "id,subject_id,question,answer,position,is_active,tags";
+      let { data, error } = await sb.from("questions").select(cols)
         .eq("exam_code", code).order("subject_id").order("position").range(from, from + 999);
+      if (error && !S.noTags && /tags/i.test(error.message || "")) { // colonne « tags » pas encore créée
+        S.noTags = true; from -= 1000; continue;
+      }
       if (error) throw error;
       questions.push(...(data || []));
       if (!data || data.length < 1000) break;
@@ -340,9 +340,8 @@
       if (exRunning() && !(p[0] === "p" && p[1] === S.exam.exam && p[2] === "examen")) { toast("Examen en cours : remets ta copie avant de quitter l'épreuve.", "err"); return go("#/p/" + S.exam.exam + "/examen"); }
       if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
-      if (p[0] === "cours") { crsUse("RDG-RSA"); return await renderCourse(p[1]); }
+      if (p[0] === "cours") return await renderCourse(p[1]);
       if (p[0] === "profil") return renderProfile();
-      if (p[0] === "suggestions") return await renderSuggestions();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
       return renderHome();
     } catch (e) {
@@ -379,7 +378,6 @@
     topnav.innerHTML =
       `<a href="#/" class="${p === "" ? "on" : ""}">Parcours</a>` +
       `<a href="#/profil" class="${p === "profil" ? "on" : ""}">Mon compte</a>` +
-      (!isAdmin() ? `<a href="#/suggestions" class="${p === "suggestions" ? "on" : ""}">Suggestions</a>` : "") +
       (isAdmin() ? `<a href="#/admin" class="${p === "admin" ? "on" : ""}">Administration</a>` : "") +
       `<button class="out hide-m" data-act="logout">Déconnexion</button>`;
   }
@@ -408,7 +406,7 @@
     const login = S.authMode === "login";
     app.innerHTML = `<div class="auth-wrap"><div class="auth">
       <div class="auth-head"><img class="big-logo" src="logo512.png" alt="Logo LUKOS-REVISION DAP / DQEG / CAT1-2" width="120" height="120"><h1>LUKOS-REVISION</h1><p class="muted">Ta plateforme de préparation aux examens</p>
-      <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT-1/CAT-2 INFANTERIE</span><span class="badge exam-BNSP acc">CAT-1/CAT-2 BNSP</span><span class="badge exam-POLICE acc">POLICE · SOUS-OFFICIERS</span></div></div>
+      <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT-1/CAT-2 INFANTERIE</span><span class="badge exam-BNSP acc">CAT-1/CAT-2 BNSP</span></div></div>
       <div class="card">
         <div class="seg" role="tablist"><button data-act="auth-mode" data-mode="login" class="${login ? "on" : ""}">Se connecter</button><button data-act="auth-mode" data-mode="signup" class="${!login ? "on" : ""}">Créer un compte</button></div>
         ${login ? `<form id="loginForm" autocomplete="on" novalidate>
@@ -458,7 +456,7 @@
     const p1 = document.getElementById("sPass").value, p2 = document.getElementById("sPass2").value;
     if (first.length < 2 || last.length < 2) return (msg.textContent = "Prénom et nom obligatoires.");
     const service = document.getElementById("sService").value;
-    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée, BNSP ou Police).");
+    if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
     if (p1.length < 8) return (msg.textContent = "Le mot de passe doit contenir au moins 8 caractères.");
     if (!/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return (msg.textContent = "Le mot de passe doit contenir des lettres et des chiffres.");
@@ -506,7 +504,7 @@
     if (e && e.status === "rejected") return `<span class="badge bad">PAIEMENT REFUSÉ</span>`;
     return ex && ex.is_open ? `<span class="badge fill">ACTIVER · ${esc(fmtXof(ex.price_xof))}</span>` : `<span class="badge">BIENTÔT</span>`;
   }
-  /* Bandeau « délai d'activation » (15 jours après l'inscription) */
+  /* Bandeau « délai d'activation » (5 jours après l'inscription) */
   const fmtDay = (d) => d ? new Date(new Date(d).getTime() - 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
   function actBanner(withBtn) {
     const a = S.act;
@@ -519,7 +517,7 @@
       countdown: ["act-warn", "⚠️ Active un parcours pour garder ton compte",
         n <= 1 ? `C'est ton <b>dernier jour</b> : ton compte sera supprimé si aucun parcours n'est activé avant le ${day}.`
                : `Ton compte sera supprimé dans <b>${n} jours</b> (le ${day}) si aucun parcours n'est activé.`],
-      expired: ["act-bad", "⛔ Délai d'activation dépassé", "Le délai de 15 jours pour activer un parcours est dépassé. Active un parcours dès maintenant pour conserver ton compte, sinon il sera supprimé."],
+      expired: ["act-bad", "⛔ Délai d'activation dépassé", "Le délai de 5 jours pour activer un parcours est dépassé. Active un parcours dès maintenant pour conserver ton compte, sinon il sera supprimé."],
       reminder: ["act-bad", "📢 Dernier rappel", `Active un parcours avant le <b>${day}</b>, sinon ton compte sera supprimé.`],
       reminder_expired: ["act-bad", "⛔ Date limite dépassée", `La date limite du ${day} est passée. Ton compte peut être supprimé à tout moment : active un parcours maintenant pour le conserver.`]
     }[a.state];
@@ -555,7 +553,7 @@
     await loadAccount(); toast("Profil complété ✓", "ok"); route();
   }
   function homeBottomNav(cur) {
-    const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : [["suggestions", "#/suggestions", "idea", "Suggestions"]]);
+    const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : []);
     bottomnav.className = "bottomnav show home-nav n" + items.length;
     bottomnav.innerHTML = items.map(([k, h, ic, l]) => `<a href="${h}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(ic, 20)}<span>${l}</span></a>`).join("");
   }
@@ -564,9 +562,7 @@
   /* Parcours                                                           */
   /* ------------------------------------------------------------------ */
   function examBottomNav(code, cur) {
-    const items = courseOfExam(code)
-      ? [["accueil", "home", "Accueil"], ["cours", "file", "Cours"], ["matieres", "book", "Révision"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"]]
-      : [["accueil", "home", "Accueil"], ["matieres", "book", "Matières"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"], ["documents", "file", "Documents"]];
+    const items = [["accueil", "home", "Accueil"], ["matieres", "book", "Matières"], ["quiz", "target", "Quiz"], ["recherche", "search", "Recherche"], ["documents", "file", "Documents"]];
     bottomnav.className = "bottomnav show exam-" + code;
     bottomnav.innerHTML = items.map(([k, i, l]) => `<a href="#/p/${code}/${k}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(i, 20)}<span>${l}</span></a>`).join("");
   }
@@ -580,7 +576,6 @@
     document.body.className = "exam-" + code;
     if (!hasAccess(code)) return renderActivation(exam);
     examBottomNav(code, page === "revision" ? "matieres" : page === "examen" ? "quiz" : page);
-    if (page === "cours" && courseOfExam(code)) { crsUse(courseOfExam(code).code); return await renderCourse(rest[0]); }
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
     const d = await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
@@ -611,7 +606,6 @@
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
-      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>Cours complet</b><small>${esc(courseOfExam(exam.code).full)} — à lire leçon par leçon, avec ta progression</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
@@ -643,12 +637,17 @@
     }
     drawRevision(exam, subject);
   }
+  /* Badges d'une question : « Nouveau 2026-2027 », « Mis à jour 2026-2027 », « Tombé en 2021 »… */
+  function qTags(q) {
+    const t = Array.isArray(q && q.tags) ? q.tags : [];
+    return t.map((x) => `<span class="badge ${/^Tombé/.test(x) ? "warn" : "ok"}">${/^Tombé/.test(x) ? "🎯 " : /^Mis à jour/.test(x) ? "🔄 " : "🆕 "}${esc(x)}</span>`).join("");
+  }
   function drawRevision(exam, subject) {
     const r = S.rev, q = r.list[r.i];
     app.innerHTML = hero(exam, subject.name, "Révision par fiches — question " + (r.i + 1) + " sur " + r.list.length, "Révision") +
       `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((r.i + 1) / r.list.length) * 100}%"></i></div>
       <article class="qcard">${watermark()}
-        <div class="qmeta"><span class="badge acc">${esc(subject.name)}</span><span class="muted small">${r.i + 1} / ${r.list.length}</span></div>
+        <div class="qmeta"><span class="row" style="gap:6px"><span class="badge acc">${esc(subject.name)}</span>${qTags(q)}</span><span class="muted small">${r.i + 1} / ${r.list.length}</span></div>
         <div class="qtext">${esc(q.question)}</div>
         ${r.show ? `<div class="answer">${formatAnswer(q.answer)}</div>` : ""}
         <div class="row" style="margin-top:14px;position:relative"><button class="btn ${r.show ? "btn-ghost" : "btn-primary"}" data-act="rev-toggle">${r.show ? "Masquer la réponse" : "Afficher la réponse"}</button>
@@ -730,7 +729,7 @@
     const score = z.items.filter((x) => x.ok).length;
     app.innerHTML = hero(exam, "Quiz " + exam.name, (z.mode === "qcm" ? "QCM" : "Auto-évaluation") + " — question " + (z.i + 1) + " sur " + z.items.length + " · score actuel " + score, "Quiz") +
       `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((z.i + 1) / z.items.length) * 100}%"></i></div>
-      <article class="qcard">${watermark()}<div class="qmeta"><span class="badge acc">${esc(subj)}</span><span class="muted small">${z.i + 1} / ${z.items.length}</span></div>
+      <article class="qcard">${watermark()}<div class="qmeta"><span class="row" style="gap:6px"><span class="badge acc">${esc(subj)}</span>${qTags(it.q)}</span><span class="muted small">${z.i + 1} / ${z.items.length}</span></div>
       <div class="qtext">${esc(it.q.question)}</div>${body}</article>
       <div class="nav-q"><button class="btn btn-ghost" data-act="qz-quit">Abandonner</button>${answered ? `<button class="btn btn-primary" data-act="qz-next">${z.i < z.items.length - 1 ? "Question suivante →" : "Voir mon résultat"}</button>` : ""}</div></div>`;
   }
@@ -986,54 +985,6 @@
         <div class="card"><h3>Mes paiements</h3>${S.payments.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Parcours</th><th>Montant</th><th>État</th></tr>${S.payments.map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc((examByCode(x.exam_code) || {}).name || x.exam_code)}</td><td>${esc(fmtXof(x.amount_xof))}</td><td><span class="badge ${stLabel[x.status][0]}">${stLabel[x.status][1]}</span></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucun paiement.</p>`}</div>
         <button class="btn btn-bad btn-block" data-act="logout">Se déconnecter</button></div></div>`;
   }
-  /* ------------------------------------------------------------------ */
-  /* Suggestions des membres                                            */
-  /* ------------------------------------------------------------------ */
-  const SUG_MAX = 1000;
-  async function renderSuggestions() {
-    homeBottomNav("suggestions");
-    if (S.offline) { app.innerHTML = `<h1>Suggestions</h1><div class="card center"><h2>Hors connexion</h2><p>Connecte-toi à Internet pour envoyer une suggestion.</p></div>`; return; }
-    app.innerHTML = `<h1>Suggestions</h1>
-      <div class="card sug-card"><h3>${icon("idea", 22)} Ton avis compte</h3>
-        <p class="muted">Une idée pour améliorer LUKOS-REVISION ? Une erreur dans une question, un nouveau parcours que tu souhaites ? Écris-la ici : elle est envoyée directement à l'administrateur.</p>
-        <form id="sugForm"><label for="sugTxt">Ta suggestion</label>
-          <textarea id="sugTxt" rows="6" maxlength="${SUG_MAX}" placeholder="Écris ta suggestion ici…" required></textarea>
-          <div class="row between small muted" style="margin-top:4px"><span>Ton prénom, ton nom et ton numéro sont joints automatiquement.</span><span id="sugCount">0 / ${SUG_MAX}</span></div>
-          <button class="btn btn-primary btn-block" type="submit" style="margin-top:12px">Envoyer ma suggestion</button>
-          <div class="msg" id="sugMsg"></div></form></div>
-      <div class="card"><h3>Mes suggestions envoyées</h3><div id="sugList"><div class="center-load"><div class="spinner"></div></div></div></div>`;
-    const t = document.getElementById("sugTxt"), cnt = document.getElementById("sugCount");
-    t.addEventListener("input", () => (cnt.textContent = t.value.length + " / " + SUG_MAX));
-    document.getElementById("sugForm").addEventListener("submit", sendSuggestion);
-    await sugMine();
-  }
-  async function sugMine() {
-    const box = document.getElementById("sugList"); if (!box) return;
-    const { data, error } = await sb.from("suggestions").select("id,message,created_at,is_read").eq("user_id", S.session.user.id).order("created_at", { ascending: false }).limit(30);
-    if (error) { box.innerHTML = `<p class="muted small">${/suggestions/i.test(error.message || "") ? "Les suggestions ne sont pas encore activées sur le serveur." : esc(errText(error))}</p>`; return; }
-    box.innerHTML = (data || []).length ? data.map((x) => `<div class="sug-item"><div class="row between small muted"><span>${esc(fmtDate(x.created_at))}</span>${x.is_read ? `<span class="badge ok">✓ LUE</span>` : `<span class="badge warn">ENVOYÉE</span>`}</div><p>${esc(x.message)}</p></div>`).join("")
-      : `<p class="muted small" style="margin:0">Tu n'as encore envoyé aucune suggestion.</p>`;
-  }
-  async function sendSuggestion(ev) {
-    ev.preventDefault();
-    const t = document.getElementById("sugTxt"), msg = document.getElementById("sugMsg"), btn = ev.target.querySelector("button[type=submit]");
-    const txt = t.value.trim();
-    if (txt.length < 5) { msg.className = "msg err"; msg.textContent = "Écris au moins quelques mots."; return; }
-    btn.disabled = true;
-    try {
-      const { error } = await sb.from("suggestions").insert({ message: txt });
-      if (error) throw error;
-      t.value = ""; document.getElementById("sugCount").textContent = "0 / " + SUG_MAX;
-      msg.className = "msg ok"; msg.textContent = "Merci ! Ta suggestion a bien été envoyée.";
-      toast("Suggestion envoyée. Merci !", "ok");
-      await sugMine();
-    } catch (e) {
-      const m = String((e && e.message) || "");
-      msg.className = "msg err";
-      msg.textContent = /limite|limit/i.test(m) ? "Tu as atteint la limite de 5 suggestions par jour. Réessaie demain." : /suggestions/i.test(m) ? "Les suggestions ne sont pas encore activées sur le serveur." : "Envoi impossible : " + errText(e);
-    } finally { btn.disabled = false; }
-  }
-
   async function saveProfile(ev) {
     ev.preventDefault();
     const msg = document.getElementById("profMsg");
@@ -1063,12 +1014,12 @@
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
-  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["suggestions", "Suggestions"], ["journal", "Journal"]];
+  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
     homeBottomNav("admin");
     app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
     const body = document.getElementById("adminBody");
-    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, journal: adLog }[tab] || adDash;
+    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1079,11 +1030,8 @@
     body.innerHTML = `<div class="kpis"><div class="kpi"><b>${data.candidates}</b><span>Candidats inscrits</span></div><div class="kpi"><b>${data.pending_payments}</b><span>Paiements à vérifier</span></div><div class="kpi"><b>${esc(fmtXof(data.revenue_xof))}</b><span>Encaissements validés</span></div><div class="kpi"><b>${data.quizzes}</b><span>Quiz réalisés</span></div><div class="kpi"><b>${data.blocked}</b><span>Comptes bloqués</span></div></div>
       <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
       ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
-    sb.from("suggestions").select("id", { count: "exact", head: true }).eq("is_read", false).then(({ count }) => {
-      if (count && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/suggestions">💡 ${count} nouvelle(s) suggestion(s) des membres →</a></p>`);
-    });
     sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
-      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 15 jours →</a></p>`);
+      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 5 jours →</a></p>`);
     });
   }
 
@@ -1220,7 +1168,7 @@
     toast("Statut mis à jour.", "ok"); await loadPeople(); drawPeople();
   }
 
-  /* ----- Comptes expirés : sans parcours activé après le délai de 15 jours ----- */
+  /* ----- Comptes expirés : sans parcours activé après le délai de 5 jours ----- */
   const EXP_ST = { expired: ["bad", "DÉLAI DÉPASSÉ"], reminder: ["warn", "RAPPEL EN COURS"], reminder_expired: ["bad", "RAPPEL EXPIRÉ"] };
   const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
   async function adExpired(body) {
@@ -1232,7 +1180,7 @@
     AD.exp = data || [];
     const min = isoDay(Date.now() + 86400000);
     if (!AD.expDate || AD.expDate < min) AD.expDate = isoDay(Date.now() + 3 * 86400000);
-    body.innerHTML = `<div class="card" style="margin-bottom:12px"><p class="small muted" style="margin-top:0">Candidats sans parcours activé 15 jours après leur inscription (pour les comptes créés avant le lancement, le délai part du 17/11/2026). Aucun compte n'est supprimé sans ton action.</p>
+    body.innerHTML = `<div class="card" style="margin-bottom:12px"><p class="small muted" style="margin-top:0">Candidats sans parcours activé 5 jours après leur inscription (pour les comptes créés avant le lancement, le délai part du 17/11/2026). Aucun compte n'est supprimé sans ton action.</p>
       <div class="row"><label for="expDate" style="margin:0">Date limite du rappel</label><input type="date" id="expDate" value="${esc(AD.expDate)}" min="${min}" style="width:auto">
         <button class="btn btn-primary btn-sm" data-act="ad-exp-remind-sel">📢 Rappel aux comptes cochés</button>
         <button class="btn btn-bad btn-sm" data-act="ad-exp-del-sel">🗑 Supprimer les comptes cochés</button>
@@ -1433,31 +1381,6 @@
     toast("Parcours mis à jour.", "ok"); await loadExams(); route();
   }
 
-  /* ----- Suggestions reçues ----- */
-  async function adSuggestions(body) {
-    const { data, error } = await sb.from("suggestions").select("id,user_id,first_name,last_name,phone,service,message,created_at,is_read").order("created_at", { ascending: false }).limit(500);
-    if (error) { body.innerHTML = `<div class="card"><p class="msg err">${/suggestions/i.test(error.message || "") ? "La table des suggestions n'existe pas encore : exécute le script 12_suggestions.sql dans Supabase." : esc(errText(error))}</p></div>`; return; }
-    const f = AD.sugF || "toutes", all = data || [], unread = all.filter((x) => !x.is_read).length;
-    const rows = f === "nonlues" ? all.filter((x) => !x.is_read) : all;
-    const wa = (x) => "https://wa.me/" + digits(x.phone) + "?text=" + encodeURIComponent(`Bonjour ${x.first_name || ""}, ici LUKOS-REVISION. Merci pour ta suggestion du ${new Date(x.created_at).toLocaleDateString("fr-FR")} : `);
-    body.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row between"><p style="margin:0"><b>${all.length}</b> suggestion(s) reçue(s) · <b>${unread}</b> non lue(s)</p>
-        <div class="row"><button class="btn btn-sm ${f === "toutes" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="toutes">Toutes</button><button class="btn btn-sm ${f === "nonlues" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="nonlues">Non lues</button></div></div></div>
-      ${rows.length ? rows.map((x) => `<div class="card sug-adm ${x.is_read ? "" : "unread"}">
-        <div class="row between"><div><b>${esc((x.first_name || "") + " " + (x.last_name || ""))}</b>${x.is_read ? "" : ` <span class="badge warn">NOUVELLE</span>`}
-          <div class="small muted">📞 ${esc(phonePretty(x.phone))}${x.service ? " · " + esc(serviceLabel(x.service)) : ""} · envoyée le ${esc(fmtDate(x.created_at))}${x.user_id ? "" : " · compte supprimé"}</div></div></div>
-        <p class="sug-msg">${esc(x.message)}</p>
-        <div class="row"><a class="btn btn-sm btn-ghost" href="${wa(x)}" target="_blank" rel="noopener">💬 Répondre sur WhatsApp</a>
-          ${x.is_read ? "" : `<button class="btn btn-sm btn-primary" data-act="sug-read" data-id="${x.id}">✓ Marquer comme lue</button>`}
-          <button class="btn btn-sm btn-bad" data-act="sug-del" data-id="${x.id}">Supprimer</button></div></div>`).join("")
-        : `<div class="card center"><p class="muted" style="margin:0">${f === "nonlues" ? "Aucune suggestion non lue." : "Aucune suggestion reçue pour l'instant."}</p></div>`}`;
-  }
-  async function sugAdmin(act, id) {
-    const q = act === "sug-read" ? sb.from("suggestions").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id) : sb.from("suggestions").delete().eq("id", id);
-    const { error } = await q; if (error) throw error;
-    toast(act === "sug-read" ? "Suggestion marquée comme lue." : "Suggestion supprimée.", "ok");
-    const body = document.getElementById("adminBody"); if (body) await adSuggestions(body);
-  }
-
   async function adLog(body) {
     const { data, error } = await sb.from("audit_log").select("id,actor,action,target,details,created_at").order("id", { ascending: false }).limit(200);
     if (error) throw error;
@@ -1476,9 +1399,6 @@
       if (act === "reload") return location.reload();
       if (act === "retry-online") { if (!navigator.onLine) return toast("Toujours pas de connexion Internet.", "err"); await leaveOffline(); if (S.offline) toast("Connexion impossible pour le moment.", "err"); return; }
       if (act === "logout") return logout();
-      if (act === "sug-f") { AD.sugF = el.dataset.f; const b = document.getElementById("adminBody"); if (b) await adSuggestions(b); return; }
-      if (act === "sug-read") return await sugAdmin(act, el.dataset.id);
-      if (act === "sug-del") { if (!confirm("Supprimer définitivement cette suggestion ?")) return; return await sugAdmin(act, el.dataset.id); }
       if (act === "auth-mode") { S.authMode = el.dataset.mode; return renderAuth(); }
       if (act === "open-exam") return go("#/p/" + el.dataset.exam);
       if (act === "open-course") return go("#/cours");
@@ -1536,8 +1456,6 @@
     cos: "commandant operations secours", pls: "position laterale securite", rcp: "reanimation cardio pulmonaire", bi: "bouche incendie", pi: "poteau incendie",
     ria: "robinet incendie arme", ssi: "systeme securite incendie", mpe: "motopompe", co2: "anhydride carbonique", nrbc: "nucleaire radiologique biologique chimique",
     avp: "accident voie publique", sp: "sapeurs pompiers", ept: "etablissement", ers: "etablissement repertorie", orsec: "organisation reponse securite civile",
-    opj: "officier police judiciaire", apj: "agent police judiciaire", cpp: "code procedure penale", rg: "renseignements generaux", paf: "police air frontieres",
-    dgpn: "direction generale police nationale", enp: "ecole nationale police", gmi: "groupement mobile intervention", thc: "tetrahydrocannabinol", lsd: "lsd",
     dap: "dap", dqeg: "dqeg", gnsp: "groupement national sapeurs pompiers", bnsp: "brigade nationale sapeurs pompiers", lrac: "lance roquette antichar"
   };
   const jTok = (s) => norm(s).replace(/['’]/g, " ").split(/[^a-z0-9]+/).filter((w) => w && w.length > 1 && !JIA_STOP.has(w)).map((w) => (w.length > 3 && /[sx]$/.test(w) && !/(ss|us|is|as)$/.test(w) ? w.slice(0, -1) : w));
@@ -1621,13 +1539,11 @@
     if (exRunning()) return { mode: "quiz", label: "En pause pendant l'examen", codes: [] };
     if (p[0] === "p" && examByCode(p[1])) {
       const ex = examByCode(p[1]);
-      const pc = p[2] === "cours" && courseOfExam(p[1]);
-      if (pc && crsOk(pc)) return { mode: "course", label: "Recherche dans le cours " + ex.name, codes: [], course: pc.code };
       if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
       if (!hasAccess(p[1])) return { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
       return { mode: "exam", label: "Recherche dans " + ex.name, codes: [p[1]], exam: ex };
     }
-    if (p[0] === "cours" && crsOk(COURSES["RDG-RSA"])) return { mode: "course", label: "Recherche dans le cours " + COURSES["RDG-RSA"].name, codes: [], course: "RDG-RSA" };
+    if (p[0] === "cours" && crsUnlocked()) return { mode: "course", label: "Recherche dans le cours " + CRS.name, codes: [] };
     const codes = S.exams.filter((e) => hasAccess(e.code)).map((e) => e.code);
     return { mode: "home", label: codes.length ? "Recherche dans tes parcours activés" : "Aide et activation des parcours", codes };
   }
@@ -1635,15 +1551,15 @@
     const n = S.profile ? esc(S.profile.first_name) : "";
     if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>. Je peux t'aider à créer ton compte, te connecter, installer l'application ou payer ton parcours.`;
     if (c.mode === "locked") return `Bonjour ${n} 👋 Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi. Je peux t'expliquer comment le payer et l'activer.`;
-    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}.`; }
+    if (c.mode === "course") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(CRS.name)}</b> (discipline, salut, permissions, punitions…) : je trouve le passage et l'article correspondant.`;
     if (c.mode === "exam") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi n'importe quelle question du parcours <b>${esc(c.exam.name)}</b> : je trouve la réponse tout de suite, même avec des fautes ou des abréviations (CAT, MGO, ARI…).`;
     return c.codes.length ? `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Je cherche dans tous tes parcours activés : ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")}.` : `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Active un parcours pour que je puisse répondre à tes questions de révision. Je peux t'expliquer comment faire.`;
   }
   function jSuggest(c) {
     if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "Comment payer ?"];
-    if (c.mode === "course") return COURSES[c.course].sugg;
+    if (c.mode === "course") return ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"];
     if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Contacter l'administrateur"];
-    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"], POLICE: ["Éléments constitutifs de l'infraction", "Qu'est-ce que le flagrant délit ?", "La rébellion"] };
+    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"] };
     const code = c.codes[0];
     return (ex[code] || ["CAT devant une hémorragie", "Qu'est-ce que la MGO ?"]).concat(["Comment se passe le quiz ?"]);
   }
@@ -1667,7 +1583,7 @@
   }
   function jRefresh() {
     const c = jContext();
-    const key = c.mode + ":" + c.codes.join(",") + ":" + (c.exam ? c.exam.code : "") + ":" + (c.course || "");
+    const key = c.mode + ":" + c.codes.join(",") + ":" + (c.exam ? c.exam.code : "");
     jFab.hidden = c.mode === "quiz" || !configured;
     if (c.mode === "quiz" && JIA.open) jClose();
     document.getElementById("jiaCtx").textContent = c.label;
@@ -1706,13 +1622,12 @@
     JIA.busy = true;
     try {
       if (c.mode === "course") {
-        crsUse(c.course);
         await crsLoad();
         const cr = crsSearch(raw);
         const faq = jFaq(raw);
         if (cr.length && !(faq && cr[0].s < 3)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
         if (faq) return jPush("bot", formatAnswer(faq));
-        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.`);
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. « permission », « salut », « arrêts ») ou un numéro d'article (ex. « article 45 »).`);
       }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
@@ -1723,8 +1638,7 @@
           return jPush("bot", out.html, out.extra);
         }
         if (faq) return jPush("bot", formatAnswer(faq));
-        // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
-        for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, raw); if (out) return jPush("bot", out.html, out.extra); }
+        if (crsUnlocked()) { try { await crsLoad(); const cr = crsSearch(raw); if (cr.length) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); } } catch (e) { /* cours non installé */ } }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.`);
       }
@@ -1744,7 +1658,7 @@
     const a = el.dataset.jia;
     if (a === "close") return jClose();
     if (a === "ask") return jAsk(el.dataset.q);
-    if (a === "crs") { jClose(); crsUse(el.dataset.course || "RDG-RSA"); return go(CRS.base + "/" + el.dataset.no); }
+    if (a === "crs") { jClose(); return go("#/cours/" + el.dataset.no); }
     if (a === "show") { const q = jFind(el.dataset.code, el.dataset.id); if (!q) return; const out = jRender({ it: { x: q, code: el.dataset.code } }, [], jContext()); jPush("me", esc(q.question)); return jPush("bot", out.html, out.extra); }
     if (a === "fiche") {
       const code = el.dataset.code, q = jFind(code, el.dataset.id); if (!q) return;
@@ -1756,82 +1670,64 @@
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && JIA.open) jClose(); });
 
   /* ------------------------------------------------------------------ */
-  /* Cours (lecture, sans quiz)                                          */
-  /*  - RDG-RSA : module offert à tout membre ayant au moins 1 parcours   */
-  /*  - Cours propres à un parcours (ex. POLICE) : ouverts avec ce parcours */
+  /* Module d'apprentissage RDG-RSA (cours, sans quiz)                  */
+  /* Ouvert automatiquement à tout membre ayant au moins 1 parcours actif */
   /* ------------------------------------------------------------------ */
-  const COURSES = {
-    "RDG-RSA": { code: "RDG-RSA", name: "RDG-RSA", full: "Règlement de discipline générale dans les Forces armées", exam: null,
-      base: "#/cours", unit: "Article", partLabel: "Partie", heroClass: "crs-hero", readKey: (uid) => "crsread:" + uid,
-      hint: "permission, salut, punition…", sugg: ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"],
-      data: null, idx: null, read: null, uid: null, q: "" },
-    "POLICE": { code: "POLICE", name: "Cours Police nationale", full: "Référentiel pédagogique du fonctionnaire de police", exam: "POLICE",
-      base: "#/p/POLICE/cours", unit: "Leçon", fem: true, partLabel: "Module", heroClass: "", readKey: (uid) => "crsread:POLICE:" + uid,
-      hint: "infraction, flagrant délit, rébellion…", sugg: ["Éléments constitutifs de l'infraction", "La légitime défense", "Accident mortel", "Le proxénétisme"],
-      data: null, idx: null, read: null, uid: null, q: "" }
-  };
-  let CRS = COURSES["RDG-RSA"];                       // cours affiché en ce moment
-  const crsUse = (code) => (CRS = COURSES[code] || COURSES["RDG-RSA"]);
-  const courseOfExam = (code) => Object.values(COURSES).find((c) => c.exam === code) || null;
-  const crsOk = (c) => !!S.profile && (isAdmin() || (!S.profile.is_blocked && (c.exam ? hasAccess(c.exam) : Object.values(S.enr || {}).some((e) => e && e.status === "active"))));
-  const crsUnlocked = () => crsOk(CRS);
-  const crsKey = (c) => "course:" + (c || CRS).code;
-  async function crsLoad(c) {
-    c = c || CRS;
-    if (c.data) return c.data;
+  const CRS = { code: "RDG-RSA", name: "RDG-RSA", full: "Règlement de discipline générale dans les Forces armées", data: null, idx: null, read: null, uid: null, q: "" };
+  const crsUnlocked = () => !!S.profile && (isAdmin() || (!S.profile.is_blocked && Object.values(S.enr || {}).some((e) => e && e.status === "active")));
+  const crsKey = () => "course:" + CRS.code;
+  async function crsLoad() {
+    if (CRS.data) return CRS.data;
     let rows = null;
     if (!S.offline) {
       try {
-        const { data, error } = await sb.from("course_lessons").select("part_no,part_title,chapter_no,chapter_title,position,article_no,title,body_html,updated_2013").eq("course", c.code).order("position");
+        const { data, error } = await sb.from("course_lessons").select("part_no,part_title,chapter_no,chapter_title,position,article_no,title,body_html,updated_2013").eq("course", CRS.code).order("position");
         if (error) throw error;
         rows = data || [];
-        if (rows.length) await idb.set(crsKey(c), rows);
-      } catch (e) { rows = await idb.get(crsKey(c)); if (!rows || !rows.length) throw e; }
-    } else rows = await idb.get(crsKey(c));
-    if (!rows || !rows.length) throw new Error(S.offline ? "Le cours n'est pas encore téléchargé sur ce téléphone. Connecte-toi une fois à Internet pour l'ouvrir." : "Le cours n'est pas encore installé sur le serveur.");
-    c.data = rows; c.idx = null;
+        if (rows.length) await idb.set(crsKey(), rows);
+      } catch (e) { rows = await idb.get(crsKey()); if (!rows || !rows.length) throw e; }
+    } else rows = await idb.get(crsKey());
+    if (!rows || !rows.length) throw new Error(S.offline ? "Le cours n'est pas encore téléchargé sur ce téléphone. Connecte-toi une fois à Internet pour l'ouvrir." : "Le cours n'est pas encore installé (script 08_module_rdg_rsa.sql).");
+    CRS.data = rows; CRS.idx = null;
     return rows;
   }
   async function crsLoadRead() {
     const uid = S.session && S.session.user.id;
     if (CRS.read && CRS.uid === uid) return CRS.read;
-    const r = (await idb.get(CRS.readKey(uid))) || { ids: [], last: null };
+    const r = (await idb.get("crsread:" + uid)) || { ids: [], last: null };
     CRS.read = { ids: new Set(r.ids || []), last: r.last || null }; CRS.uid = uid;
     return CRS.read;
   }
   async function crsMarkRead(no) {
     const r = await crsLoadRead(); r.ids.add(no); r.last = no;
-    await idb.set(CRS.readKey(CRS.uid), { ids: [...r.ids], last: r.last });
+    await idb.set("crsread:" + CRS.uid, { ids: [...r.ids], last: r.last });
   }
   function crsHomeCard() {
-    const c = COURSES["RDG-RSA"], ok = crsOk(c);
+    const ok = crsUnlocked();
     return `<div class="label-up crs-label">MODULE D'APPRENTISSAGE</div>
       <div class="exam-list"><button class="exam-row exam-crs ${ok ? "" : "locked"}" data-act="open-course">
         <span class="exam-ico">${icon("shield", 28)}</span>
-        <span class="exam-txt"><b>${esc(c.name)}</b><small>${esc(c.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
+        <span class="exam-txt"><b>${esc(CRS.name)}</b><small>${esc(CRS.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
         <span class="exam-go">${icon("next", 22)}</span>
       </button></div>`;
   }
   function crsHero(title, sub, crumb) {
-    const ex = CRS.exam && examByCode(CRS.exam);
-    const root = ex ? `<a href="#/">Parcours</a> › <a href="#/p/${esc(ex.code)}">${esc(ex.name)}</a> › ` : `<a href="#/">Parcours</a> › `;
-    const back = crumb ? CRS.base : (ex ? "#/p/" + ex.code : "#/");
-    return `<section class="hero ${CRS.heroClass}"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb">${root}${crumb ? `<a href="${CRS.base}">${esc(CRS.exam ? "Cours" : CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.exam ? "Cours" : CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+    return `<section class="hero crs-hero"><div class="hero-top"><a class="icon-btn" href="${crumb ? "#/cours" : "#/"}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/cours">${esc(CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
   }
   async function renderCourse(no) {
-    if (!CRS.exam) { homeBottomNav("home"); document.body.className = "crs-page"; }
+    homeBottomNav("home");
+    document.body.className = "crs-page";
     if (!crsUnlocked()) {
       app.innerHTML = `${crsHero(CRS.name, CRS.full)}<div class="card center crs-lock"><div style="font-size:2.6rem">🔒</div><h2>Module réservé aux membres actifs</h2><p>Ce cours s'ouvre <b>automatiquement et gratuitement</b> dès que tu as au moins un parcours activé.</p><a class="btn btn-primary" href="#/">Activer un parcours</a></div>`;
       return;
     }
-    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du cours…</p></div>`;
+    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du cours ${esc(CRS.name)}…</p></div>`;
     const rows = await crsLoad(); await crsLoadRead();
     if (no) return crsLesson(rows, parseInt(no, 10));
     crsSummary(rows);
   }
   function crsSummary(rows) {
     const r = CRS.read, n = rows.length, done = rows.filter((x) => r.ids.has(x.article_no)).length, pct = n ? Math.round(done * 100 / n) : 0;
-    const U = CRS.unit, Up = U.toLowerCase() + "s";
     const last = rows.find((x) => x.article_no === r.last);
     const nextUnread = rows.find((x) => !r.ids.has(x.article_no));
     const resume = last || nextUnread || rows[0];
@@ -1840,19 +1736,19 @@
       if (x.part_no !== part) {
         if (part !== null) html += `</div></details>`;
         const inPart = rows.filter((y) => y.part_no === x.part_no), pd = inPart.filter((y) => r.ids.has(y.article_no)).length;
-        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>${esc(U)}s ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} ${CRS.fem ? "lues" : "lus"}</small></span></summary><div class="crs-pbody">`;
+        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>Articles ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} lus</small></span></summary><div class="crs-pbody">`;
         part = x.part_no; chap = null;
       }
       if (x.chapter_no !== chap) { html += `<div class="crs-chap">${esc(x.chapter_title)}</div>`; chap = x.chapter_no; }
-      html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="${CRS.base}/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
+      html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="#/cours/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
     });
     if (part !== null) html += `</div></details>`;
-    app.innerHTML = `${crsHero(CRS.exam ? "Cours" : CRS.name, CRS.full + " — " + n + " " + Up)}
-      <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} ${Up} ${CRS.fem ? "lues" : "lus"}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
-        ${resume ? `<a class="btn btn-primary btn-block" href="${CRS.base}/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : ${esc(U)} ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
-      <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. ${esc(CRS.hint)})" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
+    app.innerHTML = `${crsHero(CRS.name, CRS.full + " — " + n + " articles")}
+      <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} articles lus</span></div><div class="bar"><i style="width:${pct}%"></i></div>
+        ${resume ? `<a class="btn btn-primary btn-block" href="#/cours/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : Article ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
+      <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. permission, salut, punition…)" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
       <div class="crs-parts">${html}</div>
-      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique ${U === "Article" ? "l'article" : "la leçon"}.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique l'article.</span></div>`;
     const q = document.getElementById("crsQ");
     const run = () => { CRS.q = q.value; crsShowSearch(q.value); };
     q.addEventListener("input", run); if (CRS.q) run();
@@ -1861,23 +1757,23 @@
     const box = document.getElementById("crsRes"); if (!box) return;
     if (String(raw || "").trim().length < 2) { box.innerHTML = ""; return; }
     const res = crsSearch(raw, 8);
-    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="${CRS.base}/${x.it.no}"><b>${esc(CRS.unit)} ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
+    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="#/cours/${x.it.no}"><b>Article ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
       : `<p class="muted small" style="margin:10px 2px 0">Aucun résultat pour « ${esc(raw)} ».</p>`;
   }
   async function crsLesson(rows, no) {
     const i = rows.findIndex((x) => x.article_no === no);
-    if (i < 0) return go(CRS.base);
-    const x = rows[i], prev = rows[i - 1], next = rows[i + 1], U = CRS.unit;
+    if (i < 0) return go("#/cours");
+    const x = rows[i], prev = rows[i - 1], next = rows[i + 1];
     await crsMarkRead(no);
-    app.innerHTML = `${crsHero(U + " " + x.article_no, x.title, U + " " + x.article_no)}
+    app.innerHTML = `${crsHero("Article " + x.article_no, x.title, "Article " + x.article_no)}
       <article class="card crs-lesson">
-        <div class="crs-meta"><span>${esc(CRS.partLabel)} ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
+        <div class="crs-meta"><span>Partie ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
         <div class="crs-body">${x.body_html}</div>
       </article>
       <div class="crs-nav">
-        ${prev ? `<a class="btn btn-ghost" href="${CRS.base}/${prev.article_no}">← ${esc(U)} ${prev.article_no}</a>` : `<span></span>`}
-        <a class="btn btn-ghost" href="${CRS.base}">Sommaire</a>
-        ${next ? `<a class="btn btn-primary" href="${CRS.base}/${next.article_no}">${esc(U)} ${next.article_no} →</a>` : `<a class="btn btn-primary" href="${CRS.base}">Terminé ✓</a>`}
+        ${prev ? `<a class="btn btn-ghost" href="#/cours/${prev.article_no}">← Article ${prev.article_no}</a>` : `<span></span>`}
+        <a class="btn btn-ghost" href="#/cours">Sommaire</a>
+        ${next ? `<a class="btn btn-primary" href="#/cours/${next.article_no}">Article ${next.article_no} →</a>` : `<a class="btn btn-primary" href="#/cours">Terminé ✓</a>`}
       </div>`;
   }
   /* Recherche dans le cours (utilisée par la page et par Julien – IA) */
@@ -1886,8 +1782,8 @@
     const div = document.createElement("div"), items = [];
     (CRS.data || []).forEach((L) => {
       div.innerHTML = L.body_html;
-      const head = jExpand(jTok(CRS.unit + " " + L.article_no + " " + L.title + " " + L.chapter_title));
-      const blocks = [...div.querySelectorAll("p, li, tr, h3")].filter((b) => !(b.tagName === "P" && b.closest("li, td")));
+      const head = jExpand(jTok("article " + L.article_no + " " + L.title + " " + L.chapter_title));
+      const blocks = [...div.querySelectorAll("p, li, tr")].filter((b) => !(b.tagName === "P" && b.closest("li, td")));
       const texts = blocks.map((b) => b.textContent.replace(/\s+/g, " ").trim()).filter((t) => t.length > 2);
       if (!texts.length) texts.push(L.title);
       texts.forEach((t, k) => items.push({ no: L.article_no, title: L.title, chap: L.chapter_title, k, text: t, t: new Set(head), b: new Set(jTok(t)) }));
@@ -1896,7 +1792,7 @@
   }
   function crsSearch(raw, max) {
     if (!CRS.data) return [];
-    const m = norm(raw).match(/\b(?:art(?:icle)?|lecon)\.?\s*(\d{1,3})\b/);
+    const m = norm(raw).match(/\bart(?:icle)?\.?\s*(\d{1,3})\b/);
     if (m) { const it = crsIndex().find((x) => x.no === parseInt(m[1], 10)); if (it) return [{ s: 99, it }]; }
     const words = jExpand(jTok(raw)); if (!words.length) return [];
     const res = [];
@@ -1913,17 +1809,12 @@
     return res.filter((r) => !seen.has(r.it.no) && seen.add(r.it.no)).slice(0, max || 4).filter((r, i, arr) => r.s >= Math.max(0.9, arr[0].s * 0.35));
   }
   function crsAnswer(res) {
-    const r = res[0], it = r.it, U = CRS.unit, cc = esc(CRS.code);
+    const r = res[0], it = r.it;
     const all = crsIndex().filter((x) => x.no === it.no);
     const ctx = all.slice(Math.max(0, it.k), it.k + 2).map((x) => `<p>${esc(x.text)}</p>`).join("");
-    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">${esc(U)} ${it.no} – ${esc(it.title)}</div>`;
-    const more = res.length > 1 ? `<div class="jia-alts"><small>${U === "Article" ? "Articles proches" : "Leçons proches"} :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-course="${cc}" data-no="${a.it.no}">${esc(U)} ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
-    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-course="${cc}" data-no="${it.no}">📖 Lire ${U === "Article" ? "l'article" : "la leçon"} ${it.no}</button></div>` + more };
-  }
-  /* cherche dans un cours donné (pour Julien – IA) */
-  async function crsTry(c, raw) {
-    if (!c || !crsOk(c)) return null;
-    try { crsUse(c.code); await crsLoad(c); const cr = crsSearch(raw); return cr.length ? crsAnswer(cr) : null; } catch (e) { return null; }
+    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">Article ${it.no} – ${esc(it.title)}</div>`;
+    const more = res.length > 1 ? `<div class="jia-alts"><small>Articles proches :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-no="${a.it.no}">Article ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
+    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-no="${it.no}">📖 Lire l'article ${it.no}</button></div>` + more };
   }
 
   /* ------------------------------------------------------------------ */
