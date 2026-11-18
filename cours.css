@@ -70,3 +70,40 @@
 .ann-qs li { padding-left: 2px; }
 .ann-q { font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
 .ann-a { margin-top: 10px; }
+
+/* =====================================================================
+   Outils d'apprentissage : objectif du jour, à revoir, écoute, signalement
+   ===================================================================== */
+.linkbtn { background: none; border: 0; padding: 4px; color: #1d5fd1; font-weight: 700; text-decoration: underline; cursor: pointer; font: inherit; }
+.tools-row { margin-top: 10px; gap: 6px; flex-wrap: wrap; }
+.report-btn { color: #8a5a00 !important; }
+.ann-tools { margin-top: 6px; }
+.ann-tools .report-btn { font-size: .78rem; padding: 4px 10px; }
+
+.goal-card { margin: 12px 0; padding: 14px 16px; }
+.goal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.goal-cell { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 14px; background: #f5f8fc; }
+.goal-cell b { font-size: 1.15rem; color: #0b1f3a; line-height: 1.2; }
+.goal-cell small { color: #5b6b82; font-size: .72rem; line-height: 1.25; margin-top: 2px; }
+.goal-bar { margin-top: 12px; height: 9px; border-radius: 999px; background: #eef2f8; overflow: hidden; }
+.goal-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f08a24, #f7c948); transition: width .4s; }
+.goal-form { margin-top: 12px; border-top: 1px solid #eef2f8; padding-top: 10px; }
+.goal-form input, .goal-form select { width: 100%; }
+
+.rv-banner { background: linear-gradient(135deg, #0f5132, #1e9e5a) !important; }
+.rv-boxes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; text-align: center; }
+.rv-boxes div { background: #f5f8fc; border-radius: 12px; padding: 8px 2px; display: flex; flex-direction: column; }
+.rv-boxes b { font-size: 1.1rem; color: #0b1f3a; }
+.rv-boxes small { font-size: .7rem; color: #5b6b82; }
+
+.rp-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(8, 20, 40, .55); display: flex; align-items: flex-end; justify-content: center; padding: 12px; }
+.rp-box { width: 100%; max-width: 520px; max-height: 92vh; overflow: auto; background: #fff; border-radius: 22px; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+.rp-box h2 { margin: 0 0 6px; }
+.rp-box p.small { max-height: 4.2em; overflow: hidden; }
+.rp-box textarea { width: 100%; min-height: 96px; }
+.rp-types { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 8px; }
+.rp-types .check { margin: 0; font-weight: 600; }
+@media (min-width: 700px) { .rp-overlay { align-items: center; } }
+.rp-card .rp-msg { background: #fff8e6; border-left: 4px solid #e0b43a; padding: 8px 12px; border-radius: 8px; margin: 6px 0 10px; }
+.rp-edit textarea { width: 100%; min-height: 70px; }
+body:has(.rp-overlay) .wa-fab, body:has(.rp-overlay) .jia-fab { display: none !important; }

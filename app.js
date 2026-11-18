@@ -236,6 +236,10 @@
     if (p.error && /service/i.test(p.error.message || "")) p = await sb.from("profiles").select(PROFILE_COLS).eq("id", uid).maybeSingle();
     if (p.error) throw p.error;
     S.profile = p.data;
+    if (S.profile) {      // colonne ajoutée par le script 12 : lecture tolérante
+      const m = await sb.from("profiles").select("must_change_password").eq("id", uid).maybeSingle();
+      S.profile.must_change_password = !m.error && m.data ? !!m.data.must_change_password : false;
+    }
     const payQ = (extra) => sb.from("payments").select("id,exam_code,amount_xof,method,status,transaction_reference,admin_note,created_at,reviewed_at" + extra).eq("user_id", uid).order("created_at", { ascending: false });
     let [e, pay] = await Promise.all([
       sb.from("enrollments").select("exam_code,status,activated_at").eq("user_id", uid),
@@ -251,6 +255,7 @@
       const a = await sb.rpc("lk_my_activation_status");
       if (!a.error && Array.isArray(a.data) && a.data.length) S.act = a.data[0];
     }
+    await checkDevice();
     await saveAccountCache();
   }
   async function fetchExamRaw(code) {
@@ -335,6 +340,8 @@
       if (!S.profile) { renderTopnav(); return renderNoProfile(); }
       renderTopnav();
       if (S.profile.is_blocked) return renderBlocked();
+      if (S.deviceBlocked) return renderDeviceBlocked();
+      if (S.profile.must_change_password && !S.offline) return renderMustChange();
       const p = parts();
       if (S.offline && !offFresh()) return renderOfflineLocked();
       // examen en cours : impossible de quitter l'épreuve sans remettre sa copie
@@ -404,7 +411,8 @@
     app.innerHTML = `<div class="card" style="max-width:640px;margin:30px auto"><h2>Configuration requise</h2><p>Renseigne l'adresse et la clé de ton projet Supabase dans le fichier <b>config.js</b>, puis recharge la page.</p><p class="muted small">Voir le guide d'installation fourni avec l'application.</p></div>`;
   }
   function renderAuth() {
-    const login = S.authMode === "login";
+    if (S.authMode === "forgot") return renderForgot();
+    const login = S.authMode !== "signup";
     app.innerHTML = `<div class="auth-wrap"><div class="auth">
       <div class="auth-head"><img class="big-logo" src="logo512.png" alt="Logo LUKOS-REVISION DAP / DQEG / CAT1-2" width="120" height="120"><h1>LUKOS-REVISION</h1><p class="muted">Ta plateforme de préparation aux examens</p>
       <div class="exam-tags"><span class="badge exam-DAP acc">DAP</span><span class="badge exam-DQEG acc">DQEG</span><span class="badge exam-CAT acc">CAT-1/CAT-2 INFANTERIE</span><span class="badge exam-BNSP acc">CAT-1/CAT-2 BNSP</span></div></div>
@@ -414,7 +422,8 @@
           <label for="lPhone">Numéro de téléphone</label><input id="lPhone" inputmode="tel" autocomplete="username" placeholder="77 000 00 00" required>
           <label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required minlength="6">
           <button class="btn btn-dark btn-block" style="margin-top:16px">Se connecter</button>
-          <div class="msg" id="authMsg"></div></form>`
+          <div class="msg" id="authMsg"></div>
+          <p class="center" style="margin:12px 0 0"><button type="button" class="linkbtn" data-act="forgot">Mot de passe oublié ?</button></p></form>`
         : `<form id="signupForm" autocomplete="on" novalidate>
           <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px"><div><label for="sFirst">Prénom</label><input id="sFirst" autocomplete="given-name" required maxlength="60"></div><div><label for="sLast">Nom</label><input id="sLast" autocomplete="family-name" required maxlength="60"></div></div>
           <label for="sService">Service / Corps</label><select id="sService" required>${serviceOptions("")}</select>
@@ -460,7 +469,6 @@
     if (!SERVICES.some((s) => s[0] === service)) return (msg.textContent = "Choisis ton service ou corps (Gendarmerie, Armée ou BNSP).");
     if (!phone) return (msg.textContent = "Numéro sénégalais invalide.");
     if (p1.length < 6) return (msg.textContent = "Le mot de passe doit contenir au moins 6 caractères.");
-    if (!/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return (msg.textContent = "Le mot de passe doit contenir des lettres et des chiffres.");
     if (p1.replace(/\D/g, "").includes(phone.slice(4))) return (msg.textContent = "Le mot de passe ne doit pas contenir ton numéro.");
     if (p1 !== p2) return (msg.textContent = "Les mots de passe ne correspondent pas.");
     if (!document.getElementById("sCgu").checked) return (msg.textContent = "Coche la case d'acceptation pour continuer.");
@@ -487,7 +495,7 @@
     try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
     await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
-    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.act = null; S.quiz = null; S.rev = null; S.exam = null; clearInterval(exTick);
+    S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.act = null; S.quiz = null; S.rev = null; S.rv = null; S.exam = null; S.deviceBlocked = false; S.authMode = "login"; clearInterval(exTick); ttsStop();
     go("#/");
   }
 
@@ -576,7 +584,7 @@
     const exam = examByCode(code);
     document.body.className = "exam-" + code;
     if (!hasAccess(code)) return renderActivation(exam);
-    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" ? "quiz" : page);
+    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page);
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
     const d = await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
@@ -586,6 +594,7 @@
     if (page === "recherche") return renderSearch(exam, d);
     if (page === "documents") return await renderDocuments(exam);
     if (page === "annales") return await renderAnnales(exam, d, rest[0]);
+    if (page === "revoir") { S.rv = null; return renderReview(exam, d); }   // chaque visite = nouvelle séance
     return await renderExamHome(exam, d);
   }
 
@@ -602,12 +611,14 @@
     app.innerHTML = hero(exam, exam.name, (EXAM_META[exam.code] || {}).tagline || exam.full_name).replace('class="hero"', 'class="hero hero-stats"') +
       `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>Questions</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz faits</span></div><div class="stat"><b>${avg} %</b><span>Réussite</span></div></div>
       ${offlineNote(exam, d)}
+      ${isAdmin() ? "" : goalCard(exam)}
       <div class="actions">
         <a class="action a-blue" href="#/p/${exam.code}/matieres"><i>${icon("book", 24)}</i><b>Réviser</b><small>Fiches par matière</small></a>
         <a class="action a-orange" href="#/p/${exam.code}/quiz"><i>${icon("target", 24)}</i><b>Quiz</b><small>QCM ou auto-évaluation</small></a>
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
+      ${reviewBanner(exam)}
       ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets de l'examen ${esc(exam.name)} avec leur corrigé officiel</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
@@ -655,6 +666,8 @@
         ${r.show ? `<div class="answer">${formatAnswer(q.answer)}</div>` : ""}
         <div class="row" style="margin-top:14px;position:relative"><button class="btn ${r.show ? "btn-ghost" : "btn-primary"}" data-act="rev-toggle">${r.show ? "Masquer la réponse" : "Afficher la réponse"}</button>
         <button class="btn btn-ghost btn-sm" data-act="rev-shuffle">${r.shuffled ? "Ordre normal" : "Mélanger"}</button></div>
+        <div class="row tools-row" style="position:relative">${listenBtn()}${ttsOk() ? `<button class="btn btn-ghost btn-sm" data-act="tts-auto">${TTS.auto ? "⏹ Arrêter la lecture continue" : "🎧 Lecture continue"}</button>` : ""}
+          <button class="btn btn-ghost btn-sm" data-act="srs-toggle">${srsHas(q.id) ? "🔁 Dans « À revoir » ✓" : "🔁 À revoir"}</button>${reportBtn("question", q.id, exam.code, q.question, q.answer)}</div>
       </article>
       <div class="nav-q"><button class="btn btn-ghost" data-act="rev-prev" ${r.i === 0 ? "disabled" : ""}>← Précédente</button><button class="btn btn-primary" data-act="rev-next" ${r.i >= r.list.length - 1 ? "disabled" : ""}>Suivante →</button></div>
       <p class="hint center">Astuce : flèches ← → pour naviguer, barre d'espace pour afficher la réponse.</p></div>`;
@@ -664,9 +677,10 @@
     const p = parts(); const exam = examByCode(p[1]); const d = S.data[p[1]];
     const subject = d && d.subjects.find((s) => String(s.id) === String(p[3]));
     if (!exam || !subject) return;
-    if (act === "rev-toggle") r.show = !r.show;
-    if (act === "rev-next" && r.i < r.list.length - 1) { r.i++; r.show = false; }
-    if (act === "rev-prev" && r.i > 0) { r.i--; r.show = false; }
+    if (act === "rev-toggle") { r.show = !r.show; if (r.show) trackActivity(1); }
+    if (act === "rev-next" && r.i < r.list.length - 1) { r.i++; r.show = false; if (TTS.on && !TTS.auto) ttsStop(); }
+    if (act === "rev-prev" && r.i > 0) { r.i--; r.show = false; if (TTS.on && !TTS.auto) ttsStop(); }
+    if (TTS.auto && (act === "rev-next" || act === "rev-prev")) r.show = true;
     if (act === "rev-shuffle") { r.shuffled = !r.shuffled; r.list = r.shuffled ? shuffle(r.list) : (d.bySubject.get(subject.id) || []).slice(); r.i = 0; r.show = false; }
     drawRevision(exam, subject);
   }
@@ -733,18 +747,24 @@
     app.innerHTML = hero(exam, "Quiz " + exam.name, (z.mode === "qcm" ? "QCM" : "Auto-évaluation") + " — question " + (z.i + 1) + " sur " + z.items.length + " · score actuel " + score, "Quiz") +
       `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((z.i + 1) / z.items.length) * 100}%"></i></div>
       <article class="qcard">${watermark()}<div class="qmeta"><span class="row" style="gap:6px"><span class="badge acc">${esc(subj)}</span>${qTags(it.q)}</span><span class="muted small">${z.i + 1} / ${z.items.length}</span></div>
-      <div class="qtext">${esc(it.q.question)}</div>${body}</article>
+      <div class="qtext">${esc(it.q.question)}</div>${body}${answered ? `<div class="row" style="margin-top:10px;position:relative">${reportBtn("question", it.q.id, z.exam, it.q.question, it.q.answer)}</div>` : ""}</article>
       <div class="nav-q"><button class="btn btn-ghost" data-act="qz-quit">Abandonner</button>${answered ? `<button class="btn btn-primary" data-act="qz-next">${z.i < z.items.length - 1 ? "Question suivante →" : "Voir mon résultat"}</button>` : ""}</div></div>`;
   }
   async function quizAction(act, el) {
     const z = S.quiz; if (!z) return;
     const it = z.items[z.i];
-    if (act === "qz-pick" && it.chosen === null) { it.chosen = Number(el.dataset.k); it.ok = it.options[it.chosen] === it.q.answer; }
+    if (act === "qz-pick" && it.chosen === null) { it.chosen = Number(el.dataset.k); it.ok = it.options[it.chosen] === it.q.answer; quizLearn(z, it); }
     if (act === "qz-show") it.shown = true;
-    if (act === "qz-self" && it.ok === null) it.ok = el.dataset.v === "1";
+    if (act === "qz-self" && it.ok === null) { it.ok = el.dataset.v === "1"; quizLearn(z, it); }
     if (act === "qz-next") { if (z.i < z.items.length - 1) z.i++; else { z.finished = true; await saveQuiz(); } }
     if (act === "qz-quit") { if (!confirm("Abandonner ce quiz ? Il ne sera pas enregistré.")) return; S.quiz = null; return route(); }
     drawQuiz(); window.scrollTo(0, 0);
+  }
+  /* réponse donnée : compteur du jour + liste « À revoir » */
+  function quizLearn(z, it) {
+    trackActivity(1);
+    if (!it.ok) srsAdd(z.exam, it.q);
+    else if (srsHas(it.q.id)) srsAnswer(it.q.id, true);
   }
   async function saveQuiz() {
     const z = S.quiz; if (z.saved) return;
@@ -769,7 +789,7 @@
     app.innerHTML = hero(exam, "Résultat du quiz", verdict, "Quiz") +
       `<div class="study"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${correct} / ${z.items.length} bonnes réponses</h2><p class="muted">${z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera ajouté à ta progression dès le retour d'Internet." : "Résultat non enregistré."}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-primary" data-act="qz-again">Nouveau quiz</button><a class="btn btn-ghost" href="#/p/${exam.code}">Retour au parcours</a></div></div>
-      ${wrong.length ? `<div class="card" style="margin-top:14px"><h3>À revoir (${wrong.length})</h3>${wrong.map((x) => `<div class="review-item"><b>${esc(x.q.question)}</b><div class="answer">${formatAnswer(x.q.answer)}</div></div>`).join("")}</div>` : ""}</div>`;
+      ${wrong.length ? `<div class="card" style="margin-top:14px"><div class="row between"><h3 style="margin:0">À revoir (${wrong.length})</h3><a class="btn btn-soft btn-sm" href="#/p/${exam.code}/revoir/new">🔁 Ajoutées à « Mes questions à revoir »</a></div>${wrong.map((x) => `<div class="review-item"><b>${esc(x.q.question)}</b><div class="answer">${formatAnswer(x.q.answer)}</div></div>`).join("")}</div>` : ""}</div>`;
   }
 
   /* ----- Recherche ----- */
@@ -1018,12 +1038,12 @@
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
-  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["journal", "Journal"]];
+  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["signalements", "Signalements"], ["assistance", "Assistance"], ["journal", "Journal"]];
   async function renderAdmin(tab) {
     homeBottomNav("admin");
     app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
     const body = document.getElementById("adminBody");
-    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, journal: adLog }[tab] || adDash;
+    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1034,6 +1054,12 @@
     body.innerHTML = `<div class="kpis"><div class="kpi"><b>${data.candidates}</b><span>Candidats inscrits</span></div><div class="kpi"><b>${data.pending_payments}</b><span>Paiements à vérifier</span></div><div class="kpi"><b>${esc(fmtXof(data.revenue_xof))}</b><span>Encaissements validés</span></div><div class="kpi"><b>${data.quizzes}</b><span>Quiz réalisés</span></div><div class="kpi"><b>${data.blocked}</b><span>Comptes bloqués</span></div></div>
       <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
       ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
+    sb.rpc("lk_admin_counters").then(({ data: c }) => {
+      const x = Array.isArray(c) ? c[0] : c;
+      if (!x || !document.body.contains(body)) return;
+      if (x.open_reports) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/signalements">⚑ ${x.open_reports} erreur(s) signalée(s) par les candidats →</a></p>`);
+      if (x.open_resets) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/assistance">🔑 ${x.open_resets} demande(s) « mot de passe oublié » →</a></p>`);
+    });
     sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
       if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 5 jours →</a></p>`);
     });
@@ -1393,6 +1419,348 @@
     body.innerHTML = `<div class="card"><div class="table-wrap"><table class="t"><tr><th>Date</th><th>Par</th><th>Action</th><th>Détails</th></tr>${(data || []).map((x) => `<tr><td>${esc(fmtDate(x.created_at))}</td><td>${esc(who(x.actor))}</td><td><b>${esc(x.action)}</b></td><td class="small muted">${esc(JSON.stringify(x.details))}</td></tr>`).join("") || '<tr><td colspan="4" class="muted">Aucune action enregistrée.</td></tr>'}</table></div></div>`;
   }
 
+  /* ================================================================== */
+  /* OUTILS D'APPRENTISSAGE ET D'ASSISTANCE                              */
+  /*  1. Signaler une erreur      2. Mot de passe oublié (sans e-mail)    */
+  /*  3. Questions à revoir       4. Objectif du jour / compte à rebours  */
+  /*  5. Mode écoute              6. Limite d'appareils par compte        */
+  /* ================================================================== */
+  const LS = {
+    k: (n) => "lk:" + n + ":" + ((S.session && S.session.user && S.session.user.id) || "anon"),
+    get(n, d) { try { const v = localStorage.getItem(LS.k(n)); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(n, v) { try { localStorage.setItem(LS.k(n), JSON.stringify(v)); } catch (e) { /* stockage plein ou indisponible */ } }
+  };
+  const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+
+  /* ----- 3. Questions à revoir (répétition espacée, 5 boîtes) ----- */
+  const SRS_DAYS = [0, 1, 3, 7, 14];       // délai avant de revoir, selon la boîte
+  const srsAll = () => LS.get("srs", {});
+  function srsAdd(exam, q) {
+    if (!q || q.id == null) return;
+    const s = srsAll(), x = s[q.id] || { e: exam, b: 0, n: 0 };
+    x.b = 0; x.n = (x.n || 0) + 1; x.due = Date.now() + 10 * 60 * 1000; x.e = exam;   // revue dans 10 min
+    s[q.id] = x; LS.set("srs", s);
+  }
+  function srsRemove(id) { const s = srsAll(); delete s[id]; LS.set("srs", s); }
+  function srsHas(id) { return !!srsAll()[id]; }
+  function srsAnswer(id, ok) {
+    const s = srsAll(), x = s[id]; if (!x) return;
+    if (ok) { if (x.b >= SRS_DAYS.length - 1) { delete s[id]; LS.set("srs", s); return "mastered"; } x.b++; x.due = Date.now() + SRS_DAYS[x.b] * 86400000; }
+    else { x.b = 0; x.n = (x.n || 0) + 1; x.due = Date.now() + 10 * 60 * 1000; }
+    s[id] = x; LS.set("srs", s);
+  }
+  function srsStats(exam) {
+    const s = srsAll(), now = Date.now(); let total = 0, due = 0;
+    Object.values(s).forEach((x) => { if (x.e === exam) { total++; if (x.due <= now) due++; } });
+    return { total, due };
+  }
+
+  /* ----- 4. Activité, série, objectif et date d'examen ----- */
+  function trackActivity(n) {
+    const a = LS.get("act", {}), t = today();
+    a[t] = (a[t] || 0) + (n || 1);
+    const keys = Object.keys(a).sort(); while (keys.length > 90) delete a[keys.shift()];
+    LS.set("act", a);
+  }
+  function streak() {
+    const a = LS.get("act", {}); let n = 0; const d = new Date();
+    if (!a[today()]) d.setDate(d.getDate() - 1);            // la série n'est pas perdue avant la fin de la journée
+    for (;;) { const k = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); if (!a[k]) break; n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  const goalCfg = () => LS.get("goal", { daily: 30, dates: {} });
+  function goalCard(exam) {
+    const g = goalCfg(), done = (LS.get("act", {})[today()] || 0), pct = Math.min(100, Math.round(done / g.daily * 100)), st = streak();
+    const date = g.dates[exam.code];
+    let jx = "";
+    if (date) { const dd = Math.ceil((new Date(date + "T00:00:00") - new Date(today() + "T00:00:00")) / 86400000); jx = dd > 0 ? `<b>J-${dd}</b><small>avant l'examen</small>` : dd === 0 ? `<b>C'est le jour J</b><small>Bonne chance !</small>` : `<b>Examen passé</b><small>Change la date</small>`; }
+    return `<div class="card goal-card"><div class="goal-row">
+        <div class="goal-cell">${jx || `<b>📅</b><small>Date d'examen non définie</small>`}</div>
+        <div class="goal-cell"><b>${done}/${g.daily}</b><small>questions aujourd'hui</small></div>
+        <div class="goal-cell"><b>🔥 ${st}</b><small>jour${st > 1 ? "s" : ""} d'affilée</small></div></div>
+      <div class="bar goal-bar"><i style="width:${pct}%"></i></div>
+      <div class="row between" style="margin-top:8px"><span class="small muted">${pct >= 100 ? "🎉 Objectif du jour atteint !" : "Objectif du jour : " + g.daily + " questions (fiches, quiz, révision)"}</span><button class="btn btn-ghost btn-sm" data-act="goal-edit" data-exam="${exam.code}">Régler</button></div>
+      <form id="goalForm" class="goal-form" hidden><label for="gDate">Date de mon examen ${esc(exam.name)}</label><input id="gDate" type="date" value="${esc(date || "")}">
+        <label for="gDaily">Mon objectif quotidien</label><select id="gDaily">${[10, 20, 30, 50, 80, 100].map((n) => `<option value="${n}" ${n === g.daily ? "selected" : ""}>${n} questions par jour</option>`).join("")}</select>
+        <button class="btn btn-primary btn-block" style="margin-top:12px">Enregistrer</button></form></div>`;
+  }
+  function saveGoal(ev) {
+    ev.preventDefault();
+    const code = parts()[1], g = goalCfg();
+    g.daily = Number(document.getElementById("gDaily").value) || 30;
+    const v = document.getElementById("gDate").value; if (v) g.dates[code] = v; else delete g.dates[code];
+    LS.set("goal", g); toast("Objectif enregistré.", "ok"); route();
+  }
+  function reviewBanner(exam) {
+    const s = srsStats(exam.code);
+    return `<a class="ex-banner rv-banner" href="#/p/${exam.code}/revoir"><span class="ex-ico" aria-hidden="true">🔁</span><span><b>Mes questions à revoir${s.total ? ` · ${s.due} à revoir maintenant` : ""}</b><small>${s.total ? s.total + " question" + (s.total > 1 ? "s" : "") + " en cours de mémorisation" : "Les questions ratées aux quiz et à l'examen blanc viendront ici automatiquement"}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>`;
+  }
+  function renderReview(exam, d) {
+    const s = srsAll(), now = Date.now();
+    const byId = new Map(d.questions.map((q) => [String(q.id), q]));
+    const mine = Object.entries(s).filter(([id, x]) => x.e === exam.code && byId.has(String(id)));
+    if (!S.rv || S.rv.exam !== exam.code) {
+      const due = shuffle(mine.filter(([, x]) => x.due <= now).map(([id]) => byId.get(String(id))));
+      S.rv = { exam: exam.code, list: due, i: 0, show: false, ok: 0, mastered: 0 };
+    }
+    const r = S.rv, q = r.list[r.i];
+    const boxes = [0, 1, 2, 3, 4].map((b) => mine.filter(([, x]) => x.b === b).length);
+    const head = hero(exam, "Mes questions à revoir", mine.length + " question" + (mine.length > 1 ? "s" : "") + " en cours de mémorisation", "À revoir");
+    if (!q) {
+      const next = mine.filter(([, x]) => x.due > now).sort((a, b) => a[1].due - b[1].due)[0];
+      app.innerHTML = head + `<div class="study stack"><div class="card center">
+        <div style="font-size:2.6rem">${r.list.length ? "🎉" : "✅"}</div>
+        <h2>${r.list.length ? "Séance terminée !" : mine.length ? "Rien à revoir pour le moment" : "Ta liste est vide"}</h2>
+        <p class="muted">${r.list.length ? `${r.ok} / ${r.list.length} sues${r.mastered ? ` · ${r.mastered} question(s) maîtrisée(s) et retirée(s) de la liste` : ""}.` : mine.length ? "Les prochaines questions reviendront " + (next ? "le " + new Date(next[1].due).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "bientôt") + "." : "Les questions ratées aux quiz et au simulateur, ou marquées « À revoir » dans les fiches, apparaîtront ici."}</p>
+        <div class="row" style="justify-content:center"><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Faire un quiz</a><a class="btn btn-ghost" href="#/p/${exam.code}">Retour au parcours</a></div></div>
+        ${mine.length ? `<div class="card"><h3>Comment ça marche ?</h3><p class="small">Chaque bonne réponse fait avancer la question d'une étape, et elle revient de plus en plus tard (1, 3, 7 puis 14 jours). Après 5 réussites, elle est considérée comme <b>maîtrisée</b> et sort de la liste. Une erreur la fait repartir au début.</p>
+          <div class="rv-boxes">${boxes.map((n, b) => `<div><b>${n}</b><small>${["Nouvelles", "1 jour", "3 jours", "7 jours", "14 jours"][b]}</small></div>`).join("")}</div></div>` : ""}</div>`;
+      return;
+    }
+    const subj = (d.allSubjects.find((x) => x.id === q.subject_id) || {}).name || "";
+    app.innerHTML = head + `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${(r.i / r.list.length) * 100}%"></i></div>
+      <article class="qcard">${watermark()}<div class="qmeta"><span class="row" style="gap:6px"><span class="badge acc">${esc(subj)}</span><span class="badge warn">🔁 Étape ${(s[q.id] || {}).b + 1 || 1}/5</span></span><span class="muted small">${r.i + 1} / ${r.list.length}</span></div>
+      <div class="qtext">${esc(q.question)}</div>
+      ${r.show ? `<div class="answer">${formatAnswer(q.answer)}</div><div class="row" style="margin-top:14px;position:relative"><button class="btn btn-ok" data-act="rv-ans" data-v="1">✓ Je savais</button><button class="btn btn-bad" data-act="rv-ans" data-v="0">✗ À revoir</button></div>`
+        : `<button class="btn btn-primary" style="margin-top:12px;position:relative" data-act="rv-show">Afficher la réponse</button>`}
+      <div class="row" style="margin-top:10px;position:relative">${listenBtn()}${reportBtn("question", q.id, exam.code, q.question, q.answer)}</div></article></div>`;
+  }
+  function reviewAction(act, el) {
+    const r = S.rv; if (!r) return;
+    const q = r.list[r.i];
+    if (act === "rv-show") { r.show = true; trackActivity(1); }
+    if (act === "rv-ans" && q) { const ok = el.dataset.v === "1"; if (ok) r.ok++; if (srsAnswer(q.id, ok) === "mastered") { r.mastered++; toast("🎉 Question maîtrisée : retirée de ta liste.", "ok"); } r.i++; r.show = false; }
+    ttsStop(); renderReview(examByCode(r.exam), S.data[r.exam]); window.scrollTo(0, 0);
+  }
+
+  /* ----- 5. Mode écoute (synthèse vocale du téléphone, gratuite) ----- */
+  const TTS = { on: false, auto: false };
+  const ttsOk = () => "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
+  const listenBtn = (extra) => ttsOk() ? `<button class="btn btn-ghost btn-sm" data-act="tts" ${extra || ""}>${TTS.on ? "⏹ Arrêter" : "🔊 Écouter"}</button>` : "";
+  function ttsVoice() {
+    const v = speechSynthesis.getVoices() || [];
+    return v.find((x) => /^fr[-_](FR|SN)/i.test(x.lang) && /google|natural|premium|enhanced/i.test(x.name)) || v.find((x) => /^fr/i.test(x.lang)) || null;
+  }
+  function htmlToSpeech(h) { const div = document.createElement("div"); div.innerHTML = h; div.querySelectorAll("li").forEach((li) => li.append(". ")); return (div.textContent || "").replace(/•/g, ". ").replace(/\s+/g, " ").trim(); }
+  function ttsSpeak(parts, onEnd) {
+    if (!ttsOk()) return toast("La lecture à voix haute n'est pas disponible sur ce téléphone.", "err");
+    speechSynthesis.cancel(); TTS.on = true;
+    const voice = ttsVoice(); let i = 0;
+    const next = () => {
+      if (!TTS.on) return;
+      if (i >= parts.length) { TTS.on = false; refreshTtsButtons(); if (onEnd) onEnd(); return; }
+      const u = new SpeechSynthesisUtterance(parts[i++]); u.lang = "fr-FR"; if (voice) u.voice = voice; u.rate = 0.95;
+      u.onend = () => setTimeout(next, 350); u.onerror = () => { TTS.on = false; refreshTtsButtons(); };
+      speechSynthesis.speak(u);
+    };
+    refreshTtsButtons(); next();
+  }
+  function ttsStop() { TTS.on = false; TTS.auto = false; try { speechSynthesis.cancel(); } catch (e) { /* */ } refreshTtsButtons(); }
+  function refreshTtsButtons() { document.querySelectorAll('[data-act="tts"]').forEach((b) => (b.textContent = TTS.on ? "⏹ Arrêter" : "🔊 Écouter")); const a = document.querySelector('[data-act="tts-auto"]'); if (a) a.textContent = TTS.auto ? "⏹ Arrêter la lecture continue" : "🎧 Lecture continue"; }
+  /* découpe en phrases courtes : plus fiable sur Android */
+  const chunk = (t) => (t.match(/[^.!?;:]+[.!?;:]*/g) || [t]).map((x) => x.trim()).filter(Boolean);
+  function ttsCurrent(auto) {
+    if (TTS.on && !auto) return ttsStop();
+    const p = parts();
+    if (p[2] === "revision" && S.rev) {
+      const q = S.rev.list[S.rev.i]; if (!q) return;
+      if (auto) TTS.auto = true;
+      return ttsSpeak(["Question.", ...chunk(q.question), "Réponse.", ...chunk(htmlToSpeech(formatAnswer(q.answer)))], () => {
+        if (!TTS.auto) return;
+        if (S.rev.i < S.rev.list.length - 1) { revAction("rev-next"); setTimeout(() => ttsCurrent(true), 600); } else { TTS.auto = false; refreshTtsButtons(); }
+      });
+    }
+    if (p[2] === "revoir" && S.rv) { const q = S.rv.list[S.rv.i]; if (q) return ttsSpeak(["Question.", ...chunk(q.question), ...(S.rv.show ? ["Réponse.", ...chunk(htmlToSpeech(formatAnswer(q.answer)))] : [])]); }
+    if (p[0] === "cours" && p[1]) { const b = document.querySelector(".crs-body"), h = document.querySelector(".crs-hero h1"), t = document.querySelector(".crs-hero p"); if (b) return ttsSpeak([(h ? h.textContent : "") + ". " + (t ? t.textContent : ""), ...chunk(htmlToSpeech(b.innerHTML))]); }
+  }
+  window.addEventListener("hashchange", () => { if (TTS.on && !TTS.auto) ttsStop(); });
+
+  /* ----- 1. Signaler une erreur ----- */
+  function reportBtn(kind, ref, exam, label, extra) {
+    return `<button class="btn btn-ghost btn-sm report-btn" data-act="report" data-kind="${kind}" data-ref="${esc(String(ref))}" data-exam="${esc(exam || "")}" data-label="${esc(String(label || "").slice(0, 300))}" data-extra="${esc(String(extra || "").slice(0, 1500))}">⚑ Signaler une erreur</button>`;
+  }
+  function openReport(el) {
+    if (S.offline) return toast("Connexion Internet nécessaire pour signaler une erreur.", "err");
+    const old = document.getElementById("reportBox"); if (old) old.remove();
+    const box = document.createElement("div"); box.id = "reportBox"; box.className = "rp-overlay";
+    box.innerHTML = `<form class="rp-box" id="reportForm"><h2>⚑ Signaler une erreur</h2><p class="small muted">${esc(el.dataset.label)}</p>
+      <label>Type d'erreur</label><div class="rp-types">${["Réponse fausse", "Réponse incomplète", "Faute de frappe", "Question mal posée", "Autre"].map((t, k) => `<label class="check"><input type="radio" name="rpType" value="${t}" ${k === 0 ? "checked" : ""}> ${t}</label>`).join("")}</div>
+      <label for="rpMsg">Explique en quelques mots (et la bonne réponse si tu la connais)</label><textarea id="rpMsg" maxlength="1000" required></textarea>
+      <div class="row" style="margin-top:12px"><button class="btn btn-primary">Envoyer</button><button type="button" class="btn btn-ghost" data-act="report-close">Annuler</button></div><div class="msg" id="rpInfo"></div></form>`;
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box) box.remove(); });
+    document.getElementById("reportForm").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const msg = document.getElementById("rpMsg").value.trim(), info = document.getElementById("rpInfo");
+      if (msg.length < 5) { info.className = "msg err"; info.textContent = "Écris au moins quelques mots."; return; }
+      const type = (document.querySelector('input[name="rpType"]:checked') || {}).value || "Autre";
+      info.className = "msg"; info.textContent = "Envoi…";
+      const { error } = await sb.rpc("lk_report_error", { p_kind: el.dataset.kind, p_ref: el.dataset.ref, p_exam: el.dataset.exam || null, p_label: el.dataset.label, p_snapshot: el.dataset.extra || null, p_type: type, p_message: msg });
+      if (error) { info.className = "msg err"; info.textContent = /lk_report_error|function/i.test(error.message || "") ? "Fonction pas encore installée (script 12)." : errText(error); return; }
+      box.remove(); toast("Merci ! Ton signalement a été envoyé à l'administrateur.", "ok");
+    });
+    setTimeout(() => document.getElementById("rpMsg").focus(), 50);
+  }
+
+  /* ----- 2. Mot de passe oublié ----- */
+  function renderForgot() {
+    app.innerHTML = `<div class="auth-wrap"><div class="auth"><div class="card">
+      <h2>Mot de passe oublié</h2><p class="muted small">Indique ton numéro et ton nom. L'administrateur te communiquera un <b>mot de passe provisoire sur WhatsApp</b>, que tu pourras ensuite changer.</p>
+      <form id="forgotForm" novalidate><label for="fPhone">Numéro de téléphone (celui du compte)</label><input id="fPhone" inputmode="tel" placeholder="77 000 00 00" required>
+      <label for="fName">Prénom et nom</label><input id="fName" maxlength="120" required>
+      <button class="btn btn-dark btn-block" style="margin-top:16px">Envoyer ma demande</button><div class="msg" id="fMsg"></div></form>
+      <div class="sep"></div><p class="small center">Plus rapide : <a target="_blank" rel="noopener noreferrer" href="https://wa.me/${encodeURIComponent(C.WHATSAPP_NUMBER)}?text=${encodeURIComponent("Bonjour, j'ai oublié mon mot de passe LUKOS-REVISION. Mon numéro de compte est : ")}">écrire à l'assistance sur WhatsApp</a></p>
+      <button class="btn btn-ghost btn-block" data-act="auth-mode" data-mode="login">← Retour à la connexion</button></div></div></div>`;
+  }
+  async function doForgot(ev) {
+    ev.preventDefault();
+    const msg = document.getElementById("fMsg"), phone = phoneNormalize(document.getElementById("fPhone").value), name = document.getElementById("fName").value.trim();
+    if (!phone) { msg.className = "msg err"; msg.textContent = "Numéro invalide."; return; }
+    if (name.length < 3) { msg.className = "msg err"; msg.textContent = "Indique ton prénom et ton nom."; return; }
+    msg.className = "msg"; msg.textContent = "Envoi…";
+    const { error } = await sb.rpc("lk_request_password_reset", { p_phone: phone, p_name: name });
+    if (error) { msg.className = "msg err"; msg.textContent = /trop|too many|déjà/i.test(error.message || "") ? "Une demande est déjà en cours pour ce numéro. Patiente, l'administrateur va te contacter." : errText(error); return; }
+    msg.className = "msg ok"; msg.textContent = "✅ Demande envoyée. L'administrateur va te contacter sur WhatsApp avec un mot de passe provisoire.";
+    ev.target.querySelector("button").disabled = true;
+  }
+  function renderMustChange() {
+    app.innerHTML = `<div class="auth-wrap"><div class="auth"><div class="card"><h2>🔑 Choisis ton nouveau mot de passe</h2>
+      <p class="muted small">Tu t'es connecté avec un mot de passe provisoire. Choisis maintenant ton mot de passe personnel (6 caractères minimum).</p>
+      <form id="mustForm"><label for="mp1">Nouveau mot de passe</label><input id="mp1" type="password" autocomplete="new-password" minlength="6" required>
+      <label for="mp2">Confirmer</label><input id="mp2" type="password" autocomplete="new-password" minlength="6" required>
+      <button class="btn btn-dark btn-block" style="margin-top:16px">Enregistrer</button><div class="msg" id="mpMsg"></div></form>
+      <button class="btn btn-ghost btn-block" data-act="logout" style="margin-top:8px">Déconnexion</button></div></div></div>`;
+  }
+  async function doMustChange(ev) {
+    ev.preventDefault();
+    const msg = document.getElementById("mpMsg"), a = document.getElementById("mp1").value, b = document.getElementById("mp2").value;
+    if (a.length < 6) { msg.className = "msg err"; msg.textContent = "6 caractères minimum."; return; }
+    if (a !== b) { msg.className = "msg err"; msg.textContent = "Les mots de passe ne correspondent pas."; return; }
+    msg.className = "msg"; msg.textContent = "Enregistrement…";
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) { msg.className = "msg err"; msg.textContent = errText(error); return; }
+    await sb.rpc("lk_clear_must_change");
+    S.profile.must_change_password = false; toast("Mot de passe enregistré.", "ok"); go("#/");
+  }
+
+  /* ----- 6. Limite d'appareils ----- */
+  const DEVICE_KEY = "lk_device_id";
+  function deviceId() {
+    let id = null; try { id = localStorage.getItem(DEVICE_KEY); } catch (e) { /* */ }
+    if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)); try { localStorage.setItem(DEVICE_KEY, id); } catch (e) { /* */ } }
+    return id;
+  }
+  function deviceLabel() {
+    const ua = navigator.userAgent || "";
+    const os = /iphone|ipad/i.test(ua) ? "iPhone/iPad" : /android/i.test(ua) ? "Android" : /windows/i.test(ua) ? "Ordinateur Windows" : /mac/i.test(ua) ? "Mac" : "Appareil";
+    const m = ua.match(/Android [\d.]+; ([^;)]+)/); return (m ? os + " · " + m[1].trim() : os).slice(0, 80);
+  }
+  async function checkDevice() {
+    S.deviceBlocked = false;
+    if (!S.session || !S.profile || isAdmin() || S.offline) return;
+    try {
+      const { data, error } = await sb.rpc("lk_register_device", { p_device: deviceId(), p_label: deviceLabel() });
+      if (error) return;                        // script 12 pas encore installé : pas de blocage
+      const r = Array.isArray(data) ? data[0] : data;
+      if (r && r.ok === false) { S.deviceBlocked = true; S.deviceMax = r.max_devices || 2; }
+    } catch (e) { /* réseau : on ne bloque pas */ }
+  }
+  function renderDeviceBlocked() {
+    app.innerHTML = `<div class="card center" style="max-width:520px;margin:30px auto"><div style="font-size:2.6rem">📱</div><h2>Nombre d'appareils atteint</h2>
+      <p>Ton compte est déjà utilisé sur <b>${S.deviceMax || 2} appareils</b>. Pour protéger ton accès, un compte ne peut pas être utilisé sur plus d'appareils.</p>
+      <p>Tu as changé de téléphone ? Contacte l'assistance : elle libérera tes anciens appareils.</p>
+      <a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="https://wa.me/${encodeURIComponent(C.WHATSAPP_NUMBER)}?text=${encodeURIComponent("Bonjour, je n'arrive plus à me connecter à LUKOS-REVISION (nombre d'appareils atteint). Mon numéro de compte : " + (S.profile ? phonePretty(S.profile.phone) : ""))}">Contacter l'assistance sur WhatsApp</a>
+      <button class="btn btn-ghost" data-act="logout" style="margin-left:8px">Déconnexion</button></div>`;
+  }
+
+  /* ----- Administration : Signalements & Assistance comptes ----- */
+  async function adReports(body) {
+    const st = AD.repFilter || "open";
+    const { data, error } = await sb.rpc("lk_admin_reports", { p_status: st });
+    if (error) { body.innerHTML = `<div class="card"><p>⚠️ ${esc(/function|lk_admin/i.test(error.message || "") ? "Le script 12_outils.sql n'est pas encore exécuté dans Supabase." : errText(error))}</p></div>`; return; }
+    const rows = data || [];
+    const kindL = { question: "Question", annale: "Annale", cours: "Cours RDG-RSA" };
+    body.innerHTML = `<div class="row" style="margin-bottom:12px">${[["open", "À traiter"], ["done", "Traités"], ["rejected", "Rejetés"]].map(([k, l]) => `<button class="btn btn-sm ${st === k ? "btn-dark" : "btn-ghost"}" data-act="rep-filter" data-v="${k}">${l}</button>`).join("")}</div>
+      ${rows.length ? rows.map((r) => `<div class="card rp-card" style="margin-bottom:12px">
+        <div class="row between"><span class="row" style="gap:6px"><span class="badge acc">${esc(kindL[r.kind] || r.kind)}${r.exam_code ? " · " + esc(r.exam_code) : ""}</span><span class="badge warn">${esc(r.err_type)}</span></span><span class="small muted">${esc(fmtDate(r.created_at))} · ${esc(r.reporter || "")}</span></div>
+        <p style="margin:10px 0 4px"><b>${esc(r.label || "")}</b></p>
+        <p class="rp-msg">« ${esc(r.message)} »</p>
+        ${r.kind === "question" || r.kind === "annale" ? `<details><summary class="small"><b>Corriger ${r.kind === "question" ? "la question" : "l'annale"}</b></summary>
+          <form class="rp-edit" data-id="${r.id}" data-kind="${r.kind}" data-ref="${esc(r.ref_id)}"><label>Question</label><textarea class="rpQ">${esc(r.cur_question || r.label || "")}</textarea><label>Réponse / corrigé</label><textarea class="rpA" style="min-height:160px">${esc(r.cur_answer || r.snapshot || "")}</textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px">Enregistrer la correction et clore</button></form></details>` : `<p class="small muted">Correction du cours : à faire dans le fichier source (article ${esc(r.ref_id)}).</p>`}
+        ${st === "open" ? `<div class="row" style="margin-top:10px"><button class="btn btn-ok btn-sm" data-act="rep-set" data-id="${r.id}" data-v="done">✓ Marquer traité</button><button class="btn btn-bad btn-sm" data-act="rep-set" data-id="${r.id}" data-v="rejected">Rejeter</button></div>` : ""}</div>`).join("") : emptyBox(st === "open" ? "Aucun signalement à traiter. 👍" : "Aucun signalement.")}`;
+    body.querySelectorAll(".rp-edit").forEach((f) => f.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const { error: e2 } = await sb.rpc("lk_admin_fix_report", { p_report: Number(f.dataset.id), p_question: f.querySelector(".rpQ").value.trim(), p_answer: f.querySelector(".rpA").value.trim() });
+      if (e2) return toast(errText(e2), "err");
+      Object.keys(S.data).forEach((k) => delete S.data[k]); delete ANN.data.DAP; delete ANN.data.DQEG;
+      toast("Correction enregistrée.", "ok"); adReports(body);
+    }));
+  }
+  async function adSupport(body) {
+    const { data, error } = await sb.rpc("lk_admin_password_requests");
+    if (error) { body.innerHTML = `<div class="card"><p>⚠️ ${esc(/function|lk_admin/i.test(error.message || "") ? "Le script 12_outils.sql n'est pas encore exécuté dans Supabase." : errText(error))}</p></div>`; return; }
+    const rows = data || [];
+    body.innerHTML = `<div class="card" style="margin-bottom:14px"><h3>🔑 Demandes « mot de passe oublié » (${rows.length})</h3>
+      ${rows.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Nom indiqué</th><th>Téléphone</th><th>Compte trouvé</th><th></th></tr>${rows.map((r) => `<tr><td>${esc(fmtDate(r.created_at))}</td><td>${esc(r.given_name)}</td><td>${esc(phonePretty(r.phone))}</td><td>${r.account_name ? esc(r.account_name) : '<span class="badge bad">Aucun compte</span>'}</td><td>${r.account_name ? `<button class="btn btn-primary btn-sm" data-act="sup-reset" data-phone="${esc(r.phone)}" data-name="${esc(r.account_name)}">Mot de passe provisoire</button>` : ""} <button class="btn btn-ghost btn-sm" data-act="sup-close" data-id="${r.id}">Clore</button></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucune demande en attente.</p>`}</div>
+      <div class="card"><h3>👤 Aider un candidat</h3><p class="small muted">Saisis le numéro du candidat pour lui donner un mot de passe provisoire ou libérer ses appareils (changement de téléphone).</p>
+      <form id="supForm" class="row"><input id="supPhone" inputmode="tel" placeholder="77 000 00 00" style="max-width:220px"><button class="btn btn-dark">Rechercher</button></form><div id="supRes" style="margin-top:12px"></div></div>
+      <div id="supOut"></div>`;
+    document.getElementById("supForm").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const phone = phoneNormalize(document.getElementById("supPhone").value), out = document.getElementById("supRes");
+      if (!phone) { out.innerHTML = `<p class="msg err">Numéro invalide.</p>`; return; }
+      const { data: u, error: e3 } = await sb.rpc("lk_admin_find_user", { p_phone: phone });
+      if (e3) { out.innerHTML = `<p class="msg err">${esc(errText(e3))}</p>`; return; }
+      const x = Array.isArray(u) ? u[0] : u;
+      if (!x) { out.innerHTML = `<p class="msg err">Aucun compte avec ce numéro.</p>`; return; }
+      out.innerHTML = `<div class="row between"><div><b>${esc(x.full_name)}</b><br><span class="small muted">${esc(phonePretty(x.phone))} · ${x.devices} appareil(s) enregistré(s)${x.device_labels ? " : " + esc(x.device_labels) : ""}</span></div>
+        <div class="row"><button class="btn btn-primary btn-sm" data-act="sup-reset" data-phone="${esc(x.phone)}" data-name="${esc(x.full_name)}">Mot de passe provisoire</button><button class="btn btn-ghost btn-sm" data-act="sup-devices" data-uid="${esc(x.id)}">Libérer les appareils</button></div></div>`;
+    });
+  }
+  async function supportAction(act, el) {
+    if (act === "sup-reset") {
+      if (!confirm("Créer un mot de passe provisoire pour " + el.dataset.name + " ? L'ancien mot de passe ne fonctionnera plus.")) return;
+      const { data, error } = await sb.rpc("lk_admin_reset_password", { p_phone: el.dataset.phone });
+      if (error) return toast(errText(error), "err");
+      const pass = typeof data === "string" ? data : (data && data.temp_password) || "";
+      const msg = "Bonjour " + el.dataset.name + ", voici ton mot de passe provisoire LUKOS-REVISION : " + pass + "\nConnecte-toi avec ton numéro et ce mot de passe : l'application te demandera ensuite d'en choisir un nouveau.";
+      const out = document.getElementById("supOut") || document.getElementById("adminBody");
+      out.insertAdjacentHTML("afterbegin", `<div class="card" style="margin:14px 0;border:2px solid #1e9e5a"><h3>✅ Mot de passe provisoire : <span style="font-family:monospace;font-size:1.3rem">${esc(pass)}</span></h3><p class="small">Pour ${esc(el.dataset.name)} · ${esc(phonePretty(el.dataset.phone))}</p><a class="btn btn-ok" target="_blank" rel="noopener noreferrer" href="https://wa.me/${esc(el.dataset.phone.replace(/\D/g, ""))}?text=${encodeURIComponent(msg)}">Envoyer par WhatsApp</a></div>`);
+      return;
+    }
+    if (act === "sup-close") { await sb.rpc("lk_admin_close_password_request", { p_id: Number(el.dataset.id) }); return route(); }
+    if (act === "sup-devices") {
+      if (!confirm("Libérer tous les appareils de ce candidat ? Il pourra se reconnecter sur son nouveau téléphone.")) return;
+      const { error } = await sb.rpc("lk_admin_reset_devices", { p_user: el.dataset.uid });
+      if (error) return toast(errText(error), "err");
+      toast("Appareils libérés.", "ok"); document.getElementById("supForm").dispatchEvent(new Event("submit"));
+    }
+  }
+  /* ----- Rappel quotidien dans l'application (série en jeu) ----- */
+  function streakNudge() {
+    if (!S.session || !S.profile || isAdmin() || S.deviceBlocked) return;
+    const h = new Date().getHours(), done = LS.get("act", {})[today()] || 0, g = goalCfg(), st = streak();
+    if (h < 16 || done >= g.daily || LS.get("nudge", "") === today()) return;
+    LS.set("nudge", today());
+    toast(st ? `🔥 Ta série de ${st} jour${st > 1 ? "s" : ""} est en jeu : encore ${g.daily - done} question(s) aujourd'hui !` : `🎯 Objectif du jour : ${g.daily} questions. Une petite séance ?`, "ok");
+  }
+  /* Aiguillage des clics de ces outils (appelé par le gestionnaire principal) */
+  function toolsClick(act, el) {
+    if (act === "report") { openReport(el); return true; }
+    if (act === "report-close") { const b = document.getElementById("reportBox"); if (b) b.remove(); return true; }
+    if (act === "tts") { ttsCurrent(false); return true; }
+    if (act === "tts-auto") { if (TTS.auto) ttsStop(); else ttsCurrent(true); refreshTtsButtons(); return true; }
+    if (act === "rv-show" || act === "rv-ans") { reviewAction(act, el); return true; }
+    if (act === "srs-toggle") { const p = parts(), q = S.rev && S.rev.list[S.rev.i]; if (q) { if (srsHas(q.id)) { srsRemove(q.id); toast("Retirée de tes questions à revoir."); } else { srsAdd(p[1], q); toast("Ajoutée à tes questions à revoir.", "ok"); } el.textContent = srsHas(q.id) ? "🔁 Dans « À revoir » ✓" : "🔁 À revoir"; } return true; }
+    if (act === "goal-edit") { const f = document.getElementById("goalForm"); if (f) f.hidden = !f.hidden; return true; }
+    if (act === "forgot") { S.authMode = "forgot"; renderForgot(); return true; }
+    if (act === "rep-filter") { AD.repFilter = el.dataset.v; route(); return true; }
+    if (act === "rep-set") { sb.rpc("lk_admin_set_report", { p_report: Number(el.dataset.id), p_status: el.dataset.v }).then(({ error }) => { if (error) toast(errText(error), "err"); else route(); }); return true; }
+    if (/^sup-/.test(act)) { supportAction(act, el); return true; }
+    return false;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Événements (délégation, aucun gestionnaire inline)                 */
   /* ------------------------------------------------------------------ */
@@ -1401,6 +1769,7 @@
     const act = el.dataset.act;
     try {
       if (annClick(act, el)) return;
+      if (toolsClick(act, el)) return;
       if (act === "reload") return location.reload();
       if (act === "retry-online") { if (!navigator.onLine) return toast("Toujours pas de connexion Internet.", "err"); await leaveOffline(); if (S.offline) toast("Connexion impossible pour le moment.", "err"); return; }
       if (act === "logout") return logout();
@@ -1444,7 +1813,7 @@
   document.addEventListener("change", (ev) => { const el = ev.target; if (el.matches && el.matches('select[data-act="ad-enr"]')) setEnrollment(el); });
   document.addEventListener("submit", (ev) => {
     const id = ev.target.id;
-    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, examForm: startExam, serviceForm: saveService, payForm: submitPayment, passForm: changePass, qForm: saveQuestion };
+    const map = { loginForm: doLogin, signupForm: doSignup, quizForm: startQuiz, examForm: startExam, serviceForm: saveService, payForm: submitPayment, passForm: changePass, qForm: saveQuestion, forgotForm: doForgot, mustForm: doMustChange, goalForm: saveGoal };
     if (map[id]) return map[id](ev);
     if (ev.target.dataset.examForm) { ev.preventDefault(); saveExam(ev.target); }
   });
@@ -1773,6 +2142,7 @@
     app.innerHTML = `${crsHero("Article " + x.article_no, x.title, "Article " + x.article_no)}
       <article class="card crs-lesson">
         <div class="crs-meta"><span>Partie ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
+        <div class="row tools-row" style="margin:-4px 0 12px">${listenBtn()}${reportBtn("cours", x.article_no, "", "Article " + x.article_no + " – " + x.title, "")}</div>
         <div class="crs-body">${x.body_html}</div>
       </article>
       <div class="crs-nav">
@@ -1869,7 +2239,8 @@
       <div class="row" style="justify-content:space-between"><a class="btn btn-ghost btn-sm" href="#/p/${exam.code}/annales">← Toutes les sessions</a><button class="btn btn-soft btn-sm" data-act="ann-all">Afficher tous les corrigés</button></div>
       ${subjects.map((s, k) => `<details class="ann-subj" ${k === 0 ? "open" : ""}><summary><b>${esc(s)}</b><span class="badge acc">${m.get(s).length} questions</span></summary>
         <ol class="ann-qs">${m.get(s).map((q) => `<li><div class="ann-q">${esc(q.question)}${annPts(q.points)}</div>
-          ${q.answer ? `<button class="btn btn-soft btn-sm ann-show" data-act="ann-show">Voir le corrigé</button><div class="answer ann-a" hidden>${formatAnswer(q.answer)}</div>` : `<p class="small muted">Corrigé non fourni dans le document officiel.</p>`}</li>`).join("")}</ol></details>`).join("")}
+          ${q.answer ? `<button class="btn btn-soft btn-sm ann-show" data-act="ann-show">Voir le corrigé</button><div class="answer ann-a" hidden>${formatAnswer(q.answer)}</div>` : `<p class="small muted">Corrigé non fourni dans le document officiel.</p>`}
+          <div class="ann-tools">${reportBtn("annale", q.id, exam.code, exam.name + " " + year + " · " + s + " : " + q.question, q.answer)}</div></li>`).join("")}</ol></details>`).join("")}
       </div>`;
   }
   function annPool(code, sid) {
@@ -2127,6 +2498,8 @@
     const ta = document.getElementById("exResp"); if (ta && z.items[z.i]) z.items[z.i].resp = ta.value;
     clearInterval(exTick); clearTimeout(exSaveT);
     z.items.forEach((it) => { it.g = gradeOne(it); });
+    trackActivity(z.items.length);
+    z.items.forEach((it) => { if (it.id != null && it.g.credit < 0.5) srsAdd(z.exam, { id: it.id }); });
     z.score = z.items.reduce((a, x) => a + x.g.credit, 0);
     z.note20 = Math.round((z.score / z.items.length) * 80) / 4;      // arrondi au quart de point
     z.endedAt = Math.min(Date.now(), z.endsAt); z.reason = reason; z.done = true;
@@ -2255,6 +2628,7 @@
       else if (session && !S.offline) S.session = session;
     });
     route();
+    setTimeout(streakNudge, 4000);
   }
   boot();
 
