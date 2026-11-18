@@ -167,6 +167,7 @@
     await idb.set("offmeta", S.offMeta);
     // module RDG-RSA : retiré du téléphone si plus aucun parcours actif
     if (!crsUnlocked()) { await idb.del("course:" + CRS.code); CRS.data = null; CRS.idx = null; }
+    for (const c of ANN_EXAMS) if (!hasAccess(c)) { await idb.del("annals:" + c); delete ANN.data[c]; }
   }
   async function enterOffline() {
     const acct = await idb.get("acct");
@@ -584,6 +585,7 @@
     if (page === "examen") return await renderExamSim(exam, d);
     if (page === "recherche") return renderSearch(exam, d);
     if (page === "documents") return await renderDocuments(exam);
+    if (page === "annales") return await renderAnnales(exam, d, rest[0]);
     return await renderExamHome(exam, d);
   }
 
@@ -606,6 +608,7 @@
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
         <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
+      ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets du DAP 2019 à 2023 avec leur corrigé officiel</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
@@ -1396,6 +1399,7 @@
     const el = ev.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return;
     const act = el.dataset.act;
     try {
+      if (annClick(act, el)) return;
       if (act === "reload") return location.reload();
       if (act === "retry-online") { if (!navigator.onLine) return toast("Toujours pas de connexion Internet.", "err"); await leaveOffline(); if (S.offline) toast("Connexion impossible pour le moment.", "err"); return; }
       if (act === "logout") return logout();
@@ -1818,6 +1822,68 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Annales de l'examen final (sujets officiels corrigés)               */
+  /* ------------------------------------------------------------------ */
+  const ANN = { data: {} };
+  const ANN_EXAMS = ["DAP"];   // parcours disposant d'annales
+  async function annLoad(code) {
+    if (ANN.data[code]) return ANN.data[code];
+    const key = "annals:" + code;
+    let rows = null;
+    if (!S.offline) {
+      try {
+        const { data, error } = await sb.from("exam_annals").select("id,year,subject,position,question,answer,points").eq("exam_code", code).order("year", { ascending: false }).order("subject").order("position");
+        if (error) throw error;
+        rows = data || [];
+        if (rows.length && !isAdmin()) await idb.set(key, rows);
+      } catch (e) { rows = await idb.get(key); if (!rows) { if (/exam_annals/i.test((e && e.message) || "")) rows = []; else throw e; } }
+    } else rows = (await idb.get(key)) || [];
+    const years = new Map();
+    rows.forEach((r) => {
+      if (!years.has(r.year)) years.set(r.year, new Map());
+      const y = years.get(r.year);
+      if (!y.has(r.subject)) y.set(r.subject, []);
+      y.get(r.subject).push(r);
+    });
+    return (ANN.data[code] = { rows, years });
+  }
+  const annPts = (p) => (p ? ` <span class="badge warn">${String(p).replace(".", ",")} pt${p > 1 ? "s" : ""}</span>` : "");
+  async function renderAnnales(exam, d, year) {
+    const A = await annLoad(exam.code);
+    if (!A.rows.length) { app.innerHTML = hero(exam, "Annales de l'examen", "Sujets officiels corrigés", "Annales") + emptyBox("Les annales de ce parcours seront bientôt disponibles."); return; }
+    if (!year) {
+      const ys = [...A.years.keys()];
+      app.innerHTML = hero(exam, "Annales de l'examen", ys.length + " sessions officielles corrigées (" + Math.min(...ys) + "–" + Math.max(...ys) + ")", "Annales") +
+        `<div class="study stack">
+        <div class="tip" style="margin-top:0">${icon("info", 22)}<span>Les vrais sujets du DAP avec leur corrigé. Lis-les par session, ou passe-les en <b>examen blanc officiel</b> dans le simulateur (choisis « Sujet officiel »).</span></div>
+        <div class="ann-years">${ys.map((y) => { const m = A.years.get(y), n = [...m.values()].reduce((a, l) => a + l.length, 0); return `<a class="ann-year" href="#/p/${exam.code}/annales/${y}"><b>DAP ${y}</b><span>${m.size} matières · ${n} questions</span><small>${[...m.keys()].slice(0, 4).map(esc).join(" · ")}${m.size > 4 ? "…" : ""}</small></a>`; }).join("")}</div>
+        <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎯</span><span><b>Passer un sujet officiel en examen blanc</b><small>Simulateur › Épreuve › « Sujet officiel »</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a></div>`;
+      return;
+    }
+    const m = A.years.get(Number(year));
+    if (!m) return go("#/p/" + exam.code + "/annales");
+    const subjects = [...m.keys()];
+    app.innerHTML = hero(exam, "Sujet officiel DAP " + year, "Corrigé officiel — " + subjects.length + " matières", "Annales " + year) +
+      `<div class="study stack">
+      <div class="row" style="justify-content:space-between"><a class="btn btn-ghost btn-sm" href="#/p/${exam.code}/annales">← Toutes les sessions</a><button class="btn btn-soft btn-sm" data-act="ann-all">Afficher tous les corrigés</button></div>
+      ${subjects.map((s, k) => `<details class="ann-subj" ${k === 0 ? "open" : ""}><summary><b>${esc(s)}</b><span class="badge acc">${m.get(s).length} questions</span></summary>
+        <ol class="ann-qs">${m.get(s).map((q) => `<li><div class="ann-q">${esc(q.question)}${annPts(q.points)}</div>
+          ${q.answer ? `<button class="btn btn-soft btn-sm ann-show" data-act="ann-show">Voir le corrigé</button><div class="answer ann-a" hidden>${formatAnswer(q.answer)}</div>` : `<p class="small muted">Corrigé non fourni dans le document officiel.</p>`}</li>`).join("")}</ol></details>`).join("")}
+      </div>`;
+  }
+  function annPool(code, sid) {
+    if (!sid || !String(sid).startsWith("A|")) return null;
+    const [, y, sj] = String(sid).split("|"), A = ANN.data[code];
+    const l = A && A.years.get(Number(y)) && A.years.get(Number(y)).get(sj);
+    return (l || []).filter((q) => q.answer);
+  }
+  function annClick(act, el) {
+    if (act === "ann-show") { const a = el.nextElementSibling; if (a) { a.hidden = !a.hidden; el.textContent = a.hidden ? "Voir le corrigé" : "Masquer le corrigé"; } return true; }
+    if (act === "ann-all") { const show = el.dataset.on !== "1"; document.querySelectorAll(".ann-a").forEach((a) => (a.hidden = !show)); document.querySelectorAll(".ann-show").forEach((b) => (b.textContent = show ? "Masquer le corrigé" : "Voir le corrigé")); document.querySelectorAll(".ann-subj").forEach((x) => (x.open = show || x.open)); el.dataset.on = show ? "1" : ""; el.textContent = show ? "Masquer tous les corrigés" : "Afficher tous les corrigés"; return true; }
+    return false;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Simulateur d'examen : réponses rédigées, chronomètre, note sur 20   */
   /* ------------------------------------------------------------------ */
   const EX_MAX_LEAVES = 3;                          // sorties tolérées avant remise automatique
@@ -1932,10 +1998,12 @@
     const top = hero(exam, "Simulateur d'examen", "Mets-toi dans les conditions du jour J : réponses rédigées, chronomètre et note sur 20.", "Examen");
     if (!d.questions.length) { app.innerHTML = top + emptyBox("Le simulateur sera disponible dès que les questions de ce parcours seront publiées."); return; }
     const hist = await loadExamAttempts(exam.code).catch(() => []);
+    const A = ANN_EXAMS.includes(exam.code) ? await annLoad(exam.code).catch(() => null) : null;
+    const annOpts = A && A.rows.length ? `<optgroup label="🎯 Sujets officiels (annales corrigées)">${[...A.years.keys()].map((y) => [...A.years.get(y).entries()].map(([s, l]) => { const n = l.filter((q) => q.answer).length; return n ? `<option value="A|${y}|${esc(s)}">Sujet officiel DAP ${y} — ${esc(s)} (${n} q.)</option>` : ""; }).join("")).join("")}</optgroup>` : "";
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Tout le parcours";
     const avg = hist.length ? hist.reduce((a, x) => a + Number(x.note20), 0) / hist.length : 0;
     app.innerHTML = top + `<div class="study stack"><div class="card"><form id="examForm">
-        <label for="exSub">Épreuve</label><select id="exSub"><option value="">Tout le parcours ${esc(exam.name)} (${d.questions.length} questions, toutes matières)</option>${d.subjects.map((s) => `<option value="${s.id}">${esc(s.name)} (${(d.bySubject.get(s.id) || []).length})</option>`).join("")}</select>
+        <label for="exSub">Épreuve</label><select id="exSub"><option value="">Tout le parcours ${esc(exam.name)} (${d.questions.length} questions, toutes matières)</option>${d.subjects.map((s) => `<option value="${s.id}">${esc(s.name)} (${(d.bySubject.get(s.id) || []).length})</option>`).join("")}${annOpts}</select>
         <label>Nombre de questions</label><div class="radio-cards ex-sizes">${EX_SIZES.map((n) => `<label><input type="radio" name="exNum" value="${n}" ${n === 20 ? "checked" : ""}> ${n}</label>`).join("")}</div>
         <label for="exPace">Temps par question</label><select id="exPace">${EX_PACE.map(([s, l]) => `<option value="${s}" ${s === 90 ? "selected" : ""}>${l}</option>`).join("")}</select>
         <p class="hint" id="exDur"></p>
@@ -1951,8 +2019,8 @@
       </div>`;
     const upd = () => {
       const n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 20;
-      const sid = document.getElementById("exSub").value, pool = sid ? (d.bySubject.get(Number(sid)) || []).length : d.questions.length;
-      const real = Math.min(n, pool), pace = Number(document.getElementById("exPace").value) || 90;
+      const sid = document.getElementById("exSub").value, off = annPool(exam.code, sid), pool = off ? off.length : sid ? (d.bySubject.get(Number(sid)) || []).length : d.questions.length;
+      const real = off ? pool : Math.min(n, pool), pace = Number(document.getElementById("exPace").value) || 90;
       document.getElementById("exDur").textContent = "Durée de l'épreuve : " + fmtDur(real * pace).replace(" 00 s", "") + " pour " + real + " question" + (real > 1 ? "s" : "") + (real < n ? " (seulement " + pool + " disponible" + (pool > 1 ? "s" : "") + (sid ? " dans cette matière)" : " dans ce parcours)") : "") + ".";
     };
     document.getElementById("examForm").addEventListener("change", upd); upd();
@@ -1964,6 +2032,17 @@
     const sid = document.getElementById("exSub").value;
     const n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 20;
     const pace = Number(document.getElementById("exPace").value) || 90;
+    const off = annPool(code, sid);
+    if (off) {
+      if (!off.length) return toast("Aucune question corrigée dans ce sujet.", "err");
+      const [, y, sj] = sid.split("|"), t0 = Date.now();
+      S.exam = {
+        uid: S.session.user.id, exam: code, subjectId: null, scope: "Sujet officiel DAP " + y + " — " + sj, official: true,
+        items: off.map((q) => ({ id: null, subject_id: null, sname: "DAP " + y + " · " + sj, question: q.question, answer: q.answer, resp: "" })),
+        i: 0, pace, startedAt: t0, endsAt: t0 + off.length * pace * 1000, leaves: 0, done: false
+      };
+      exSave(); drawExamRun(); window.scrollTo(0, 0); return;
+    }
     const pool = sid ? (d.bySubject.get(Number(sid)) || []) : d.questions;
     if (!pool.length) return toast("Aucune question disponible pour cette sélection.", "err");
     const sname = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "";

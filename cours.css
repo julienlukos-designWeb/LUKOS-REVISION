@@ -54,3 +54,19 @@
 .crs-lock { margin-top: 16px; }
 .label-up.crs-label { margin-top: 22px; }
 .exam-crs .exam-ico { box-shadow: 0 4px 0 #6b4a00; }
+
+/* ===== Annales de l'examen (DAP) ===== */
+.ann-banner { background: linear-gradient(135deg, #5c3d00, #b8860b) !important; }
+.ann-years { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ann-year { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 18px; background: #fff; text-decoration: none; color: var(--ink);
+  border: 2px solid #e0b43a; box-shadow: 0 6px 0 #b8860b, 0 10px 22px rgba(184, 134, 11, .15); }
+.ann-year b { font-size: 1.25rem; color: #5c3d00; }
+.ann-year span { font-weight: 700; font-size: .88rem; }
+.ann-year small { color: var(--muted); font-size: .76rem; }
+.ann-subj { background: #fff; border-radius: 18px; box-shadow: 0 5px 0 #D6DEEA, var(--sh); overflow: hidden; }
+.ann-subj > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; }
+.ann-subj > summary::-webkit-details-marker { display: none; }
+.ann-qs { margin: 0; padding: 0 16px 14px 36px; display: grid; gap: 14px; }
+.ann-qs li { padding-left: 2px; }
+.ann-q { font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
+.ann-a { margin-top: 10px; }
