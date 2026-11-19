@@ -2023,10 +2023,10 @@
   /* ----- Interface ----- */
   const jFab = document.createElement("button");
   jFab.className = "jia-fab"; jFab.type = "button"; jFab.setAttribute("aria-label", "Ouvrir Julien – IA");
-  jFab.innerHTML = `<img src="julien-ia.jpg" alt=""><span class="jia-fab-txt">Julien – IA</span><span class="jia-dot"></span>`;
+  jFab.innerHTML = `<span class="jia-pic"><img src="julien-ia.jpg" alt=""><span class="jia-ia">IA</span></span><span class="jia-fab-txt"><b>Julien – IA</b><small>Assistant virtuel</small></span><span class="jia-dot"></span>`;
   const jPanel = document.createElement("section");
   jPanel.className = "jia-panel"; jPanel.hidden = true; jPanel.setAttribute("aria-label", "Julien – IA");
-  jPanel.innerHTML = `<header class="jia-head"><img src="julien-ia.jpg" alt=""><div><b>Julien – IA</b><small id="jiaCtx"></small></div><button type="button" class="jia-x" data-jia="close" aria-label="Fermer">✕</button></header>
+  jPanel.innerHTML = `<header class="jia-head"><img src="julien-ia.jpg" alt=""><div><b>Julien – IA <span class="jia-tag">Assistant IA</span></b><small id="jiaCtx"></small></div><button type="button" class="jia-x" data-jia="close" aria-label="Fermer">✕</button></header>
     <div class="jia-body" id="jiaBody"></div><div class="jia-sugg" id="jiaSugg"></div>
     <form class="jia-form" id="jiaForm" autocomplete="off"><input id="jiaIn" type="text" maxlength="200" placeholder="Pose ta question…" aria-label="Ta question"><button type="submit" aria-label="Envoyer">➤</button></form>`;
   document.body.appendChild(jFab); document.body.appendChild(jPanel);
@@ -2787,4 +2787,27 @@
     if (isMobile) setTimeout(showOverlay, 900);
   })();
   void sleep;
+
+  /* ----- Œil pour afficher / masquer les mots de passe ----- */
+  const EYE_ON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+  function addEyes(root) {
+    (root || document).querySelectorAll('input[type="password"]:not([data-eye])').forEach((inp) => {
+      inp.dataset.eye = "1";
+      const wrap = document.createElement("div"); wrap.className = "pw-wrap";
+      inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+      const b = document.createElement("button"); b.type = "button"; b.className = "pw-eye";
+      b.setAttribute("aria-label", "Afficher le mot de passe"); b.innerHTML = EYE_ON;
+      b.addEventListener("click", () => {
+        const show = inp.type === "password";
+        inp.type = show ? "text" : "password";
+        b.innerHTML = show ? EYE_OFF : EYE_ON;
+        b.setAttribute("aria-label", show ? "Masquer le mot de passe" : "Afficher le mot de passe");
+        inp.focus();
+      });
+      wrap.appendChild(b);
+    });
+  }
+  addEyes();
+  new MutationObserver(() => addEyes()).observe(document.body, { childList: true, subtree: true });
 })();
