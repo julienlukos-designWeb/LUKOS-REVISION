@@ -94,7 +94,17 @@
     back: '<path d="M15 18l-6-6 6-6"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-    idea: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>'
+    idea: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.6 4.5 4"/>',
+    cash: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M15 8l2 2"/>',
+    flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-4-6-4-6-1.5S9 8 12 8c3 0 6 1 6-1.5S14 4 12 8z"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>'
   };
   const icon = (k, w) => IC(ICONS[k], w);
   const EXAM_META = {
@@ -392,7 +402,7 @@
       `<a href="#/" class="${p === "" ? "on" : ""}">Parcours</a>` +
       `<a href="#/profil" class="${p === "profil" ? "on" : ""}">Mon compte</a>` +
       (!isAdmin() ? `<a href="#/suggestions" class="${p === "suggestions" ? "on" : ""}">Suggestions</a>` : "") +
-      (isAdmin() ? `<a href="#/admin" class="${p === "admin" ? "on" : ""}">Administration</a>` : "") +
+      (isAdmin() ? `<a href="#/admin" class="${p === "admin" ? "on" : ""}">Administration <span class="adbadge zero" data-badge="traiter">0</span></a>` : "") +
       `<button class="out hide-m" data-act="logout">Déconnexion</button>`;
   }
   function setFooter() {
@@ -585,6 +595,7 @@
     const items = [["home", "#/", "home", "Parcours"], ["profil", "#/profil", "user", "Mon compte"]].concat(isAdmin() ? [["admin", "#/admin", "shield", "Admin"]] : [["suggestions", "#/suggestions", "idea", "Suggestions"]]);
     bottomnav.className = "bottomnav show home-nav n" + items.length;
     bottomnav.innerHTML = items.map(([k, h, ic, l]) => `<a href="${h}" class="bn bn-${k} ${cur === k ? "on" : ""}">${icon(ic, 20)}<span>${l}</span></a>`).join("");
+    if (isAdmin()) refreshBadges();
   }
 
   /* ------------------------------------------------------------------ */
@@ -1020,7 +1031,7 @@
   function renderProfile() {
     homeBottomNav("profil");
     const p = S.profile;
-    const stLabel = { pending: ["warn", "EN ATTENTE"], successful: ["ok", "VALIDÉ"], rejected: ["bad", "REFUSÉ"] };
+    const stLabel = { pending: ["warn", "EN ATTENTE"], successful: ["ok", "VALIDÉ"], offered: ["ok", "OFFERT"], rejected: ["bad", "REFUSÉ"] };
     app.innerHTML = `<h1>Mon compte</h1><div class="grid-2">
       <div class="card"><h3>Mes informations</h3>
         <label>Prénom</label><input value="${esc(p.first_name)}" disabled>
@@ -1110,10 +1121,44 @@
   /* Administration                                                     */
   /* ------------------------------------------------------------------ */
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
-  const ADMIN_TABS = [["tableau", "Tableau de bord"], ["paiements", "Paiements"], ["candidats", "Candidats"], ["expires", "Comptes expirés"], ["contenu", "Contenu"], ["documents", "Documents"], ["parcours", "Parcours & prix"], ["suggestions", "Suggestions"], ["signalements", "Signalements"], ["assistance", "Assistance"], ["journal", "Journal"]];
+  /* L'Admin est rangée en 5 espaces ; chaque onglet garde son adresse #/admin/<onglet>. */
+  const ADMIN_SPACES = [
+    { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord"]] },
+    { k: "traiter", label: "À traiter", ic: "bell", tabs: [["paiements", "Paiements", "payments", "cash"], ["assistance", "Assistance", "support", "key"], ["signalements", "Signalements", "reports", "flag"], ["suggestions", "Suggestions", "suggestions", "idea"], ["expires", "Comptes expirés", "expired", "clock"]] },
+    { k: "membres", label: "Membres", ic: "users", tabs: [["candidats", "Candidats"]] },
+    { k: "contenu", label: "Contenu", ic: "book", tabs: [["contenu", "Questions"], ["documents", "Documents"], ["parcours", "Parcours & prix"]] },
+    { k: "journal", label: "Journal", ic: "list", tabs: [["journal", "Journal des actions"]] }
+  ];
+  const BADGE_KEYS = ["payments", "support", "reports", "suggestions", "expired"];
+  const badgeTotal = () => BADGE_KEYS.reduce((a, k) => a + Number((AD.badges || {})[k] || 0), 0);
+  function badgeVal(key) { return key === "traiter" ? badgeTotal() : Number((AD.badges || {})[key] || 0); }
+  function paintBadges() {
+    if (!AD.badges) return;
+    document.querySelectorAll("[data-badge]").forEach((el) => { const n = badgeVal(el.dataset.badge); el.textContent = n > 99 ? "99+" : String(n); el.classList.toggle("zero", !n); });
+    const tot = badgeTotal();
+    const bn = bottomnav && bottomnav.querySelector(".bn-admin");
+    if (bn) { let b = bn.querySelector(".nb"); if (!b) { b = document.createElement("span"); b.className = "nb"; bn.appendChild(b); } b.textContent = tot > 99 ? "99+" : String(tot); b.hidden = !tot; }
+    document.title = (tot ? "(" + tot + ") " : "") + "LUKOS-REVISION";
+  }
+  let badgeAt = 0, badgeTimer = null;
+  async function refreshBadges(force) {
+    if (!isAdmin()) return;
+    if (!force && Date.now() - badgeAt < 20000) return paintBadges();
+    badgeAt = Date.now();
+    try { const { data, error } = await sb.rpc("lk_admin_badges"); if (!error && data) AD.badges = data; } catch (e) { /* hors connexion */ }
+    paintBadges();
+    if (!badgeTimer) badgeTimer = setInterval(() => { if (isAdmin() && document.visibilityState === "visible") refreshBadges(true); }, 60000);
+  }
   async function renderAdmin(tab) {
     homeBottomNav("admin");
-    app.innerHTML = `<h1>Administration</h1><div class="admin-tabs">${ADMIN_TABS.map(([k, l]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</div><div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div>`;
+    const space = ADMIN_SPACES.find((sp) => sp.tabs.some((t) => t[0] === tab)) || ADMIN_SPACES[0];
+    if (!space.tabs.some((t) => t[0] === tab)) tab = space.tabs[0][0];
+    const pill = (n, key) => `<span class="adbadge zero" data-badge="${key}">${n}</span>`;
+    app.innerHTML = `<div class="adm">
+      <nav class="adm-spaces" aria-label="Espaces d'administration">${ADMIN_SPACES.map((sp) => `<a href="#/admin/${sp.tabs[0][0]}" class="adm-space ${sp === space ? "on" : ""}">${icon(sp.ic, 20)}<span>${sp.label}</span>${sp.k === "traiter" ? pill(0, "traiter") : ""}</a>`).join("")}</nav>
+      ${space.tabs.length > 1 ? `<nav class="adm-sub" aria-label="${esc(space.label)}">${space.tabs.map(([k, l, key, ic]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}">${ic ? icon(ic, 17) : ""}<span>${l}</span>${key ? pill(0, key) : ""}</a>`).join("")}</nav>` : ""}
+      <div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div></div>`;
+    paintBadges(); refreshBadges(true);
     const body = document.getElementById("adminBody");
     const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
     await fn(body);
@@ -1121,23 +1166,38 @@
   const examName = (c) => (examByCode(c) || {}).name || c;
 
   async function adDash(body) {
-    const { data, error } = await sb.rpc("admin_dashboard");
+    const [{ data, error }, daily] = await Promise.all([sb.rpc("admin_dashboard"), sb.rpc("admin_dashboard_daily").then((r) => r.data || []).catch(() => [])]);
     if (error) throw error;
-    body.innerHTML = `<div class="kpis"><div class="kpi"><b>${data.candidates}</b><span>Candidats inscrits</span></div><div class="kpi"><b>${data.pending_payments}</b><span>Paiements à vérifier</span></div><div class="kpi"><b>${esc(fmtXof(data.revenue_xof))}</b><span>Encaissements validés</span></div><div class="kpi"><b>${data.quizzes}</b><span>Quiz réalisés</span></div><div class="kpi"><b>${data.blocked}</b><span>Comptes bloqués</span></div></div>
-      <div class="grid">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}; return `<div class="card exam-${e.code}"><div class="row between"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge acc">${esc(fmtXof(e.price_xof))}</span></div><div class="sep"></div><p>👥 <b>${x.active || 0}</b> actifs · ⏳ <b>${x.pending || 0}</b> en attente</p><p>❓ <b>${x.questions || 0}</b> questions publiées</p><p>💰 <b>${esc(fmtXof(x.revenue || 0))}</b> encaissés</p></div>`; }).join("")}</div>
-      ${data.pending_payments ? `<p style="margin-top:16px"><a class="btn btn-primary" href="#/admin/paiements">Traiter les ${data.pending_payments} paiement(s) en attente →</a></p>` : ""}`;
-    sb.rpc("lk_admin_counters").then(({ data: c }) => {
-      const x = Array.isArray(c) ? c[0] : c;
-      if (!x || !document.body.contains(body)) return;
-      if (x.open_reports) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/signalements">⚑ ${x.open_reports} erreur(s) signalée(s) par les candidats →</a></p>`);
-      if (x.open_resets) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/assistance">🔑 ${x.open_resets} demande(s) « mot de passe oublié » →</a></p>`);
-    });
-    sb.from("suggestions").select("id", { count: "exact", head: true }).eq("is_read", false).then(({ count }) => {
-      if (count && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/suggestions">💡 ${count} nouvelle(s) suggestion(s) des membres →</a></p>`);
-    });
-    sb.rpc("lk_admin_expired_accounts").then(({ data: x }) => {
-      if (Array.isArray(x) && x.length && document.body.contains(body)) body.insertAdjacentHTML("beforeend", `<p style="margin-top:10px"><a class="btn btn-ghost" href="#/admin/expires">👤 ${x.length} compte(s) sans parcours après le délai de 15 jours →</a></p>`);
-    });
+    const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
+    const h = new Date().getHours(), hello = h < 18 ? "Bonjour" : "Bonsoir";
+    const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const todo = [["paiements", "payments", "cash", "Paiements à valider", "t-pay"], ["assistance", "support", "key", "Demandes d'assistance", "t-sup"], ["signalements", "reports", "flag", "Erreurs signalées", "t-rep"], ["suggestions", "suggestions", "idea", "Nouvelles suggestions", "t-sug"], ["expires", "expired", "clock", "Comptes expirés", "t-exp"]];
+    const offered = Number(data.offered_count || 0), paid = Number(data.paid_count || 0);
+    const days = Array.isArray(daily) ? daily : [];
+    const max = Math.max(1, ...days.map((d) => Number(d.xof || 0)));
+    const dayLab = (d) => { const x = new Date(d + "T12:00:00Z"); return x.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }).replace(".", ""); };
+    body.innerHTML = `<section class="adh">
+        <div><p class="adh-date">${esc(today)}</p><h1>${hello} ${esc(S.profile.first_name || "")}</h1><p class="adh-sub">Voici l'état de LUKOS-REVISION en un coup d'œil.</p></div>
+        <a href="#/admin/paiements" class="adh-todo"><b data-badge="traiter" class="adbig">0</b><span>élément(s) à traiter</span></a>
+      </section>
+      <div class="adtodo">${todo.map(([tab, key, ic, lab, cl]) => `<a href="#/admin/${tab}" class="tdc ${cl}"><span class="tdc-ic">${icon(ic, 22)}</span><b data-badge="${key}">0</b><span class="tdc-l">${lab}</span></a>`).join("")}</div>
+      <div class="adkpi">
+        <div class="kp kp-cash"><span class="kp-ic">${icon("cash", 22)}</span><small>Encaissé au total</small><b>${esc(fmtXof(data.revenue_xof))}</b><em>${nf(paid)} paiement(s) réellement payés</em></div>
+        <div class="kp kp-month"><span class="kp-ic">${icon("chart", 22)}</span><small>Encaissé ce mois</small><b>${esc(fmtXof(data.revenue_month_xof))}</b><em>${esc(new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }))}</em></div>
+        <div class="kp kp-gift"><span class="kp-ic">${icon("gift", 22)}</span><small>Parcours offerts</small><b>${nf(offered)}</b><em>non comptés dans l'encaissé</em></div>
+        <div class="kp kp-users"><span class="kp-ic">${icon("users", 22)}</span><small>Candidats inscrits</small><b>${nf(data.candidates)}</b><em>${nf(data.active_count)} parcours actifs</em></div>
+        <div class="kp kp-quiz"><span class="kp-ic">${icon("target", 22)}</span><small>Quiz réalisés</small><b>${nf(data.quizzes)}</b><em>${nf(data.blocked)} compte(s) bloqué(s)</em></div>
+      </div>
+      <div class="adrow">
+        <section class="adp adp-chart"><h2>Encaissements des 14 derniers jours</h2><p class="muted small">Paiements validés uniquement, en FCFA</p>
+          <div class="adbars" role="img" aria-label="Encaissements par jour sur 14 jours">${days.map((d) => { const v = Number(d.xof || 0); return `<div class="adbar"><span class="adbar-v">${v ? nf(v / 1000) + "k" : ""}</span><i style="height:${Math.max(v ? 8 : 3, Math.round(v / max * 130))}px" class="${v ? "" : "nil"}"></i></div>`; }).join("")}</div>
+          <div class="adbars-d">${days.map((d, k) => `<span>${k % 2 === (days.length - 1) % 2 ? esc(dayLab(d.day)) : ""}</span>`).join("")}</div>
+        </section>
+        <section class="adp adp-ex"><h2>Par parcours</h2>
+          <div class="exl">${S.exams.map((e) => { const x = (data.by_exam || {})[e.code] || {}, act = Number(x.active || 0), pd = Number(x.paid || 0); return `<a href="#/admin/candidats" class="exr exam-${esc(e.code)}"><span class="exr-ic">${icon((EXAM_META[e.code] || {}).icon || "book", 18)}</span><span class="exr-n"><b>${esc(e.name)}</b><small>${act} actif(s) · ${pd} payé(s) · ${Math.max(0, act - pd)} offert(s)${x.pending ? " · " + x.pending + " en attente" : ""}</small></span><span class="exr-r">${esc(fmtXof(x.revenue || 0))}</span></a>`; }).join("")}</div>
+        </section>
+      </div>`;
+    paintBadges();
   }
 
   /* Lecture complète d'une table, 1000 lignes à la fois (limite de Supabase par requête) */
@@ -1169,23 +1229,23 @@
   async function adPayments(body) {
     const P = await loadPeople();
     const list = P.pay.filter((x) => AD.payFilter === "all" || x.status === AD.payFilter);
-    const lab = { pending: "En attente", successful: "Validés", rejected: "Refusés", all: "Tous" };
+    const lab = { pending: "En attente", successful: "Payés", offered: "Offerts", rejected: "Refusés", all: "Tous" };
     const nPend = P.pay.filter((x) => x.status === "pending");
     const cash = P.pay.filter((x) => x.status === "successful").reduce((a, x) => a + Number(x.amount_xof || 0), 0);
     const month = new Date().toISOString().slice(0, 7);
     const cashMonth = P.pay.filter((x) => x.status === "successful" && String(x.reviewed_at || x.created_at).slice(0, 7) === month).reduce((a, x) => a + Number(x.amount_xof || 0), 0);
     body.innerHTML = `<div class="adpay-kpis">
         <div class="ak ak-warn"><span>⏳</span><b>${nPend.length}</b><small>À vérifier${nPend.some((x) => !x.proof_path) ? " · " + nPend.filter((x) => !x.proof_path).length + " sans capture" : ""}</small></div>
-        <div class="ak ak-ok"><span>✅</span><b>${P.pay.filter((x) => x.status === "successful").length}</b><small>Paiements validés</small></div>
+        <div class="ak ak-ok"><span>✅</span><b>${P.pay.filter((x) => x.status === "successful").length}</b><small>Payés · ${P.pay.filter((x) => x.status === "offered").length} offert(s)</small></div>
         <div class="ak ak-cash"><span>💰</span><b>${esc(fmtXof(cashMonth))}</b><small>Encaissé ce mois</small></div>
         <div class="ak ak-tot"><span>📈</span><b>${esc(fmtXof(cash))}</b><small>Encaissé au total</small></div></div>
-      <div class="seg" style="max-width:560px;margin:14px 0">${Object.keys(lab).map((k) => `<button data-act="ad-payfilter" data-f="${k}" class="${AD.payFilter === k ? "on" : ""}">${lab[k]} (${k === "all" ? P.pay.length : P.pay.filter((x) => x.status === k).length})</button>`).join("")}</div>
+      <div class="seg" style="max-width:760px;margin:14px 0">${Object.keys(lab).map((k) => `<button data-act="ad-payfilter" data-f="${k}" class="${AD.payFilter === k ? "on" : ""}">${lab[k]} (${k === "all" ? P.pay.length : P.pay.filter((x) => x.status === k).length})</button>`).join("")}</div>
       ${list.length ? `<div class="adpay-list">${list.map((x) => payCard(x, P)).join("")}</div>` : emptyBox("Aucun paiement dans cette catégorie.")}`;
     loadProofThumbs(body);
   }
   function payCard(x, P) {
     const u = P.byId.get(x.user_id) || {}, wave = x.method === "wave";
-    const st = { pending: ["warn", "En attente"], successful: ["ok", "Validé"], rejected: ["bad", "Refusé"] }[x.status] || ["", x.status];
+    const st = { pending: ["warn", "En attente"], successful: ["ok", "Payé"], offered: ["gift", "Offert"], rejected: ["bad", "Refusé"] }[x.status] || ["", x.status];
     const line = (k, v) => (v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "");
     return `<article class="paycard st-${esc(x.status)} ${wave ? "m-wave" : "m-om"}">
       <header><span class="pay-av">${esc(initials(u))}</span><div class="pc-who"><b>${esc((u.first_name || "") + " " + (u.last_name || ""))}</b><small>${esc(phonePretty(u.phone))}${u.service ? " · " + esc(serviceLabel(u.service)) : ""}</small></div><span class="badge ${st[0]}">${esc(st[1]).toUpperCase()}</span></header>
@@ -1198,7 +1258,7 @@
         ${x.proof_path ? `<button class="pc-proof" data-act="ad-proof" data-proof="${esc(x.proof_path)}" aria-label="Agrandir la capture"><span class="pc-load">Chargement de la capture…</span></button>`
           : `<div class="pc-proof none"><span>📷</span><small>Pas de capture dans l'application${x.status === "pending" ? "<br>(vérifier WhatsApp)" : ""}</small></div>`}
       </div>
-      <footer>${x.status === "pending" ? `<button class="btn btn-ok" data-act="ad-pay" data-id="${esc(x.id)}" data-d="approve">✓ Valider et activer</button><button class="btn btn-bad" data-act="ad-pay" data-id="${esc(x.id)}" data-d="reject">✕ Refuser</button>` : ""}${x.status === "successful" ? `<button class="btn btn-ghost btn-sm" data-act="ad-receipt" data-id="${esc(x.id)}">🧾 Reçu</button>` : ""}<a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone || "")}">📞 Appeler</a></footer>
+      <footer>${x.status === "pending" ? `<button class="btn btn-ok" data-act="ad-pay" data-id="${esc(x.id)}" data-d="approve">✓ Valider et activer</button><button class="btn btn-gift" data-act="ad-pay" data-id="${esc(x.id)}" data-d="offer">🎁 Offrir</button><button class="btn btn-bad" data-act="ad-pay" data-id="${esc(x.id)}" data-d="reject">✕ Refuser</button>` : ""}${x.status === "successful" ? `<button class="btn btn-ghost btn-sm" data-act="ad-paykind" data-id="${esc(x.id)}" data-k="offered">🎁 Marquer comme offert</button>` : ""}${x.status === "offered" ? `<button class="btn btn-ghost btn-sm" data-act="ad-paykind" data-id="${esc(x.id)}" data-k="paid">💰 Marquer comme payé</button>` : ""}${x.status === "successful" ? `<button class="btn btn-ghost btn-sm" data-act="ad-receipt" data-id="${esc(x.id)}">🧾 Reçu</button>` : ""}<a class="btn btn-ghost btn-sm" href="tel:${esc(u.phone || "")}">📞 Appeler</a></footer>
     </article>`;
   }
   const PROOF_CACHE = new Map();
@@ -1231,11 +1291,19 @@
   async function reviewPayment(id, decision) {
     let note = null;
     if (decision === "reject") { note = prompt("Motif du refus (visible par le candidat) :", "Paiement introuvable"); if (note === null) return; }
+    else if (decision === "offer") { if (!confirm("Offrir ce parcours ?\nIl sera activé gratuitement et ne sera PAS compté dans l'encaissé.")) return; note = "Parcours offert"; }
     else if (!confirm("Valider ce paiement et activer le parcours du candidat ?")) return;
     const { error } = await sb.rpc("admin_review_payment", { p_payment: id, p_decision: decision, p_note: note });
     if (error) return toast(errText(error), "err");
-    toast(decision === "approve" ? "Paiement validé, parcours activé." : "Paiement refusé.", "ok");
-    route();
+    toast(decision === "approve" ? "Paiement validé, parcours activé." : decision === "offer" ? "Parcours offert et activé." : "Paiement refusé.", "ok");
+    AD.people = null; route();
+  }
+  async function setPaymentKind(id, kind) {
+    if (!confirm(kind === "offered" ? "Marquer ce paiement comme OFFERT ?\nLe parcours reste actif, mais le montant sort de l'encaissé." : "Marquer ce paiement comme PAYÉ ?\nLe montant sera compté dans l'encaissé.")) return;
+    const { error } = await sb.rpc("admin_set_payment_kind", { p_payment: id, p_kind: kind });
+    if (error) return toast(errText(error), "err");
+    toast(kind === "offered" ? "Marqué comme offert : retiré de l'encaissé." : "Marqué comme payé.", "ok");
+    AD.people = null; route();
   }
   function openReceipt(id) {
     const x = AD.people && AD.people.pay.find((p) => p.id === id); if (!x) return;
@@ -1287,6 +1355,7 @@
   const EXP_ST = { expired: ["bad", "DÉLAI DÉPASSÉ"], reminder: ["warn", "RAPPEL EN COURS"], reminder_expired: ["bad", "RAPPEL EXPIRÉ"] };
   const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
   async function adExpired(body) {
+    refreshBadges(true);
     const { data, error } = await sb.rpc("lk_admin_expired_accounts");
     if (error) {
       if (/lk_admin_expired_accounts|does not exist|schema cache/i.test(error.message || "")) { body.innerHTML = emptyBox("Le script comptes_expires.sql n'est pas encore installé dans Supabase."); return; }
@@ -1498,6 +1567,7 @@
 
   /* ----- Suggestions reçues ----- */
   async function adSuggestions(body) {
+    refreshBadges(true);
     const { data, error } = await sb.from("suggestions").select("id,user_id,first_name,last_name,phone,service,message,created_at,is_read").order("created_at", { ascending: false }).limit(500);
     if (error) { body.innerHTML = `<div class="card"><p class="msg err">${/suggestions/i.test(error.message || "") ? "La table des suggestions n'existe pas encore : exécute le script 12_suggestions.sql dans Supabase." : esc(errText(error))}</p></div>`; return; }
     const f = AD.sugF || "toutes", all = data || [], unread = all.filter((x) => !x.is_read).length;
@@ -1785,6 +1855,7 @@
 
   /* ----- Administration : Signalements & Assistance comptes ----- */
   async function adReports(body) {
+    refreshBadges(true);
     const st = AD.repFilter || "open";
     const { data, error } = await sb.rpc("lk_admin_reports", { p_status: st });
     if (error) { body.innerHTML = `<div class="card"><p>⚠️ ${esc(/function|lk_admin/i.test(error.message || "") ? "Le script 12_outils.sql n'est pas encore exécuté dans Supabase." : errText(error))}</p></div>`; return; }
@@ -1808,6 +1879,7 @@
     }));
   }
   async function adSupport(body) {
+    refreshBadges(true);
     const { data, error } = await sb.rpc("lk_admin_password_requests");
     if (error) { body.innerHTML = `<div class="card"><p>⚠️ ${esc(/function|lk_admin/i.test(error.message || "") ? "Le script 12_outils.sql n'est pas encore exécuté dans Supabase." : errText(error))}</p></div>`; return; }
     const rows = data || [];
@@ -1910,6 +1982,7 @@
       if (act === "ad-payfilter") { AD.payFilter = el.dataset.f; return route(); }
       if (act === "ad-peoplefilter") { AD.peopleFilter = el.dataset.f; return drawPeople(); }
       if (act === "ad-pay") return reviewPayment(el.dataset.id, el.dataset.d);
+      if (act === "ad-paykind") return setPaymentKind(el.dataset.id, el.dataset.k);
       if (act === "ad-receipt") return openReceipt(el.dataset.id);
       if (act === "ad-reload-people") { await loadPeople(); return drawPeople(); }
       if (act === "ad-block") { if (!confirm(el.dataset.v === "1" ? "Bloquer ce compte ? Il perdra tout accès." : "Débloquer ce compte ?")) return; const { error } = await sb.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.v === "1" }); if (error) throw error; toast("Compte mis à jour.", "ok"); await loadPeople(); return drawPeople(); }
