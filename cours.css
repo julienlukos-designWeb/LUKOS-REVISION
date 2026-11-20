@@ -71,7 +71,7 @@
 .ann-q { font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
 .ann-a { margin-top: 10px; }
 
-/* =====================================================================
+/* ==============================================================
    Outils d'apprentissage : objectif du jour, à revoir, écoute, signalement
    ===================================================================== */
 .linkbtn { background: none; border: 0; padding: 4px; color: #1d5fd1; font-weight: 700; text-decoration: underline; cursor: pointer; font: inherit; }
@@ -107,3 +107,18 @@
 .rp-card .rp-msg { background: #fff8e6; border-left: 4px solid #e0b43a; padding: 8px 12px; border-radius: 8px; margin: 6px 0 10px; }
 .rp-edit textarea { width: 100%; min-height: 70px; }
 body:has(.rp-overlay) .wa-fab, body:has(.rp-overlay) .jia-fab { display: none !important; }
+=======
+/* ----- Cours propres à un parcours (ex. Police nationale) ----- */
+.crs-banner { background: linear-gradient(135deg, #5c3d00, #8a6100 55%, #c48f12) !important; box-shadow: 0 8px 24px rgba(138, 97, 0, .22); }
+.crs-body h3 { margin: 18px 0 8px; font-size: 1.02rem; line-height: 1.35; color: var(--acc-d, #0b1f3a); }
+.crs-body h3:first-child { margin-top: 0; }
+.crs-body blockquote { margin: 0 0 12px; padding: 8px 14px; border-left: 3px solid var(--acc-line, #d9e1ec); color: #33415c; font-style: italic; }
+.crs-body blockquote p { margin: 0; }
+.crs-box { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--acc-soft, #f1f4f9); border-left: 4px solid var(--acc, #0b1f3a); }
+.crs-box p:last-child, .crs-box ul:last-child { margin-bottom: 0; }
+.crs-body .table-wrap { margin: 6px 0 14px; }
+.crs-body table.t { font-size: .88rem; }
+.crs-body table.t th { background: var(--acc-soft, #f3eedf); color: var(--acc-d, #0b1f3a); }
+/* onglet « Cours » de la barre du bas */
+.bn-cours { background: #fbf1d9; color: #8a6100; box-shadow: 0 4px 0 #e8cf8f; }
+.bn-cours.on { background: #b8860b; color: #fff; box-shadow: 0 4px 0 #8a6100; }
