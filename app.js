@@ -550,15 +550,24 @@
     app.innerHTML = `<section class="home-hero"><div class="home-hello">Bonjour ${name}</div><p>Choisis ton parcours de révision.</p></section>
       ${actBanner(true)}
       ${!isAdmin() && S.profile.service === null ? serviceCard() : ""}
-      <div class="label-up">MES PARCOURS</div>
-      <div class="exam-list">${S.exams.map((e) => `
+      ${homeExamLists()}
+      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. <b>Paiement unique, sans abonnement mensuel</b> : l'accès est illimité dans le temps. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+  }
+  /* Ordre de la page des parcours :
+     1. parcours activés  2. module RDG-RSA offert (juste en dessous, bien visible)  3. parcours à activer.
+     Sans aucun parcours activé : tous les parcours, puis le module RDG-RSA verrouillé en bas. */
+  function homeExamLists() {
+    const row = (e) => `
         <button class="exam-row exam-${esc(e.code)}" data-act="open-exam" data-exam="${esc(e.code)}">
           <span class="exam-ico">${icon((EXAM_META[e.code] || {}).icon || "book", 28)}</span>
           <span class="exam-txt"><b>${esc(e.name)}</b><small>${esc(e.full_name)}</small><span class="exam-chips">${statusBadge(e.code)}${S.offMeta[e.code] && hasAccess(e.code) ? ` <span class="badge off">📥 HORS CONNEXION</span>` : ""}</span></span>
           <span class="exam-go">${icon("next", 22)}</span>
-        </button>`).join("")}</div>
-      ${crsHomeCard()}
-      <div class="tip">${icon("info", 22)}<span>Chaque parcours s'active séparément après validation de ton paiement Wave. <b>Paiement unique, sans abonnement mensuel</b> : l'accès est illimité dans le temps. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+        </button>`;
+    const on = S.exams.filter((e) => hasAccess(e.code)), off = S.exams.filter((e) => !hasAccess(e.code));
+    if (!on.length) return `<div class="label-up">MES PARCOURS</div><div class="exam-list">${S.exams.map(row).join("")}</div>${crsHomeCard()}`;
+    return `<div class="label-up">${isAdmin() ? "TOUS LES PARCOURS" : on.length > 1 ? "MES PARCOURS ACTIVÉS" : "MON PARCOURS ACTIVÉ"}</div><div class="exam-list">${on.map(row).join("")}</div>
+      ${crsHomeCard(true)}
+      ${off.length ? `<div class="label-up crs-label">AUTRES PARCOURS À ACTIVER</div><div class="exam-list">${off.map(row).join("")}</div>` : ""}`;
   }
   function serviceCard() {
     return `<form class="card ex-service" id="serviceForm"><b>Complète ton profil</b><p class="small muted">Indique ton service ou corps pour que nous puissions mieux t'accompagner.</p>
@@ -2201,9 +2210,9 @@
     const r = await crsLoadRead(); r.ids.add(no); r.last = no;
     await idb.set(CRS.readKey(CRS.uid), { ids: [...r.ids], last: r.last });
   }
-  function crsHomeCard() {
+  function crsHomeCard(gift) {
     const c = COURSES["RDG-RSA"], ok = crsOk(c);
-    return `<div class="label-up crs-label">MODULE D'APPRENTISSAGE</div>
+    return `<div class="label-up crs-label">${gift && ok ? "🎁 OFFERT AVEC TON PARCOURS" : "MODULE D'APPRENTISSAGE"}</div>
       <div class="exam-list"><button class="exam-row exam-crs ${ok ? "" : "locked"}" data-act="open-course">
         <span class="exam-ico">${icon("shield", 28)}</span>
         <span class="exam-txt"><b>${esc(c.name)}</b><small>${esc(c.full)} — cours complet</small><span class="exam-chips">${ok ? `<span class="badge ok">✓ INCLUS</span>` : `<span class="badge">🔒 Active un parcours pour débloquer</span>`}</span></span>
