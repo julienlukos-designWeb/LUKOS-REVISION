@@ -362,7 +362,7 @@
       if (exRunning() && !(p[0] === "p" && p[1] === S.exam.exam && p[2] === "examen")) { toast("Examen en cours : remets ta copie avant de quitter l'épreuve.", "err"); return go("#/p/" + S.exam.exam + "/examen"); }
       if (S.offline && p[0] === "admin") { app.innerHTML = `<div class="card center"><h2>Hors connexion</h2><p>L'administration nécessite une connexion Internet.</p><a class="btn btn-primary" href="#/">Retour</a></div>`; return; }
       if (p[0] === "p" && examByCode(p[1])) return await renderExam(p[1], p[2] || "accueil", p.slice(3));
-      if (p[0] === "cours") { crsUse("RDG-RSA"); return await renderCourse(p[1]); }
+      if (p[0] === "cours") { crsUse("RDG-RSA"); track("RDG-RSA", "cours"); return await renderCourse(p[1]); }
       if (p[0] === "profil") return renderProfile();
       if (p[0] === "suggestions") return await renderSuggestions();
       if (p[0] === "admin") return isAdmin() ? await renderAdmin(p[1] || "tableau") : go("#/");
@@ -613,10 +613,21 @@
     return `<section class="hero"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/p/${exam.code}">${esc(exam.name)}</a> › ${esc(crumb)}` : esc(exam.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
   }
 
+  /* Statistiques d'usage : on compte seulement « tel membre a ouvert telle partie tel jour ». */
+  const TRACK_AT = new Map();
+  function track(exam, kind) {
+    if (!S.session || isAdmin() || S.offline) return;
+    const k = exam + "|" + kind, t = Date.now();
+    if (t - (TRACK_AT.get(k) || 0) < 5 * 60000) return;
+    TRACK_AT.set(k, t);
+    sb.rpc("lk_track", { p_exam: exam || "", p_kind: kind }).then(() => {}, () => {});
+  }
+  const TRACK_KIND = { matieres: "revision", revision: "revision", cours: "cours", annales: "annales", quiz: "quiz", revoir: "quiz", examen: "examen", documents: "documents", recherche: "recherche" };
   async function renderExam(code, page, rest) {
     const exam = examByCode(code);
     document.body.className = "exam-" + code;
     if (!hasAccess(code)) return renderActivation(exam);
+    if (TRACK_KIND[page]) track(code, TRACK_KIND[page]);
     examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page);
     if (page === "cours" && courseOfExam(code)) { crsUse(courseOfExam(code).code); return await renderCourse(rest[0]); }
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
@@ -1126,6 +1137,7 @@
     { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord"]] },
     { k: "traiter", label: "À traiter", ic: "bell", tabs: [["paiements", "Paiements", "payments", "cash"], ["assistance", "Assistance", "support", "key"], ["signalements", "Signalements", "reports", "flag"], ["suggestions", "Suggestions", "suggestions", "idea"], ["expires", "Comptes expirés", "expired", "clock"]] },
     { k: "membres", label: "Membres", ic: "users", tabs: [["candidats", "Candidats"]] },
+    { k: "stats", label: "Statistiques", ic: "chart", tabs: [["statistiques", "Statistiques d'usage"]] },
     { k: "contenu", label: "Contenu", ic: "book", tabs: [["contenu", "Questions"], ["documents", "Documents"], ["parcours", "Parcours & prix"]] },
     { k: "journal", label: "Journal", ic: "list", tabs: [["journal", "Journal des actions"]] }
   ];
@@ -1160,7 +1172,7 @@
       <div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div></div>`;
     paintBadges(); refreshBadges(true);
     const body = document.getElementById("adminBody");
-    const fn = { tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
+    const fn = { statistiques: adStats, tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1198,6 +1210,61 @@
         </section>
       </div>`;
     paintBadges();
+  }
+
+  /* Statistiques d'usage */
+  async function adStats(body) {
+    const { data: u, error } = await sb.rpc("lk_admin_usage");
+    if (error) throw error;
+    const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
+    const dayLab = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }).replace(".", "");
+    const daily = u.daily || [], max = Math.max(1, ...daily.map((d) => Number(d.n || 0)));
+    const since = u.since ? new Date(u.since + "T12:00:00Z").toLocaleDateString("fr-FR", { day: "numeric", month: "long" }) : "";
+    const bk = u.by_kind || {};
+    const parts = [["revision", "Révision (fiches)", "book", "#1F6FD8"], ["cours", "Cours", "file", "#1B3A6B"], ["annales", "Annales", "list", "#9A6200"], ["quiz", "Quiz ouverts", "target", "#F28C1E"], ["quiz_done", "Quiz terminés", "check", "#13804A"], ["examen", "Examens blancs ouverts", "clock", "#7B2BE2"], ["exam_done", "Examens blancs remis", "check", "#5A1EA9"], ["ia", "Julien – IA", "idea", "#0E9AA7"], ["documents", "Documents PDF", "file", "#5B6B82"], ["recherche", "Recherche", "search", "#0B1F3A"]];
+    const pmax = Math.max(1, ...parts.map(([k]) => Number((bk[k] || {}).n || 0)));
+    const ex = u.by_exam || {};
+    const wa = (ph) => { const d = String(ph || "").replace(/\D/g, ""); return d.length === 9 ? "221" + d : d; };
+    const waMsg = encodeURIComponent("Bonjour, c'est l'équipe LUKOS-REVISION. Ton parcours est activé : as-tu pu commencer tes révisions ? Fais un quiz ou un examen blanc aujourd'hui, et écris-nous si tu as besoin d'aide.");
+    const nu = u.never_used_list || [];
+    const pct = (v) => (v === null || v === undefined ? "—" : v + " %");
+    body.innerHTML = `
+      <div class="adkpi st-kpi">
+        <div class="kp kp-cash"><span class="kp-ic">${icon("users", 22)}</span><small>Actifs aujourd'hui</small><b>${nf(u.active_1d)}</b><em>dernières 24 heures</em></div>
+        <div class="kp kp-month"><span class="kp-ic">${icon("chart", 22)}</span><small>Actifs sur 7 jours</small><b>${nf(u.active_7d)}</b><em>ont ouvert l'application</em></div>
+        <div class="kp kp-users"><span class="kp-ic">${icon("clock", 22)}</span><small>Actifs sur 30 jours</small><b>${nf(u.active_30d)}</b><em>membres différents</em></div>
+        <a href="#st-never" class="kp kp-gift st-link"><span class="kp-ic">${icon("bell", 22)}</span><small>Activés sans quiz ni examen</small><b>${nf(u.never_used)}</b><em>à relancer →</em></a>
+      </div>
+      ${u.exam_blank_pct ? `<div class="st-alert"><span>${icon("info", 22)}</span><p><b>${u.exam_blank_pct} % des réponses aux examens blancs sont laissées vides.</b> Beaucoup de candidats ouvrent l'examen puis abandonnent : c'est ce qui fait baisser les moyennes.</p></div>` : ""}
+      <div class="adrow">
+        <section class="adp adp-chart"><h2>Membres actifs par jour</h2><p class="muted small">Quiz, examens et parties ouvertes, 14 derniers jours</p>
+          <div class="adbars" role="img" aria-label="Membres actifs par jour sur 14 jours">${daily.map((d) => { const v = Number(d.n || 0); return `<div class="adbar"><span class="adbar-v">${v || ""}</span><i style="height:${Math.max(v ? 8 : 3, Math.round(v / max * 130))}px" class="${v ? "" : "nil"}"></i></div>`; }).join("")}</div>
+          <div class="adbars-d">${daily.map((d, k) => `<span>${k % 2 === (daily.length - 1) % 2 ? esc(dayLab(d.day)) : ""}</span>`).join("")}</div>
+        </section>
+        <section class="adp adp-ex"><h2>Usage par partie</h2><p class="muted small">30 derniers jours · ${u.since ? "parties suivies depuis le " + esc(since) : "parties suivies à partir d'aujourd'hui"}</p>
+          <div class="st-parts">${parts.map(([k, l, ic, c]) => { const v = bk[k] || {}; const n = Number(v.n || 0); return `<div class="st-part"><span class="st-pi" style="background:${c}">${icon(ic, 16)}</span><div class="st-pb"><p><b>${l}</b><span>${nf(n)} · ${nf(v.users || 0)} membre(s)</span></p><div class="st-track"><i style="width:${Math.round(n / pmax * 100)}%;background:${c}"></i></div></div></div>`; }).join("")}</div>
+        </section>
+      </div>
+      <section class="adp st-sec"><h2>Par parcours</h2>
+        <div class="st-table"><table><thead><tr><th>Parcours</th><th>Membres qui révisent</th><th>Quiz</th><th>Réussite aux quiz</th><th>Examens blancs</th><th>Moyenne /20</th></tr></thead><tbody>
+        ${S.exams.map((e) => { const x = ex[e.code] || {}; return `<tr><td><b>${esc(e.name)}</b></td><td>${nf(x.users)}</td><td>${nf(x.quiz)}</td><td>${pct(x.quiz_pct)}</td><td>${nf(x.exams)}</td><td>${x.exam_avg === null || x.exam_avg === undefined ? "—" : esc(String(x.exam_avg).replace(".", ","))}</td></tr>`; }).join("")}
+        </tbody></table></div>
+      </section>
+      <div class="adrow">
+        <section class="adp st-half"><h2>Matières les plus travaillées</h2><p class="muted small">Quiz et examens blancs · taux de réussite</p>
+          ${(u.top_subjects || []).length ? `<div class="st-subj">${u.top_subjects.map((t) => `<div class="st-srow"><p><b>${esc(t.name)}</b><small>${esc(examName(t.exam))} · ${nf(t.n)} séance(s)</small></p><span class="st-pct ${Number(t.pct) >= 70 ? "ok" : Number(t.pct) >= 50 ? "mid" : "low"}">${pct(t.pct)}</span></div>`).join("")}</div>` : emptyBox("Pas encore assez de données.")}
+        </section>
+        <section class="adp st-half"><h2>Membres les plus assidus</h2><p class="muted small">Quiz, examens blancs et jours d'activité</p>
+          ${(u.top_members || []).length ? `<ol class="st-top">${u.top_members.map((m, i) => `<li><span class="st-rank r${i < 3 ? i + 1 : 0}">${i + 1}</span><p><b>${esc(m.name)}</b><small>${m.service ? esc(serviceLabel(m.service)) + " · " : ""}${nf(m.quiz)} quiz · ${nf(m.exams)} examen(s) · ${nf(m.days)} jour(s) actif(s)</small></p></li>`).join("")}</ol>` : emptyBox("Pas encore assez de données.")}
+        </section>
+      </div>
+      <section class="adp st-sec"><h2>Questions les plus ratées aux examens blancs</h2><p class="muted small">Au moins 2 réponses · à vérifier ou à mieux expliquer dans les fiches</p>
+        ${(u.hard_questions || []).length ? `<div class="st-hq">${u.hard_questions.map((q) => `<div class="st-q"><span class="st-pct ${Number(q.pct) >= 50 ? "mid" : "low"}">${pct(q.pct)}</span><p><b>${esc(q.question)}</b><small>${esc(examName(q.exam))}${q.subject ? " · " + esc(q.subject) : ""} · ${nf(q.n)} réponse(s)</small></p></div>`).join("")}</div>` : emptyBox("Pas encore assez de réponses aux examens blancs.")}
+      </section>
+      <section class="adp st-sec" id="st-never"><h2>Activés sans quiz ni examen (${nf(nu.length)})</h2><p class="muted small">Ils ont payé ou reçu un parcours mais n'ont encore fait aucun quiz ni examen blanc. Un message peut les aider à démarrer.</p>
+        ${nu.length ? `<div class="st-never">${nu.map((m, i) => `<div class="st-nrow ${i >= 20 ? "st-more" : ""}"><p><b>${esc(m.name)}</b><small>${esc(examName(m.exam))} · ${esc(phonePretty(m.phone))}${m.activated_at ? " · activé le " + esc(fmtDate(m.activated_at)) : ""}</small></p>${wa(m.phone) ? `<a class="btn btn-ok btn-sm" target="_blank" rel="noopener" href="https://wa.me/${wa(m.phone)}?text=${waMsg}">WhatsApp</a>` : ""}</div>`).join("")}</div>
+          ${nu.length > 20 ? `<button class="btn btn-ghost" type="button" data-act="st-more">Voir les ${nu.length - 20} autres</button>` : ""}` : emptyBox("Tous les membres activés ont commencé. Bravo !")}
+      </section>`;
   }
 
   /* Lecture complète d'une table, 1000 lignes à la fois (limite de Supabase par requête) */
@@ -1983,6 +2050,7 @@
       if (act === "ad-peoplefilter") { AD.peopleFilter = el.dataset.f; return drawPeople(); }
       if (act === "ad-pay") return reviewPayment(el.dataset.id, el.dataset.d);
       if (act === "ad-paykind") return setPaymentKind(el.dataset.id, el.dataset.k);
+      if (act === "st-more") { document.querySelectorAll(".st-more").forEach((x) => x.classList.remove("st-more")); el.remove(); return; }
       if (act === "ad-receipt") return openReceipt(el.dataset.id);
       if (act === "ad-reload-people") { await loadPeople(); return drawPeople(); }
       if (act === "ad-block") { if (!confirm(el.dataset.v === "1" ? "Bloquer ce compte ? Il perdra tout accès." : "Débloquer ce compte ?")) return; const { error } = await sb.rpc("admin_set_blocked", { p_user: el.dataset.id, p_blocked: el.dataset.v === "1" }); if (error) throw error; toast("Compte mis à jour.", "ok"); await loadPeople(); return drawPeople(); }
@@ -2164,6 +2232,7 @@
   function jOpen() {
     // nouvelle discussion à chaque ouverture, avec le contexte de la page actuelle
     const c = jContext();
+    try { track((parts()[0] === "p" && parts()[1]) || "", "ia"); } catch (e) { /* statistiques facultatives */ }
     JIA.msgs = [{ who: "bot", html: jGreeting(c), g: true }];
     document.getElementById("jiaSugg").innerHTML = jSuggest(c).map((s) => `<button type="button" data-jia="ask" data-q="${esc(s)}">${esc(s)}</button>`).join("");
     document.getElementById("jiaCtx").textContent = c.label;
