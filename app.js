@@ -1691,7 +1691,7 @@
     if (error) { body.innerHTML = `<div class="card"><p class="msg err">${/suggestions/i.test(error.message || "") ? "La table des suggestions n'existe pas encore : exécute le script 12_suggestions.sql dans Supabase." : esc(errText(error))}</p></div>`; return; }
     const f = AD.sugF || "toutes", all = data || [], unread = all.filter((x) => !x.is_read).length;
     const rows = f === "nonlues" ? all.filter((x) => !x.is_read) : all;
-    const wa = (x) => "https://wa.me/" + digits(x.phone) + "?text=" + encodeURIComponent(`Bonjour ${x.first_name || ""}, ici LUKOS-REVISION. Merci pour ta suggestion du ${new Date(x.created_at).toLocaleDateString("fr-FR")} : `);
+    const wa = (x) => "https://wa.me/" + digits(x.phone) + "?text=" + encodeURIComponent(`Bonjour ${x.first_name || ""}, ici LUKOS-REVISION. Merci pour ta suggestion du ${new Date(x.created_at).toLocaleDateString("fr-FR")} :\n« ${trunc(String(x.message || ""), 400)} »\n`);
     body.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row between"><p style="margin:0"><b>${all.length}</b> suggestion(s) reçue(s) · <b>${unread}</b> non lue(s)</p>
         <div class="row"><button class="btn btn-sm ${f === "toutes" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="toutes">Toutes</button><button class="btn btn-sm ${f === "nonlues" ? "btn-primary" : "btn-ghost"}" data-act="sug-f" data-f="nonlues">Non lues</button></div></div></div>
       ${rows.length ? rows.map((x) => `<div class="card sug-adm ${x.is_read ? "" : "unread"}">
@@ -1988,7 +1988,7 @@
         ${r.kind === "question" || r.kind === "annale" ? `<details><summary class="small"><b>Corriger ${r.kind === "question" ? "la question" : "l'annale"}</b></summary>
           <form class="rp-edit" data-id="${r.id}" data-kind="${r.kind}" data-ref="${esc(r.ref_id)}"><label>Question</label><textarea class="rpQ">${esc(r.cur_question || r.label || "")}</textarea><label>Réponse / corrigé</label><textarea class="rpA" style="min-height:160px">${esc(r.cur_answer || r.snapshot || "")}</textarea>
           <button class="btn btn-primary btn-sm" style="margin-top:8px">Enregistrer la correction et clore</button></form></details>` : `<p class="small muted">Correction du cours : à faire dans le fichier source (${esc(r.label || "article " + r.ref_id)}).</p>`}
-        ${st === "open" ? `<div class="row" style="margin-top:10px"><button class="btn btn-ok btn-sm" data-act="rep-set" data-id="${r.id}" data-v="done">✓ Marquer traité</button><button class="btn btn-bad btn-sm" data-act="rep-set" data-id="${r.id}" data-v="rejected">Rejeter</button></div>` : ""}</div>`).join("") : emptyBox(st === "open" ? "Aucun signalement à traiter. 👍" : "Aucun signalement.")}`;
+        <div class="row" style="margin-top:10px">${waReport(r) ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(waReport(r))}">💬 Répondre sur WhatsApp</a>` : ""}${st === "open" ? `<button class="btn btn-ok btn-sm" data-act="rep-set" data-id="${r.id}" data-v="done">✓ Marquer traité</button><button class="btn btn-bad btn-sm" data-act="rep-set" data-id="${r.id}" data-v="rejected">Rejeter</button>` : ""}</div></div>`).join("") : emptyBox(st === "open" ? "Aucun signalement à traiter. 👍" : "Aucun signalement.")}`;
     body.querySelectorAll(".rp-edit").forEach((f) => f.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const { error: e2 } = await sb.rpc("lk_admin_fix_report", { p_report: Number(f.dataset.id), p_question: f.querySelector(".rpQ").value.trim(), p_answer: f.querySelector(".rpA").value.trim() });
@@ -1997,13 +1997,27 @@
       toast("Correction enregistrée.", "ok"); adReports(body);
     }));
   }
+  /* Lien WhatsApp vers un candidat (numéro sénégalais complété en 221…) avec un message déjà rédigé */
+  const waTo = (phone, text) => { const d = digits(phone); return d ? "https://wa.me/" + (d.length === 9 ? "221" + d : d) + "?text=" + encodeURIComponent(text) : ""; };
+  const shortDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  function waSupport(r) {
+    const name = String(r.account_name || r.given_name || "").split(" ")[0];
+    return waTo(r.phone, `Bonjour ${name}, ici l'assistance LUKOS-REVISION.\nNous avons bien reçu ta demande « mot de passe oublié » du ${shortDate(r.created_at)} (numéro ${phonePretty(r.phone)}, nom indiqué : ${r.given_name}).\n` +
+      (r.account_name ? "Je te prépare un mot de passe provisoire : tu le recevras ici dans quelques instants. À la connexion, l'application te demandera d'en choisir un nouveau."
+                      : "Nous ne trouvons aucun compte avec ce numéro. Peux-tu nous confirmer le numéro que tu as utilisé à l'inscription ?"));
+  }
+  function waReport(r) {
+    const parts = String(r.reporter || "").split("·"), name = (parts[0] || "").trim().split(" ")[0], phone = (parts[1] || "").trim();
+    const st = { open: "Nous l'examinons et revenons vers toi.", done: "La correction a été faite dans l'application. Merci beaucoup !", rejected: "Après vérification, la réponse actuelle est conforme au document officiel. Merci quand même pour ta vigilance !" }[r.status] || "";
+    return waTo(phone, `Bonjour ${name}, ici l'assistance LUKOS-REVISION.\nMerci pour ton signalement du ${shortDate(r.created_at)} (${r.err_type}) sur : « ${trunc(String(r.label || ""), 160)} ».\nTon message : « ${trunc(String(r.message || ""), 300)} »\n${st}`);
+  }
   async function adSupport(body) {
     refreshBadges(true);
     const { data, error } = await sb.rpc("lk_admin_password_requests");
     if (error) { body.innerHTML = `<div class="card"><p>⚠️ ${esc(/function|lk_admin/i.test(error.message || "") ? "Le script 12_outils.sql n'est pas encore exécuté dans Supabase." : errText(error))}</p></div>`; return; }
     const rows = data || [];
     body.innerHTML = `<div class="card" style="margin-bottom:14px"><h3>🔑 Demandes « mot de passe oublié » (${rows.length})</h3>
-      ${rows.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Nom indiqué</th><th>Téléphone</th><th>Compte trouvé</th><th></th></tr>${rows.map((r) => `<tr><td>${esc(fmtDate(r.created_at))}</td><td>${esc(r.given_name)}</td><td>${esc(phonePretty(r.phone))}</td><td>${r.account_name ? esc(r.account_name) : '<span class="badge bad">Aucun compte</span>'}</td><td>${r.account_name ? `<button class="btn btn-primary btn-sm" data-act="sup-reset" data-phone="${esc(r.phone)}" data-name="${esc(r.account_name)}">Mot de passe provisoire</button>` : ""} <button class="btn btn-ghost btn-sm" data-act="sup-close" data-id="${r.id}">Clore</button></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucune demande en attente.</p>`}</div>
+      ${rows.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Nom indiqué</th><th>Téléphone</th><th>Compte trouvé</th><th></th></tr>${rows.map((r) => `<tr><td>${esc(fmtDate(r.created_at))}</td><td>${esc(r.given_name)}</td><td>${esc(phonePretty(r.phone))}</td><td>${r.account_name ? esc(r.account_name) : '<span class="badge bad">Aucun compte</span>'}</td><td><a class="btn btn-ok btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(waSupport(r))}">💬 WhatsApp</a> ${r.account_name ? `<button class="btn btn-primary btn-sm" data-act="sup-reset" data-phone="${esc(r.phone)}" data-name="${esc(r.account_name)}">Mot de passe provisoire</button>` : ""} <button class="btn btn-ghost btn-sm" data-act="sup-close" data-id="${r.id}">Clore</button></td></tr>`).join("")}</table></div>` : `<p class="muted">Aucune demande en attente.</p>`}</div>
       <div class="card"><h3>👤 Aider un candidat</h3><p class="small muted">Saisis le numéro du candidat pour lui donner un mot de passe provisoire ou libérer ses appareils (changement de téléphone).</p>
       <form id="supForm" class="row"><input id="supPhone" inputmode="tel" placeholder="77 000 00 00" style="max-width:220px"><button class="btn btn-dark">Rechercher</button></form><div id="supRes" style="margin-top:12px"></div></div>
       <div id="supOut"></div>`;
