@@ -2076,7 +2076,7 @@
   /* Julien – IA : assistant de révision (recherche intelligente)        */
   /* ------------------------------------------------------------------ */
   const JIA = { open: false, msgs: [], ctx: "", index: {}, busy: false };
-  const JIA_STOP = new Set("le la les l un une des du de d au aux a et ou en dans par pour sur sous avec sans que qu qui quoi quel quels quelle quelles est sont ce c cet cette ces se s son sa ses leur leurs il ils elle elles on y ne n pas plus tout tous toute toutes comment pourquoi quand combien donner donnez citer citez definir definissez definition expliquer expliquez dire dis moi me je j tu t peux peut veux voudrais savoir question reponse c'est qu'est qu'est-ce ce quoi faut doit etc svp stp merci".split(" "));
+  const JIA_STOP = new Set("le la les l un une des du de d au aux a et ou en dans par pour sur sous avec sans que qu qui quoi quel quels quelle quelles est sont ce c cet cette ces se s son sa ses leur leurs il ils elle elles on y ne n pas plus tout tous toute toutes comment pourquoi quand combien donner donnez citer citez definir definissez definition expliquer expliquez dire dis moi me je j tu t peux peut veux voudrais savoir question reponse c'est qu'est qu'est-ce ce quoi faut doit etc svp stp merci comprend comprends comprendre compris comprenne rien aide aider aidez help besoin utiliser utilise utilisation vraiment".split(" "));
   const JIA_ABBR = {
     cat: "conduite a tenir", mgo: "marche generale operations", ari: "appareil respiratoire isolant", aricf: "appareil respiratoire isolant circuit ferme",
     arico: "appareil respiratoire isolant circuit ouvert", erp: "etablissement recevant public", igh: "immeuble grande hauteur", ps: "premier secours",
@@ -2149,6 +2149,10 @@
   const jPrice = () => { const o = S.exams.filter((e) => e.is_open); return o.length ? fmtXof(Math.min(...o.map((e) => Number(e.price_xof) || 0))) : "2 000 FCFA"; };
   const jExamTo = (c, page) => (c && c.exam ? "#/p/" + c.exam.code + (page ? "/" + page : "") : null);
   const JIA_FAQ = [
+    { id: "guide", t: "Comment utiliser LUKOS-REVISION", k: ["comment utiliser l application", "comment utiliser l appli", "mode d emploi", "tutoriel", "tuto"],
+      a: () => `Pas de souci, voici comment marche LUKOS-REVISION :\n• Page « Parcours » : la liste des parcours (DAP, DQEG, CAT-1/CAT-2, BNSP, Police). Touche un parcours pour l'ouvrir, ou pour l'activer s'il ne l'est pas encore (paiement unique par Wave).\n• Dans un parcours activé, le menu du bas te donne : Accueil (ta progression), Révision (fiches par matière), Quiz (QCM ou auto-évaluation), Recherche, et Documents ou Cours.\n• Sur l'accueil du parcours : le Simulateur d'examen (examen blanc noté sur 20), « Mes questions à revoir » et, pour le DAP et le DQEG, les Annales corrigées.\n• « Mon compte » : ton mot de passe, tes parcours et tes paiements. « Suggestions » : pour proposer une idée.\n• Et moi, Julien – IA : pose-moi une question de cours ou une question sur l'application, à tout moment (sauf pendant un quiz ou un examen).\nDis-moi ce qui te bloque, ou touche un sujet ci-dessous 👇` },
+    { id: "panne", t: "L'application ne marche pas bien", k: ["ne marche pas", "marche plus", "ne fonctionne pas", "fonctionne plus", "page blanche", "ecran blanc", "ne s ouvre pas", "s ouvre pas", "plante", "bloque sur", "reste bloque", "chargement", "trop lent", "rame", "bug"],
+      a: () => `Si l'application ne marche pas bien :\n• Vérifie ta connexion Internet (données mobiles ou Wi-Fi), puis touche « Réessayer » si le bouton s'affiche.\n• Ferme complètement l'application (balaye-la dans les applications récentes) et rouvre-la depuis son icône : elle se met à jour toute seule.\n• Si une page reste bloquée, reviens à « Parcours » puis rouvre ton parcours.\n• Sans Internet, tes parcours déjà téléchargés restent utilisables (bandeau « Mode hors connexion »).\nToujours bloqué ? Écris à l'assistance au ${jWaNum()} en décrivant ce que tu vois (une capture d'écran aide beaucoup).` },
     { id: "role", t: "Ce que je sais faire", k: ["qui es tu", "qui est tu", "ton nom", "tu sers a quoi", "que sais tu faire", "que peux tu faire", "a quoi tu sers", "aide moi", "julien"],
       a: () => `Je suis Julien – IA, l'assistant de LUKOS-REVISION. Je t'aide de deux façons :\n• 📚 Révision : pose-moi une question de cours (ex. « c'est quoi la réquisition ? »). Je retrouve en une seconde la réponse officielle de ton parcours activé, même avec des fautes ou des abréviations (CAT, MGO, OPJ…).\n• 📱 Application : installation, inscription, paiement, quiz, examen blanc, mot de passe… demande-moi, je t'explique pas à pas.\nSi je ne trouve pas, je te mets en contact avec l'assistance sur WhatsApp.` },
     { id: "inscription", t: "Créer mon compte", k: ["inscription", "inscrire", "creer un compte", "creer mon compte", "nouveau compte", "ouvrir un compte", "s inscrire"],
@@ -2227,10 +2231,23 @@
     });
     return best ? { f: best, s: bs } : null;
   }
+  /* La question porte-t-elle sur l'application elle-même (et pas sur un cours) ?
+     « application » compte seulement s'il n'est pas suivi de « de / du / des » (≠ « application de la loi »). */
+  function jAppIntent(raw) {
+    const n = " " + norm(raw).replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ") + " ";
+    const appWord = / (appli|applis|app|apk|lukos|plateforme|logiciel) /.test(n) || / application (?!(de|du|des|d) )/.test(n);
+    const lost = / (comprend|comprends|comprendre|compris) (pas|rien|plus)| je suis perdu | perdu | comment ca (marche|fonctionne|se passe) | comment (utiliser|faire|on fait|je fais) | mode d emploi | tuto| aide moi | j ai besoin d aide | ou (est|se trouve|trouver) | je ne trouve pas | je trouve pas | bouton | menu | onglet | ecran /.test(n);
+    // « je suis perdu », « je ne comprends pas » seuls = question sur l'application ;
+    // « je ne comprends pas la réquisition » = question de cours (il reste un vrai mot à chercher)
+    const GEN = new Set("perdu bouton menu onglet ecran trouve trouver fais fait faire marche fonctionne passe mode emploi tuto page rien plus ici la ca suis vais veux peux sais ai mais moi toujours encore".split(" "));
+    const rest = jTok(raw).filter((w) => !GEN.has(w));
+    return { app: appWord, lost, any: appWord || (lost && !rest.length) };
+  }
+  const jClean = (raw) => norm(raw).replace(/['’]/g, " ").replace(/\b(comment ca (marche|fonctionne|se passe)|je (ne )?(comprends?|comprend) (pas|rien)( a| de| du| la| le| les)?|explique(r|z)?( moi)?|aide(z)?( moi)?|dis moi|parle moi de)\b/g, " ");
   /* Affichage d'un sujet du guide, avec « M'y emmener » et sujets proches */
   function jFaqOut(f, c) {
     const to = f.to ? f.to(c) : null;
-    const rel = { install_android: ["install_iphone", "install_souci"], install_iphone: ["install_android", "install_souci"], payer: ["preuve", "attente", "prix"], attente: ["preuve", "contact"], examen: ["note", "revoir"], quiz: ["revoir", "examen"], oubli: ["connexion", "changer_mdp"], inscription: ["payer", "install_android"], role: ["install_android", "payer", "examen"] }[f.id] || [];
+    const rel = { install_android: ["install_iphone", "install_souci"], install_iphone: ["install_android", "install_souci"], payer: ["preuve", "attente", "prix"], attente: ["preuve", "contact"], examen: ["note", "revoir"], quiz: ["revoir", "examen"], oubli: ["connexion", "changer_mdp"], inscription: ["payer", "install_android"], role: ["install_android", "payer", "examen"], guide: ["install_android", "install_iphone", "payer", "quiz", "examen", "contact"] }[f.id] || [];
     const more = rel.length ? `<div class="jia-alts"><small>Voir aussi :</small>${rel.map((id) => { const x = JIA_FAQ.find((y) => y.id === id); return x ? `<button type="button" data-jia="faq" data-id="${x.id}">${esc(x.t)}</button>` : ""; }).join("")}</div>` : "";
     return { html: `<div class="jia-q">📱 ${esc(f.t)}</div><div class="answer">${formatAnswer(f.a())}</div>`, extra: (to ? `<div class="jia-acts"><button type="button" data-jia="go" data-h="${esc(to)}">👉 M'y emmener</button></div>` : "") + more };
   }
@@ -2336,30 +2353,37 @@
     jPush("me", esc(raw));
     const c = jContext();
     const fq = jFaq(raw);
+    const intent = jAppIntent(raw);
+    // question vide de sens pour la recherche (ex. « comprend », « aide ») : on propose le mode d'emploi
+    if (intent.any || (!jTok(jClean(raw)).length && !fq)) {
+      const f = fq && fq.f.id !== "bonjour" ? fq.f : JIA_FAQ.find((x) => x.id === "guide");
+      const o = jFaqOut(f, c);
+      return jPush("bot", o.html, o.extra + (f.id === "guide" ? jWaBtn(raw) : ""));
+    }
     const faqOut = () => { const o = jFaqOut(fq.f, c); return jPush("bot", o.html, o.extra); };
     // le guide passe avant la recherche de cours si la question vise clairement l'application
     // (ex. « comment installer sur iPhone ») ou si la recherche de cours ne trouve rien de solide
-    const appWins = (top) => !!fq && (fq.s >= 3 || (fq.s >= 2 && top < 6) || top < 3);
+    const appWins = (top) => !!fq && fq.f.id !== "guide" && (fq.s >= 3 || (fq.s >= 2 && top < 6) || top < 3);
     JIA.busy = true;
     try {
       if (c.mode === "course") {
         crsUse(c.course);
         await crsLoad();
-        const cr = crsSearch(raw);
+        const cr = crsSearch(jClean(raw));
         if (cr.length && !appWins(cr[0].s)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
         if (fq) return faqOut();
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.<p class="small muted" style="margin-top:8px">Toujours bloqué ? L'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
-        const res = jSearch(raw, c.codes);
+        const res = jSearch(jClean(raw), c.codes);
         if (res.length && !appWins(res[0].s)) {
           const out = jRender(res[0], res.slice(1), c);
           return jPush("bot", out.html, out.extra);
         }
         if (fq) return faqOut();
         // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
-        for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, raw); if (out) return jPush("bot", out.html, out.extra); }
+        for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, jClean(raw)); if (out) return jPush("bot", out.html, out.extra); }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.<p class="small muted" style="margin-top:8px">Si c'est une question sur l'application, demande-moi par exemple « comment payer ? » ou « comment installer ? ». Sinon, l'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
