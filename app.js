@@ -2142,26 +2142,105 @@
     return res.sort((a, b) => b.s - a.s).slice(0, 4).filter((r, i, arr) => r.s >= Math.max(1.2, arr[0].s * 0.35));
   }
 
-  /* ----- Questions sur l'utilisation de l'application ----- */
+  /* ----- Guide de l'application : Julien – IA explique LUKOS-REVISION pas à pas ----- */
+  /* Chaque sujet : k = mots-clés (sans accents), t = titre, a = réponse (lignes « • » = étapes),
+     to = page où emmener le membre (facultatif). Les mots-clés de plusieurs mots comptent davantage ; un « ! » final donne un poids fort (ex. « iphone! »). */
+  const jWaNum = () => C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro d'assistance";
+  const jPrice = () => { const o = S.exams.filter((e) => e.is_open); return o.length ? fmtXof(Math.min(...o.map((e) => Number(e.price_xof) || 0))) : "2 000 FCFA"; };
+  const jExamTo = (c, page) => (c && c.exam ? "#/p/" + c.exam.code + (page ? "/" + page : "") : null);
   const JIA_FAQ = [
-    { k: ["payer", "paiement", "wave", "orange", "money", "prix", "tarif", "combien coute", "fcfa", "acheter"], a: () => `Pour activer un parcours :\n• Ouvre le parcours souhaité puis « Activer ce parcours ».\n• Envoie le montant indiqué uniquement par Wave au ${C.WAVE_NUMBER || "numéro affiché"} (bouton « Copier le numéro »).\n• Insère la capture du paiement Wave puis touche « Envoyer ma preuve de paiement ».\n• L'administrateur valide ton paiement, puis le parcours s'ouvre.` },
-    { k: ["active", "activation", "attente", "valide", "validation", "pas ouvert", "bloque", "acces"], a: () => `Après ton paiement, ton parcours reste « en attente » jusqu'à la validation par l'administrateur.\n• Touche « J'ai été validé ? Actualiser » sur la page du parcours.\n• Si c'est long, écris sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"} avec ta référence de transaction.` },
-    { k: ["installer", "installation", "telecharger", "application", "ecran accueil", "playstore", "iphone", "android"], a: () => `Pour installer LUKOS-REVISION sur ton téléphone :\n• Android (Chrome) : touche « Installer » dans le message affiché, ou menu ⋮ › « Installer l'application ».\n• iPhone (Safari) : bouton Partager › « Sur l'écran d'accueil ».\nL'application s'ouvre ensuite comme une vraie application, en plein écran.` },
-    { k: ["mot de passe", "passe", "oublie", "connexion", "connecter", "inscription", "inscrire", "compte"], a: () => `• Pour t'inscrire : écran d'accueil › « Créer un compte » (prénom, nom, téléphone, mot de passe).\n• Pour changer ton mot de passe : « Mon compte » › « Changer le mot de passe ».\n• Mot de passe oublié : contacte l'administrateur sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"}.` },
-    { k: ["quiz", "qcm", "test", "evaluation", "score", "note"], a: () => `Dans un parcours, onglet « Quiz » :\n• Choisis une matière (ou toutes), le nombre de questions et le mode (QCM ou auto-évaluation).\n• À la fin, ton score est enregistré et les questions ratées sont affichées.\nPendant un quiz, je me mets en pause pour que l'évaluation reste honnête 😉` },
-    { k: ["fiche", "revision", "reviser", "matiere", "cours"], a: () => `Onglet « Matières » : choisis une matière puis révise question par question avec « Afficher la réponse ». Le bouton « Mélanger » change l'ordre des fiches.` },
-    { k: ["document", "pdf", "telecharger le recueil", "recueil"], a: () => `Onglet « Documents » du parcours : tu y trouves les documents de référence (PDF) déposés par l'administrateur.` },
-    { k: ["contact", "whatsapp", "admin", "administrateur", "aide", "probleme", "bug"], a: () => `Tu peux joindre l'administrateur sur WhatsApp au ${C.WHATSAPP_DISPLAY || C.CONTACT_DISPLAY || "numéro de contact"}.` },
-    { k: ["bonjour", "salut", "bonsoir", "hello", "salam", "cava", "ca va"], a: () => `Bonjour ${S.profile ? esc(S.profile.first_name) : ""} 👋 Pose-moi ta question, par exemple : « CAT devant une fracture du crâne » ou « c'est quoi la MGO ».` },
-    { k: ["qui es tu", "qui est tu", "ton nom", "julien"], a: () => `Je suis Julien – IA, l'assistant de LUKOS-REVISION. Je retrouve en une seconde la réponse officielle de tes recueils, même si tu écris avec des fautes ou des abréviations.` }
+    { id: "role", t: "Ce que je sais faire", k: ["qui es tu", "qui est tu", "ton nom", "tu sers a quoi", "que sais tu faire", "que peux tu faire", "a quoi tu sers", "aide moi", "julien"],
+      a: () => `Je suis Julien – IA, l'assistant de LUKOS-REVISION. Je t'aide de deux façons :\n• 📚 Révision : pose-moi une question de cours (ex. « c'est quoi la réquisition ? »). Je retrouve en une seconde la réponse officielle de ton parcours activé, même avec des fautes ou des abréviations (CAT, MGO, OPJ…).\n• 📱 Application : installation, inscription, paiement, quiz, examen blanc, mot de passe… demande-moi, je t'explique pas à pas.\nSi je ne trouve pas, je te mets en contact avec l'assistance sur WhatsApp.` },
+    { id: "inscription", t: "Créer mon compte", k: ["inscription", "inscrire", "creer un compte", "creer mon compte", "nouveau compte", "ouvrir un compte", "s inscrire"],
+      a: () => `Pour créer ton compte :\n• Sur l'écran d'accueil, touche « Créer un compte ».\n• Saisis ton prénom, ton nom et ton Service / Corps (Gendarmerie, Armée, BNSP ou Police nationale).\n• Saisis ton numéro sénégalais (70, 75, 76, 77 ou 78) : il sera ton identifiant.\n• Choisis un mot de passe (6 caractères minimum, sans ton numéro), confirme-le, coche la case d'acceptation puis touche « Créer mon compte ».\nEnsuite, active un parcours dans les 15 jours pour garder ton compte.` },
+    { id: "connexion", t: "Me connecter", k: ["connexion", "connecter", "me connecter", "se connecter", "identifiant", "numero ou mot de passe incorrect", "trop de tentatives", "je n arrive pas a me connecter"],
+      a: () => `Pour te connecter :\n• Saisis le numéro de téléphone utilisé à l'inscription (ex. 77 000 00 00) et ton mot de passe.\n• « Numéro ou mot de passe incorrect » : vérifie le numéro, puis l'œil 👁 pour voir ce que tu tapes.\n• « Trop de tentatives » : patiente quelques minutes avant de réessayer.\n• Mot de passe oublié : touche « Mot de passe oublié ? » sous le bouton de connexion.` },
+    { id: "oubli", t: "Mot de passe oublié", k: ["mot de passe oublie", "oublie mon mot de passe", "oublie", "perdu mon mot de passe", "mot de passe provisoire", "reinitialiser"],
+      a: () => `Si tu as oublié ton mot de passe :\n• Sur l'écran de connexion, touche « Mot de passe oublié ? ».\n• Indique ton numéro et ton prénom et nom, puis « Envoyer ma demande ».\n• L'administrateur t'envoie un mot de passe provisoire sur WhatsApp.\n• Connecte-toi avec : l'application te demandera aussitôt d'en choisir un nouveau.\nPlus rapide : écris directement à l'assistance sur WhatsApp au ${jWaNum()}.` },
+    { id: "changer_mdp", t: "Changer mon mot de passe", k: ["changer mon mot de passe", "changer le mot de passe", "modifier mot de passe", "nouveau mot de passe", "mot de passe"],
+      to: () => "#/profil", a: () => `Pour changer ton mot de passe :\n• Ouvre « Mon compte ».\n• Dans « Changer de mot de passe », saisis le nouveau mot de passe deux fois (6 caractères minimum).\n• Touche « Modifier le mot de passe ».` },
+    { id: "infos", t: "Corriger mon nom ou mon service", k: ["modifier mon nom", "changer mon nom", "erreur dans mon nom", "corriger mon nom", "changer mon numero", "modifier mes informations", "mon prenom", "changer de service"],
+      a: () => `Pour des raisons de sécurité, ton prénom, ton nom, ton service et ton numéro ne peuvent pas être modifiés par toi-même après l'ouverture du compte.\n• Une erreur ? Écris à l'assistance sur WhatsApp au ${jWaNum()} : elle la corrige pour toi.\n• Seul le mot de passe se change dans « Mon compte ».` },
+    { id: "install_android", t: "Installer l'application sur Android", k: ["installer sur android", "android!", "installation android", "samsung", "tecno", "itel", "infinix", "chrome", "installer", "installation", "telecharger l application", "telecharger", "playstore", "play store", "ecran d accueil"],
+      a: () => `Installer LUKOS-REVISION sur Android :\n• Ouvre le lien de l'application reçu sur WhatsApp, de préférence avec Chrome.\n• Dès l'ouverture, l'application te propose de l'installer : touche « Installer maintenant », puis confirme.\n• L'icône LUKOS-REVISION apparaît sur ton écran d'accueil : ouvre-la toujours depuis cette icône, elle s'affiche en plein écran comme une vraie application.\n• Si rien ne s'affiche : touche le bandeau « Installer » en bas de l'écran, ou le menu ⋮ de Chrome › « Installer l'application ».\nPas besoin du Play Store.` },
+    { id: "install_iphone", t: "Installer l'application sur iPhone", k: ["iphone!", "ipad!", "ios!", "safari", "apple", "installer sur iphone", "app store"],
+      a: () => `Installer LUKOS-REVISION sur iPhone :\n• Ouvre le lien de l'application avec Safari (pas depuis WhatsApp directement).\n• Touche le bouton Partager (le carré avec une flèche vers le haut), en bas de l'écran.\n• Fais défiler et choisis « Sur l'écran d'accueil ».\n• Touche « Ajouter » en haut à droite.\nL'icône LUKOS-REVISION apparaît sur ton écran d'accueil. Pas besoin de l'App Store.` },
+    { id: "install_souci", t: "L'installation ne s'affiche pas", k: ["installation ne marche pas", "pas de bouton installer", "impossible d installer", "ne s installe pas", "ouvert dans whatsapp", "ouvrir dans chrome", "ouvrir dans safari", "lien ne s ouvre pas"],
+      a: () => `Si l'installation ne s'affiche pas :\n• Le lien a peut-être été ouvert dans WhatsApp, Facebook ou TikTok : touche ⋮ (ou le bouton de partage) puis « Ouvrir dans Chrome » (Android) ou « Ouvrir dans Safari » (iPhone).\n• Tu peux aussi copier le lien et le coller dans Chrome ou Safari.\n• Si l'application est déjà installée, le message ne s'affiche plus : cherche l'icône LUKOS-REVISION sur ton écran d'accueil.\nToujours bloqué ? Écris à l'assistance au ${jWaNum()}.` },
+    { id: "payer", t: "Payer et activer un parcours", k: ["payer", "paiement", "wave", "orange money", "comment payer", "activer un parcours", "activer ce parcours", "acheter", "numero wave"],
+      a: () => `Pour activer un parcours :\n• Sur la page « Parcours », touche le parcours voulu.\n• Envoie le montant indiqué uniquement par Wave au ${C.WAVE_NUMBER || "numéro affiché"} (bouton « Copier le numéro »).\n• Fais une capture d'écran du paiement Wave.\n• Reviens dans l'application, touche la zone 📸 pour insérer la capture, puis « Envoyer ma preuve de paiement ».\n• L'administrateur vérifie et active ton parcours, généralement dans la journée.` },
+    { id: "prix", t: "Prix et durée d'accès", k: ["prix", "tarif", "combien", "combien coute", "cout", "fcfa", "abonnement", "mensuel", "acces illimite", "illimite"],
+      a: () => `Chaque parcours coûte ${jPrice()} (le prix exact est affiché sur sa page).\n• C'est un paiement unique, une seule fois : pas d'abonnement mensuel.\n• Une fois activé, le parcours reste accessible sans limite de durée.\n• Chaque parcours s'active séparément.\n• Bonus : dès qu'un parcours est activé, le module RDG-RSA est offert.` },
+    { id: "preuve", t: "Envoyer la capture du paiement", k: ["capture", "preuve", "preuve de paiement", "screenshot", "photo du paiement", "envoyer ma preuve", "envoyer la capture"],
+      a: () => `Pour envoyer la preuve de ton paiement Wave :\n• Fais une capture d'écran de la confirmation Wave.\n• Ouvre le parcours payé : touche la zone 📸 « insérer la capture » et choisis l'image dans ta galerie.\n• Touche « Envoyer ma preuve de paiement » (ou « Envoyer ma capture » si le paiement est déjà déclaré).\nSi l'envoi échoue, envoie la capture sur WhatsApp au ${jWaNum()}.` },
+    { id: "attente", t: "Mon parcours n'est pas encore activé", k: ["pas active", "pas encore active", "activation", "en attente", "en verification", "valide", "validation", "toujours bloque", "pas ouvert", "verifier l activation"],
+      a: () => `Après ton paiement, le parcours reste « en vérification » jusqu'à la validation par l'administrateur (généralement dans la journée).\n• Sur la page du parcours, touche « ↻ Vérifier l'activation ».\n• Vérifie que ta capture a bien été envoyée (étape « Capture du paiement » cochée).\n• Si c'est long, écris sur WhatsApp au ${jWaNum()} avec le bouton « 💬 Une question ? WhatsApp » : ta référence est jointe automatiquement.` },
+    { id: "refuse", t: "Paiement refusé", k: ["refuse", "paiement refuse", "rejete"],
+      a: () => `Si ton paiement a été refusé, le motif s'affiche sur la page du parcours.\n• Vérifie le montant et le numéro Wave utilisés.\n• Tu peux déclarer un nouveau paiement avec une nouvelle capture.\n• En cas de doute, écris à l'assistance au ${jWaNum()}.` },
+    { id: "delai", t: "Délai de 15 jours", k: ["delai de 15 jours", "15 jours pour activer", "delai d activation", "quinze jours", "compte supprime", "suppression du compte", "rappel", "date limite"],
+      a: () => `Après l'inscription, tu as 15 jours pour activer au moins un parcours.\n• Un bandeau t'indique les jours restants.\n• Sans activation, ton compte peut être supprimé par l'administrateur, parfois après un dernier rappel avec une date limite.\n• Pendant la vérification d'un paiement, ton compte est conservé.` },
+    { id: "quiz", t: "Faire un quiz", k: ["quiz", "qcm", "auto evaluation", "lancer un quiz", "score", "pourcentage"],
+      to: (c) => jExamTo(c, "quiz"), a: () => `Dans un parcours, onglet « Quiz » :\n• Choisis une matière (ou toutes) et le nombre de questions (10 à 50).\n• Choisis le mode : QCM (4 propositions) ou auto-évaluation (tu réponds de tête puis tu te notes).\n• À la fin, ton score est enregistré et les questions ratées vont dans « Mes questions à revoir ».\nPendant un quiz, je me mets en pause pour que l'évaluation reste honnête 😉` },
+    { id: "examen", t: "Le simulateur d'examen (examen blanc)", k: ["examen blanc", "simulateur", "simulation", "epreuve", "examen", "chronometre", "sortie", "remettre ma copie", "copie"],
+      to: (c) => jExamTo(c, "examen"), a: () => `Le simulateur te met dans les conditions du jour J :\n• Choisis l'épreuve (tout le parcours, une matière ou un sujet officiel), 10 à 30 questions et le temps par question.\n• Tu rédiges chaque réponse avec tes propres mots ; le copier-coller est désactivé.\n• Pas de fiches, pas de recherche et pas de Julien – IA pendant l'épreuve.\n• Chaque sortie de l'application est notée ; à la 3e, la copie est remise automatiquement. À la fin du temps aussi.\n• Tu reçois une note sur 20 avec un corrigé détaillé.` },
+    { id: "note", t: "Comment ma copie est corrigée", k: ["note sur 20", "correction", "corrige", "ma note", "notation", "pourquoi faux", "partiellement juste", "insuffisante"],
+      a: () => `Ta copie est corrigée automatiquement par notions clés :\n• Chaque réponse est comparée aux éléments attendus du corrigé officiel.\n• Les fautes d'orthographe, les pluriels et les sigles sont tolérés ; les chiffres (durées, nombres, articles) doivent être exacts.\n• Chaque question vaut 1 point (juste, partielle ou fausse), puis la note est ramenée sur 20.\n• Le corrigé te montre les éléments trouvés et ceux qui manquent. En cas de doute, fie-toi au corrigé officiel.` },
+    { id: "revision", t: "Réviser avec les fiches", k: ["fiche", "fiches", "reviser", "revision", "matiere", "matieres", "melanger", "afficher la reponse"],
+      to: (c) => jExamTo(c, "matieres"), a: () => `Dans un parcours, onglet « Révision » ou « Matières » :\n• Choisis une matière, puis révise question par question avec « Afficher la réponse ».\n• « Mélanger » change l'ordre des fiches.\n• 🔊 « Écouter » lit la question et la réponse à voix haute ; « Lecture continue » enchaîne les fiches.\n• « 🔁 À revoir » ajoute la fiche à ta liste de mémorisation.` },
+    { id: "revoir", t: "Mes questions à revoir", k: ["a revoir", "questions a revoir", "memorisation", "repetition", "questions ratees", "mes erreurs"],
+      a: () => `« Mes questions à revoir » regroupe les questions ratées aux quiz et à l'examen blanc, et celles que tu as marquées « À revoir ».\n• Elles reviennent de plus en plus tard (1, 3, 7 puis 14 jours) quand tu les sais.\n• Après 5 réussites, la question est maîtrisée et sort de la liste ; une erreur la fait repartir au début.\nTu la trouves sur l'accueil de chaque parcours (bandeau 🔁).` },
+    { id: "annales", t: "Les annales corrigées", k: ["annale", "annales", "sujet officiel", "sujets officiels", "anciens sujets", "examens passes"],
+      to: (c) => (c && c.exam && ANN_EXAMS.includes(c.exam.code) ? jExamTo(c, "annales") : null),
+      a: () => `Les annales contiennent les vrais sujets de l'examen final avec leur corrigé officiel (parcours ${ANN_EXAMS.join(" et ")}).\n• Sur l'accueil du parcours, touche « Annales de l'examen », puis choisis une session.\n• « Voir le corrigé » sous chaque question, ou « Afficher tous les corrigés ».\n• Tu peux aussi passer un sujet officiel en examen blanc : Simulateur › Épreuve › « Sujet officiel ».` },
+    { id: "cours", t: "Les cours (Police et RDG-RSA)", k: ["cours complet", "lecon", "lecons", "article", "rdg", "rsa", "rdg rsa", "reglement de discipline", "module offert", "cours police"],
+      a: () => `Deux cours se lisent leçon par leçon, avec ta progression :\n• Cours Police nationale : inclus dans le parcours Police (onglet « Cours »).\n• Module RDG-RSA (règlement de discipline générale) : offert automatiquement dès que tu as au moins un parcours activé, sur la page « Parcours ».\nDans un cours, pose-moi ta question : je te donne le passage et le numéro de la leçon ou de l'article.` },
+    { id: "recherche", t: "Rechercher une notion", k: ["rechercher", "recherche", "chercher une question", "trouver une question", "trouver une notion"],
+      to: (c) => jExamTo(c, "recherche"), a: () => `Deux façons de retrouver une notion :\n• Onglet « Recherche » du parcours : tape un mot (ex. « réquisition ») pour voir toutes les questions qui le contiennent.\n• Ou demande-moi directement : je comprends les fautes et les abréviations, et je te propose les questions proches.` },
+    { id: "documents", t: "Les documents PDF", k: ["document", "documents", "pdf", "recueil", "telecharger le recueil"],
+      to: (c) => jExamTo(c, "documents"), a: () => `Onglet « Documents » du parcours : tu y trouves les documents de référence (PDF) publiés par l'administrateur.\n• Touche « Ouvrir » : le lien est personnel et expire après 2 minutes.` },
+    { id: "offline", t: "Réviser sans Internet", k: ["hors connexion", "sans internet", "pas de connexion", "pas internet", "hors ligne", "offline", "sans reseau"],
+      a: () => `Tes parcours activés sont téléchargés automatiquement sur ton téléphone :\n• Ouvre-les une fois avec Internet ; ensuite fiches, quiz et examen blanc marchent sans connexion.\n• Les résultats faits hors connexion sont envoyés au retour d'Internet.\n• Connecte-toi au moins une fois tous les 7 jours pour que ton accès soit vérifié.` },
+    { id: "objectif", t: "Objectif du jour et date d'examen", k: ["objectif", "objectif du jour", "serie", "jours d affilee", "date d examen", "compte a rebours", "j moins"],
+      a: () => `Sur l'accueil de chaque parcours :\n• Touche « Régler » pour indiquer la date de ton examen (compte à rebours J-…) et ton objectif quotidien de questions.\n• Chaque fiche, quiz ou examen fait avancer ton objectif du jour et ta série de jours d'affilée 🔥.` },
+    { id: "signaler", t: "Signaler une erreur", k: ["signaler", "erreur dans une question", "reponse fausse", "faute", "question fausse", "corriger une question"],
+      a: () => `Tu as repéré une erreur dans une question, une annale ou un cours ?\n• Touche « ⚑ Signaler une erreur » sous la question (après avoir répondu, dans un quiz).\n• Choisis le type d'erreur, explique en quelques mots (et la bonne réponse si tu la connais), puis « Envoyer ».\nL'administrateur reçoit ton signalement et corrige.` },
+    { id: "suggestions", t: "Faire une suggestion", k: ["suggestion", "suggestions", "idee", "proposer", "avis", "ameliorer"],
+      to: () => "#/suggestions", a: () => `Une idée pour améliorer LUKOS-REVISION, un parcours que tu souhaites ?\n• Touche « Suggestions » (menu du bas ou du haut).\n• Écris ta suggestion et touche « Envoyer ma suggestion » : ton nom et ton numéro sont joints automatiquement.\n• Tu vois ensuite si elle a été lue (5 suggestions par jour au maximum).` },
+    { id: "appareils", t: "Changer de téléphone / nombre d'appareils", k: ["appareil", "appareils", "nouveau telephone", "changer de telephone", "change de telephone", "change de portable", "nouveau portable", "telephone perdu", "perdu mon telephone", "appareils atteint", "autre telephone", "nombre d appareils", "deux telephones"],
+      a: () => `Pour protéger ton accès, un compte ne peut être utilisé que sur un nombre limité d'appareils (2 en général).\n• Tu as changé de téléphone et l'application affiche « Nombre d'appareils atteint » ? Écris à l'assistance au ${jWaNum()} : elle libère tes anciens appareils.\n• Ensuite, reconnecte-toi sur ton nouveau téléphone.` },
+    { id: "bloque", t: "Compte bloqué ou parcours suspendu", k: ["compte bloque", "bloque", "suspendu", "acces refuse", "plus acces"],
+      a: () => `Si ton compte est bloqué ou ton parcours suspendu, seule l'assistance peut le rétablir.\n• Écris sur WhatsApp au ${jWaNum()} en indiquant ton nom et ton numéro de compte.` },
+    { id: "pause", t: "Pourquoi tu disparais pendant le quiz ?", k: ["tu disparais", "pendant le quiz", "pendant l examen", "assistant absent", "pas de julien"],
+      a: () => `Pendant un quiz ou un examen blanc, je me mets en pause et mon bouton disparaît : l'évaluation doit rester honnête. Je reviens dès que tu as terminé.` },
+    { id: "contact", t: "Contacter l'assistance", k: ["contact", "contacter", "whatsapp", "admin", "administrateur", "assistance", "probleme", "bug", "parler a quelqu un", "numero de l admin"],
+      a: () => `Tu peux joindre l'assistance LUKOS sur WhatsApp au ${jWaNum()}.\n• Le bouton vert WhatsApp est aussi visible en bas de l'écran.\n• Indique ton nom, ton numéro de compte et ton problème : tu seras aidé plus vite.` },
+    { id: "bonjour", t: "Bonjour", k: ["bonjour", "salut", "bonsoir", "hello", "salam", "salamalekoum", "cava", "ca va", "merci"],
+      a: () => `Bonjour ${S.profile ? S.profile.first_name : ""} 👋 Pose-moi une question de cours (ex. « c'est quoi la réquisition ? ») ou une question sur l'application (ex. « comment installer l'appli sur iPhone ? »).` }
   ];
+  /* Meilleur sujet du guide : score = somme des mots des mots-clés trouvés (les expressions comptent plus). */
   function jFaq(raw) {
     const n = " " + norm(raw).replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ") + " ";
     let best = null, bs = 0;
-    JIA_FAQ.forEach((f) => { const s = f.k.filter((k) => n.includes(" " + k) || n.includes(k + " ")).length; if (s > bs) { bs = s; best = f; } });
-    return bs ? best.a() : null;
+    JIA_FAQ.forEach((f) => {
+      const s = f.k.reduce((a, k0) => { const w = /!$/.test(k0), k = k0.replace(/!$/, ""); return a + (n.includes(" " + k + " ") || n.includes(" " + k + "s ") ? (w ? 3 : k.split(" ").length) : 0); }, 0);
+      if (s > bs) { bs = s; best = f; }
+    });
+    return best ? { f: best, s: bs } : null;
   }
-
+  /* Affichage d'un sujet du guide, avec « M'y emmener » et sujets proches */
+  function jFaqOut(f, c) {
+    const to = f.to ? f.to(c) : null;
+    const rel = { install_android: ["install_iphone", "install_souci"], install_iphone: ["install_android", "install_souci"], payer: ["preuve", "attente", "prix"], attente: ["preuve", "contact"], examen: ["note", "revoir"], quiz: ["revoir", "examen"], oubli: ["connexion", "changer_mdp"], inscription: ["payer", "install_android"], role: ["install_android", "payer", "examen"] }[f.id] || [];
+    const more = rel.length ? `<div class="jia-alts"><small>Voir aussi :</small>${rel.map((id) => { const x = JIA_FAQ.find((y) => y.id === id); return x ? `<button type="button" data-jia="faq" data-id="${x.id}">${esc(x.t)}</button>` : ""; }).join("")}</div>` : "";
+    return { html: `<div class="jia-q">📱 ${esc(f.t)}</div><div class="answer">${formatAnswer(f.a())}</div>`, extra: (to ? `<div class="jia-acts"><button type="button" data-jia="go" data-h="${esc(to)}">👉 M'y emmener</button></div>` : "") + more };
+  }
+  /* Bouton WhatsApp avec la question déjà écrite */
+  function jWaBtn(raw) {
+    if (!C.WHATSAPP_NUMBER) return "";
+    const who = S.profile ? `\n${S.profile.first_name} ${S.profile.last_name} · ${S.profile.phone}` : "";
+    const href = "https://wa.me/" + encodeURIComponent(C.WHATSAPP_NUMBER) + "?text=" + encodeURIComponent("Bonjour LUKOS, j'ai une question sur LUKOS-REVISION : " + String(raw || "").slice(0, 300) + who);
+    return `<div class="jia-acts"><a class="jia-wa" target="_blank" rel="noopener noreferrer" href="${esc(href)}">💬 Demander à l'assistance sur WhatsApp</a></div>`;
+  }
   /* ----- Contexte de la page ----- */
   function jContext() {
     const p = parts();
@@ -2180,23 +2259,27 @@
     return { mode: "home", label: codes.length ? "Recherche dans tes parcours activés" : "Aide et activation des parcours", codes };
   }
   function jGreeting(c) {
-    const n = S.profile ? esc(S.profile.first_name) : "";
-    if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>. Je peux t'aider à créer ton compte, te connecter, installer l'application ou payer ton parcours.`;
-    if (c.mode === "locked") return `Bonjour ${n} 👋 Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi. Je peux t'expliquer comment le payer et l'activer.`;
-    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi une question sur le <b>${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}.`; }
-    if (c.mode === "exam") return `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Pose-moi n'importe quelle question du parcours <b>${esc(c.exam.name)}</b> : je trouve la réponse tout de suite, même avec des fautes ou des abréviations (CAT, MGO, ARI…).`;
-    return c.codes.length ? `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Je cherche dans tous tes parcours activés : ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")}.` : `Bonjour ${n} 👋 Je suis <b>Julien – IA</b>. Active un parcours pour que je puisse répondre à tes questions de révision. Je peux t'expliquer comment faire.`;
+    const n = S.profile ? " " + esc(S.profile.first_name) : "";
+    const appLine = `📱 <b>Un souci avec l'application ?</b> Installation, paiement, quiz, examen blanc, mot de passe… demande-moi, je t'explique pas à pas.`;
+    const ex = `<br><span class="jia-ex">Exemples : « c'est quoi la MGO ? » · « comment installer l'appli sur iPhone ? »</span>`;
+    if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>, l'assistant de LUKOS-REVISION.<br>Je t'aide à <b>créer ton compte</b>, te <b>connecter</b>, <b>installer l'application</b> sur Android ou iPhone, retrouver ton <b>mot de passe</b> ou <b>payer ton parcours</b>.<br>Une fois ton parcours activé, je réponds aussi à toutes tes questions de cours en une seconde.`;
+    if (c.mode === "locked") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>. Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi.<br>💳 Je t'explique comment le <b>payer par Wave</b> et l'<b>activer</b> (paiement unique, accès illimité).<br>📚 Dès qu'il est activé, pose-moi tes questions de cours : je trouve la réponse officielle en une seconde.<br>${appLine}`;
+    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📘 <b>Pose-moi une question sur le ${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}, ou tape un numéro (ex. « ${cc.unit === "Article" ? "article 45" : "leçon 12"} »).<br>${appLine}`; }
+    if (c.mode === "exam") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📚 <b>Pose-moi n'importe quelle question du parcours ${esc(c.exam.name)}</b> : je retrouve la réponse officielle en une seconde, même avec des fautes ou des abréviations (CAT, MGO, OPJ…).<br>${appLine}${ex}`;
+    return c.codes.length
+      ? `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📚 <b>Pose-moi une question de cours</b> sur ${c.codes.length > 1 ? "tes parcours" : "ton parcours"} ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")} : je retrouve la réponse officielle en une seconde, même avec des fautes ou des abréviations.<br>${appLine}${ex}`
+      : `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, l'assistant de LUKOS-REVISION.<br>💳 Active un parcours (paiement unique par Wave, accès illimité) : je t'explique comment faire.<br>📚 Ensuite, je répondrai à toutes tes questions de cours en une seconde.<br>${appLine}`;
   }
   function jSuggest(c) {
-    if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "Comment payer ?"];
-    if (c.mode === "course") return COURSES[c.course].sugg;
-    if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Contacter l'administrateur"];
-    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?", "Classes de feu"], POLICE: ["Éléments constitutifs de l'infraction", "Qu'est-ce que le flagrant délit ?", "La rébellion"] };
+    if (c.mode === "guest") return ["Comment m'inscrire ?", "Comment installer l'application ?", "J'ai oublié mon mot de passe", "Combien coûte un parcours ?"];
+    if (c.mode === "course") return COURSES[c.course].sugg.slice(0, 3).concat(["Que sais-tu faire ?"]);
+    if (c.mode === "locked" || (c.mode === "home" && !c.codes.length)) return ["Comment payer ?", "Mon parcours n'est pas activé", "Combien coûte un parcours ?", "Comment installer l'application ?"];
+    const ex = { DAP: ["Qu'est-ce que la réquisition ?", "Flagrant délit"], DQEG: ["Organisation de la gendarmerie", "Qu'est-ce que l'OPJ ?"], CAT: ["LRAC", "Marche en patrouille"], BNSP: ["CAT fracture du crâne", "C'est quoi la MGO ?"], POLICE: ["Éléments constitutifs de l'infraction", "Qu'est-ce que le flagrant délit ?"] };
     const code = c.codes[0];
-    return (ex[code] || ["CAT devant une hémorragie", "Qu'est-ce que la MGO ?"]).concat(["Comment se passe le quiz ?"]);
+    return (ex[code] || ["CAT devant une hémorragie", "Qu'est-ce que la MGO ?"]).concat(["Comment marche l'examen blanc ?", "Comment installer l'application ?"]);
   }
-
   /* ----- Interface ----- */
+  (function () { const st = document.createElement("style"); st.textContent = ".jia-ex{display:block;margin-top:6px;font-size:.85em;opacity:.75}.jia-wa{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:#1fa855;color:#fff!important;font-weight:700;text-decoration:none}"; document.head.appendChild(st); })();
   const jFab = document.createElement("button");
   jFab.className = "jia-fab"; jFab.type = "button"; jFab.setAttribute("aria-label", "Ouvrir Julien – IA");
   jFab.innerHTML = `<span class="jia-pic"><img src="julien-ia.jpg" alt=""><span class="jia-ia">IA</span></span><span class="jia-fab-txt"><b>Julien – IA</b><small>Assistant virtuel</small></span><span class="jia-dot"></span>`;
@@ -2252,36 +2335,38 @@
     raw = String(raw || "").trim(); if (!raw || JIA.busy) return;
     jPush("me", esc(raw));
     const c = jContext();
+    const fq = jFaq(raw);
+    const faqOut = () => { const o = jFaqOut(fq.f, c); return jPush("bot", o.html, o.extra); };
+    // le guide passe avant la recherche de cours si la question vise clairement l'application
+    // (ex. « comment installer sur iPhone ») ou si la recherche de cours ne trouve rien de solide
+    const appWins = (top) => !!fq && (fq.s >= 3 || (fq.s >= 2 && top < 6) || top < 3);
     JIA.busy = true;
     try {
       if (c.mode === "course") {
         crsUse(c.course);
         await crsLoad();
         const cr = crsSearch(raw);
-        const faq = jFaq(raw);
-        if (cr.length && !(faq && cr[0].s < 3)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
-        if (faq) return jPush("bot", formatAnswer(faq));
-        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.`);
+        if (cr.length && !appWins(cr[0].s)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
+        if (fq) return faqOut();
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.<p class="small muted" style="margin-top:8px">Toujours bloqué ? L'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
         const res = jSearch(raw, c.codes);
-        const faq = jFaq(raw);
-        if (res.length && !(faq && res[0].s < 3)) {
+        if (res.length && !appWins(res[0].s)) {
           const out = jRender(res[0], res.slice(1), c);
           return jPush("bot", out.html, out.extra);
         }
-        if (faq) return jPush("bot", formatAnswer(faq));
+        if (fq) return faqOut();
         // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
         for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, raw); if (out) return jPush("bot", out.html, out.extra); }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
-        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.`);
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.<p class="small muted" style="margin-top:8px">Si c'est une question sur l'application, demande-moi par exemple « comment payer ? » ou « comment installer ? ». Sinon, l'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
-      const faq = jFaq(raw);
-      if (faq) return jPush("bot", formatAnswer(faq));
-      if (c.mode === "locked" || c.mode === "home") return jPush("bot", formatAnswer(JIA_FAQ[0].a()) + `<p class="small muted" style="margin-top:8px">Dès que ton parcours sera activé, je pourrai répondre à toutes tes questions de révision.</p>`);
-      return jPush("bot", "Je peux t'aider pour l'inscription, la connexion, l'installation et le paiement. Pour les questions de révision, connecte-toi d'abord 🙂");
-    } catch (e) { jPush("bot", "Oups, je n'ai pas pu chercher : " + esc(errText(e))); }
+      if (fq) return faqOut();
+      if (c.mode === "locked" || c.mode === "home") { const o = jFaqOut(JIA_FAQ.find((f) => f.id === "payer"), c); return jPush("bot", o.html + `<p class="small muted" style="margin-top:8px">Dès que ton parcours sera activé, je pourrai répondre à toutes tes questions de révision.</p>`, o.extra); }
+      return jPush("bot", `Je peux t'aider pour l'inscription, la connexion, l'installation de l'application, le mot de passe oublié et le paiement. Pour les questions de cours, connecte-toi d'abord 🙂<p class="small muted" style="margin-top:8px">Ou écris directement à l'assistance :</p>`, jWaBtn(raw));
+    } catch (e) { jPush("bot", "Oups, je n'ai pas pu chercher : " + esc(errText(e)), jWaBtn(raw)); }
     finally { JIA.busy = false; }
   }
   function jFind(code, id) { const d = S.data[code]; return d && d.questions.find((q) => String(q.id) === String(id)); }
@@ -2292,6 +2377,8 @@
     const el = ev.target.closest("[data-jia]"); if (!el) return;
     const a = el.dataset.jia;
     if (a === "close") return jClose();
+    if (a === "faq") { const f = JIA_FAQ.find((x) => x.id === el.dataset.id); if (!f) return; jPush("me", esc(f.t)); const o = jFaqOut(f, jContext()); return jPush("bot", o.html, o.extra); }
+    if (a === "go") { jClose(); return go(el.dataset.h); }
     if (a === "ask") return jAsk(el.dataset.q);
     if (a === "crs") { jClose(); crsUse(el.dataset.course || "RDG-RSA"); return go(CRS.base + "/" + el.dataset.no); }
     if (a === "show") { const q = jFind(el.dataset.code, el.dataset.id); if (!q) return; const out = jRender({ it: { x: q, code: el.dataset.code } }, [], jContext()); jPush("me", esc(q.question)); return jPush("bot", out.html, out.extra); }
