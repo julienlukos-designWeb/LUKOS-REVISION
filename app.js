@@ -701,9 +701,19 @@
       </div>`;
   }
   function emptyBox(t) { return `<div class="card empty"><div class="e e-ico">${icon("info", 30)}</div><p>${esc(t)}</p></div>`; }
+  /* ----- Reprise de la révision : position gardée sur le téléphone, par matière ----- */
+  const revKey = (code, sid) => "revpos:" + code + ":" + sid;
+  function revSaved(code, sid, total) {
+    const p = LS.get(revKey(code, sid), null);
+    return p && p.i > 0 && p.i < (total || p.n) - 1 ? p : null;      // rien à reprendre au début ou à la fin
+  }
+  function revSave(r) {
+    const [code, sid] = r.key.split(":");
+    LS.set(revKey(code, sid), { i: r.i, n: r.list.length, shuffled: r.shuffled, ids: r.shuffled ? r.list.map((q) => q.id) : null, at: Date.now() });
+  }
   function subjectRow(exam, d, s, i) {
-    const n = (d.bySubject.get(s.id) || []).length;
-    return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>${n} question${n > 1 ? "s" : ""}</span></div><a class="btn btn-primary btn-sm" href="#/p/${exam.code}/revision/${s.id}">Réviser</a></div>`;
+    const n = (d.bySubject.get(s.id) || []).length, p = revSaved(exam.code, s.id, n);
+    return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>${n} question${n > 1 ? "s" : ""}${p ? ` · <b>arrêté à la question ${p.i + 1}</b>` : ""}</span></div><a class="btn btn-primary btn-sm" href="#/p/${exam.code}/revision/${s.id}">${p ? "Reprendre" : "Réviser"}</a></div>`;
   }
   function renderSubjects(exam, d) {
     app.innerHTML = hero(exam, "Matières", d.questions.length + " questions réparties dans " + d.subjects.length + " matières.", "Matières") +
@@ -719,9 +729,24 @@
     const subject = d.subjects.find((s) => String(s.id) === String(sid));
     if (!subject) return go("#/p/" + exam.code + "/matieres");
     if (!S.rev || S.rev.key !== exam.code + ":" + sid) {
-      S.rev = { key: exam.code + ":" + sid, list: (d.bySubject.get(subject.id) || []).slice(), i: 0, show: false, shuffled: false };
+      const all = (d.bySubject.get(subject.id) || []).slice();
+      S.rev = { key: exam.code + ":" + sid, list: all, i: 0, show: false, shuffled: false };
+      const p = revSaved(exam.code, subject.id, all.length);
+      if (p) S.rev.ask = p;                              // proposer de reprendre là où il s'était arrêté
     }
     drawRevision(exam, subject);
+  }
+  function revResume(resume) {
+    const r = S.rev; if (!r || !r.ask) return;
+    const p = r.ask; delete r.ask;
+    if (resume) {
+      if (p.shuffled && Array.isArray(p.ids)) {
+        const byId = new Map(r.list.map((q) => [q.id, q])), ord = p.ids.map((id) => byId.get(id)).filter(Boolean);
+        r.list = ord.concat(r.list.filter((q) => !p.ids.includes(q.id))); r.shuffled = true;
+      }
+      r.i = Math.min(p.i, r.list.length - 1);
+    } else { r.i = 0; LS.set(revKey(...r.key.split(":")), null); }
+    r.show = false;
   }
   /* Badges d'une question : « Nouveau 2026-2027 », « Mis à jour 2026-2027 », « Tombé en 2021 »… */
   function qTags(q) {
@@ -729,7 +754,18 @@
     return t.map((x) => `<span class="badge ${/^Tombé/.test(x) ? "warn" : "ok"}">${/^Tombé/.test(x) ? "🎯 " : /^Mis à jour/.test(x) ? "🔄 " : "🆕 "}${esc(x)}</span>`).join("");
   }
   function drawRevision(exam, subject) {
-    const r = S.rev, q = r.list[r.i];
+    const r = S.rev;
+    if (r.ask) {
+      const p = r.ask, when = new Date(p.at || Date.now()).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+      app.innerHTML = hero(exam, subject.name, "Révision par fiches — " + r.list.length + " questions", "Révision") +
+        `<div class="study"><div class="card center"><div style="font-size:2.4rem">📌</div><h2>Tu t'étais arrêté à la question ${p.i + 1} sur ${r.list.length}</h2>
+        <p class="muted">Dernière révision de cette matière : ${esc(when)}.</p>
+        <div class="bar" style="margin:12px 0"><i style="width:${Math.round((p.i + 1) / r.list.length * 100)}%"></i></div>
+        <div class="row" style="justify-content:center"><button class="btn btn-primary" data-act="rev-resume">▶ Reprendre à la question ${p.i + 1}</button><button class="btn btn-ghost" data-act="rev-restart">↺ Recommencer depuis le début</button></div></div></div>`;
+      return;
+    }
+    revSave(r);
+    const q = r.list[r.i];
     app.innerHTML = hero(exam, subject.name, "Révision par fiches — question " + (r.i + 1) + " sur " + r.list.length, "Révision") +
       `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((r.i + 1) / r.list.length) * 100}%"></i></div>
       <article class="qcard">${watermark()}
@@ -746,6 +782,7 @@
   }
   function revAction(act) {
     const r = S.rev; if (!r) return;
+    if (act === "rev-resume" || act === "rev-restart") revResume(act === "rev-resume");
     const p = parts(); const exam = examByCode(p[1]); const d = S.data[p[1]];
     const subject = d && d.subjects.find((s) => String(s.id) === String(p[3]));
     if (!exam || !subject) return;
@@ -2480,7 +2517,7 @@
     if (a === "fiche") {
       const code = el.dataset.code, q = jFind(code, el.dataset.id); if (!q) return;
       const d = S.data[code], list = (d.bySubject.get(q.subject_id) || []).slice();
-      S.rev = { key: code + ":" + q.subject_id, list, i: Math.max(0, list.findIndex((x) => x.id === q.id)), show: true, shuffled: false };
+      S.rev = { key: code + ":" + q.subject_id, list, i: Math.max(0, list.findIndex((x) => x.id === q.id)), show: true, shuffled: false };   // ouverte depuis Julien – IA : directement sur la fiche
       jClose(); go("#/p/" + code + "/revision/" + q.subject_id);
     }
   });
