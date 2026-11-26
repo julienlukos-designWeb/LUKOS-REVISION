@@ -135,7 +135,7 @@
   })();
   (function () {
     const st = document.createElement("style");
-    st.textContent = ".badge.trial{background:#fde7f0;color:#a3164a;border:1px solid #f5b5cd}.trial-card{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:2px dashed #e9739e;color:#7a1238;text-decoration:none}.trial-card b{display:block;font-size:1.05rem}.trial-card small{display:block;color:#8a3a57}.trial-card .tc-ico{font-size:2rem}.trial-card .tc-go{margin-left:auto;font-weight:900;font-size:1.3rem}.trial-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.trial-modes a{display:block;padding:18px 14px;border-radius:16px;background:#fff;border:1px solid var(--line,#e3e8f0);text-align:center;text-decoration:none;color:inherit;box-shadow:0 4px 0 #e3e8f0}.trial-modes a span{display:block;font-size:2rem}.trial-cta{margin-top:14px;padding:18px;border-radius:16px;background:linear-gradient(135deg,#0b1f3a,#1f4fa8);color:#fff;text-align:center}.trial-cta p{color:#dbe6ff}.trial-cta .btn{margin-top:6px}.onb-card ol{margin:8px 0 0;padding-left:0;list-style:none;display:grid;gap:8px}.onb-card li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid var(--line,#e3e8f0)}.onb-card li.done{background:#ecfdf3;border-color:#a6f4c5}.onb-card li .onb-n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#1f4fa8;color:#fff}.onb-card li.done .onb-n{background:#13804a}.onb-card li span.onb-t{flex:1}.onb-card li .btn{flex:none}.ex-skipnote{margin:8px 0;padding:8px 12px;border-radius:10px;background:#fff7e6;color:#7a4b00;font-size:.9rem}.ex-grid .skip{background:#fff1d6;border-color:#f5c26b}.ex-self{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px dashed #9cb4e6}.ex-self small{display:block;margin-bottom:6px;color:#33415e}.ex-selfinfo{background:#eef4ff;border:1px solid #c9d8f5}";
+    st.textContent = ".badge.trial{background:#fde7f0;color:#a3164a;border:1px solid #f5b5cd}.trial-card{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:2px dashed #e9739e;color:#7a1238;text-decoration:none}.trial-card b{display:block;font-size:1.05rem}.trial-card small{display:block;color:#8a3a57}.trial-card .tc-ico{font-size:2rem}.trial-card .tc-go{margin-left:auto;font-weight:900;font-size:1.3rem}.trial-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.trial-modes a{display:block;padding:18px 14px;border-radius:16px;background:#fff;border:1px solid var(--line,#e3e8f0);text-align:center;text-decoration:none;color:inherit;box-shadow:0 4px 0 #e3e8f0}.trial-modes a span{display:block;font-size:2rem}.trial-cta{margin-top:14px;padding:18px;border-radius:16px;background:linear-gradient(135deg,#0b1f3a,#1f4fa8);color:#fff;text-align:center}.trial-cta p{color:#dbe6ff}.trial-cta .btn{margin-top:6px}.onb-card ol{margin:8px 0 0;padding-left:0;list-style:none;display:grid;gap:8px}.onb-card li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid var(--line,#e3e8f0)}.onb-card li.done{background:#ecfdf3;border-color:#a6f4c5}.onb-card li .onb-n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#1f4fa8;color:#fff}.onb-card li.done .onb-n{background:#13804a}.onb-card li span.onb-t{flex:1}.onb-card li .btn{flex:none}.ex-skipnote{margin:8px 0;padding:8px 12px;border-radius:10px;background:#fff7e6;color:#7a4b00;font-size:.9rem}.ex-grid .skip{background:#fff1d6;border-color:#f5c26b}.ex-self{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px dashed #9cb4e6}.ex-self small{display:block;margin-bottom:6px;color:#33415e}.ex-selfinfo{background:#eef4ff;border:1px solid #c9d8f5}.trial-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:1px solid #f5b5cd;color:#7a1238;line-height:1.45}.trial-bar>span{flex:1;min-width:210px}.trial-bar .btn{background:#c2185b;color:#fff;border:0;white-space:nowrap}.trial-bar.wait{background:#eaf3ff;border-color:#9cc3f5;color:#0b3a75}.trial-bar.wait .btn{background:#1f4fa8}.subject.locked{opacity:.78}.subject.locked .num{background:#e9edf3;color:#5b6b82}.subject.locked .info span{color:#8a3a57}.action.locked{position:relative;opacity:.8}.action.locked::after{content:'🔒';position:absolute;top:8px;right:10px;font-size:1rem}.lk-lock{font-size:.82em;color:#8a3a57;font-weight:700}.trial-lock h2{margin-top:6px}";
     document.head.appendChild(st);
   })();
   const isAdmin = () => S.profile && S.profile.role === "admin" && !S.profile.is_blocked;
@@ -295,7 +295,13 @@
     return { subjects: subj.data || [], questions };
   }
   async function loadExamData(code, force) {
-    if (!force && S.data[code]) return S.data[code];
+    if (!force && S.data[code] && !S.data[code].trial) return S.data[code];
+    if (S.data[code] && S.data[code].trial) {          // parcours activé après l'essai : on repart des vraies données
+      if (S.rev && String(S.rev.key).startsWith(code + ":")) S.rev = null;
+      if (S.quiz && S.quiz.exam === code) S.quiz = null;
+      if (S.rv && S.rv.exam === code) S.rv = null;
+      delete S.data[code];
+    }
     let raw = null, savedAt = null, fromCache = false;
     if (!S.offline) {
       try {
@@ -571,9 +577,9 @@
     const box = document.createElement("div"); box.className = "rp-overlay"; box.id = "trialNews";
     box.innerHTML = `<div class="rp-box" role="dialog" aria-modal="true" aria-labelledby="tnT" style="text-align:center">
       <div style="font-size:2.6rem">🎁</div><h2 id="tnT">Nouveau : l'essai gratuit</h2>
-      <p>Avant de payer, découvre gratuitement <b>20 questions</b> de chaque parcours, avec leurs réponses officielles, en fiches et en quiz express.</p>
+      <p>Avant de payer, découvre gratuitement chaque parcours <b>exactement comme il s'affichera après activation</b> : fiches, quiz, examen blanc et Julien – IA, avec une partie des questions ouverte.</p>
       <p class="small muted">Touche un parcours marqué « 🎁 ESSAI GRATUIT » sur la page des parcours.</p>
-      <div class="row" style="justify-content:center;margin-top:12px"><a class="btn btn-primary" href="#/p/${esc(first.code)}/essai" data-tn="go">Essayer maintenant</a><button type="button" class="btn btn-ghost" data-tn="close">Plus tard</button></div></div>`;
+      <div class="row" style="justify-content:center;margin-top:12px"><a class="btn btn-primary" href="#/p/${esc(first.code)}" data-tn="go">Essayer maintenant</a><button type="button" class="btn btn-ghost" data-tn="close">Plus tard</button></div></div>`;
     box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-tn]")) box.remove(); });
     document.body.appendChild(box);
   }
@@ -585,7 +591,7 @@
       ${actBanner(true)}
       ${!isAdmin() && S.profile.service === null ? serviceCard() : ""}
       ${homeExamLists()}
-      <div class="tip">${icon("info", 22)}<span>🎁 <b>Essai gratuit</b> : ouvre un parcours non activé pour tester 20 de ses questions avant de payer. Chaque parcours s'active séparément après validation de ton paiement Wave. <b>Paiement unique, sans abonnement mensuel</b> : l'accès est illimité dans le temps. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>🎁 <b>Essai gratuit</b> : ouvre un parcours non activé pour le découvrir gratuitement, tel qu'il s'affichera après activation. Chaque parcours s'active séparément après validation de ton paiement Wave. <b>Paiement unique, sans abonnement mensuel</b> : l'accès est illimité dans le temps. Une fois activé, il est téléchargé automatiquement pour être utilisable même sans Internet.</span></div>`;
   }
   /* Ordre de la page des parcours :
      1. parcours activés  2. module RDG-RSA offert (juste en dessous, bien visible)  3. parcours à activer.
@@ -634,7 +640,7 @@
   }
   function hero(exam, title, sub, crumb) {
     const back = crumb ? "#/p/" + exam.code : "#/";
-    return `<section class="hero"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/p/${exam.code}">${esc(exam.name)}</a> › ${esc(crumb)}` : esc(exam.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+    return `<section class="hero"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb"><a href="#/">Parcours</a> › ${crumb ? `<a href="#/p/${exam.code}">${esc(exam.name)}</a> › ${esc(crumb)}` : esc(exam.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>` + (inTrial(exam.code) ? trialBar(exam) : "");
   }
 
   /* Statistiques d'usage : on compte seulement « tel membre a ouvert telle partie tel jour ». */
@@ -650,12 +656,22 @@
   async function renderExam(code, page, rest) {
     const exam = examByCode(code);
     document.body.className = "exam-" + code;
-    if (!hasAccess(code)) return page === "essai" && trialOk(exam) ? await renderTrial(exam, rest[0]) : renderActivation(exam);
-    if (TRACK_KIND[page]) track(code, TRACK_KIND[page]);
-    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page);
+    const trial = !hasAccess(code);
+    if (trial) {
+      // sans activation : le parcours s'affiche à l'identique, en mode essai (ou la page de paiement)
+      if (page === "activer" || !trialOk(exam)) return renderActivation(exam);
+      if (page === "essai") return go("#/p/" + code);              // anciens liens « essai »
+      track(code, "essai");
+      { const st = LS.get("trialnews", { n: 0, day: "" }); if (!st.tried) LS.set("trialnews", Object.assign(st, { tried: true })); }
+    } else {
+      if (page === "activer" || page === "essai") return go("#/p/" + code);
+      if (TRACK_KIND[page]) track(code, TRACK_KIND[page]);
+    }
+    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page === "annales" ? "accueil" : page);
+    if (trial && (page === "documents" || page === "annales" || page === "cours")) { if (!S.data[code]) await trialView(code).catch(() => null); return trialLock(exam, page); }
     if (page === "cours" && courseOfExam(code)) { crsUse(courseOfExam(code).code); return await renderCourse(rest[0]); }
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
-    const d = await loadExamData(code);
+    const d = trial ? await trialView(code) : await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
     if (page === "revision") return renderRevision(exam, d, rest[0]);
     if (page === "quiz") return renderQuizSetup(exam, d);
@@ -673,31 +689,32 @@
     return d.savedAt ? `<div class="offnote ok">📥 Disponible hors connexion — à jour (${esc(fmtDate(d.savedAt))}).</div>` : "";
   }
   async function renderExamHome(exam, d) {
-    const att = await loadAttempts(exam.code).catch(() => []);
-    const exAtt = isAdmin() ? [] : await loadExamAttempts(exam.code).catch(() => []);
+    const att = d.trial ? [] : await loadAttempts(exam.code).catch(() => []);
+    const exAtt = isAdmin() || d.trial ? [] : await loadExamAttempts(exam.code).catch(() => []);
+    const lk = d.trial ? ` <span class="lk-lock">🔒 après activation</span>` : "";
     const done = att.length, totalQ = att.reduce((a, x) => a + x.total, 0), good = att.reduce((a, x) => a + x.correct, 0);
     const avg = totalQ ? Math.round((good / totalQ) * 100) : 0;
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Toutes les matières";
     app.innerHTML = hero(exam, exam.name, (EXAM_META[exam.code] || {}).tagline || exam.full_name).replace('class="hero"', 'class="hero hero-stats"') +
-      `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>Questions</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz faits</span></div><div class="stat"><b>${avg} %</b><span>Réussite</span></div></div>
+      `<div class="stats"><div class="stat"><b>${d.questions.length}</b><span>${d.trial ? "Questions ouvertes" : "Questions"}</span></div><div class="stat"><b>${d.subjects.length}</b><span>Matières</span></div><div class="stat"><b>${done}</b><span>Quiz faits</span></div><div class="stat"><b>${avg} %</b><span>Réussite</span></div></div>
       ${offlineNote(exam, d)}
-      ${isAdmin() ? "" : onbCard(exam, att, exAtt)}
+      ${isAdmin() || d.trial ? "" : onbCard(exam, att, exAtt)}
       ${isAdmin() ? "" : goalCard(exam)}
       <div class="actions">
         <a class="action a-blue" href="#/p/${exam.code}/matieres"><i>${icon("book", 24)}</i><b>Réviser</b><small>Fiches par matière</small></a>
         <a class="action a-orange" href="#/p/${exam.code}/quiz"><i>${icon("target", 24)}</i><b>Quiz</b><small>QCM ou auto-évaluation</small></a>
         <a class="action a-teal" href="#/p/${exam.code}/recherche"><i>${icon("search", 24)}</i><b>Rechercher</b><small>Une notion, un mot</small></a>
-        <a class="action a-violet" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
+        <a class="action a-violet ${d.trial ? "locked" : ""}" href="#/p/${exam.code}/documents"><i>${icon("file", 24)}</i><b>Documents</b><small>PDF de référence</small></a>
       </div>
       ${reviewBanner(exam)}
-      ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets de l'examen ${esc(exam.name)} avec leur corrigé officiel</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
-      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>Cours complet</b><small>${esc(courseOfExam(exam.code).full)} — à lire leçon par leçon, avec ta progression</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
-      <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>10 à 30 questions, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
+      ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets de l'examen ${esc(exam.name)} avec leur corrigé officiel${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>Cours complet</b><small>${esc(courseOfExam(exam.code).full)} — à lire leçon par leçon, avec ta progression${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>${d.trial ? "Essai : " + TRIAL_LIM.exam + " questions" : "10 à 30 questions"}, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
           <div class="subject-list">${d.subjects.slice(0, 6).map((s, i) => subjectRow(exam, d, s, i)).join("") || emptyBox("Aucune question n'a encore été publiée pour ce parcours.")}</div></div>
         <div><div class="section-title"><h2>Mes derniers quiz</h2></div>
-          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span>${a.pending ? ' <span class="badge warn">À ENVOYER</span>' : ""}</td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e e-ico">${icon("target", 30)}</div><p>Aucun quiz pour l'instant.</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
+          <div class="card">${att.length ? `<div class="table-wrap"><table class="t"><tr><th>Date</th><th>Matière</th><th>Score</th></tr>${att.slice(0, 8).map((a) => `<tr><td>${esc(fmtDate(a.created_at))}</td><td>${esc(subjName(a.subject_id))}</td><td><b>${a.correct}/${a.total}</b> <span class="muted small">(${Math.round(a.correct / a.total * 100)}%)</span>${a.pending ? ' <span class="badge warn">À ENVOYER</span>' : ""}</td></tr>`).join("")}</table></div>` : `<div class="empty"><div class="e e-ico">${icon("target", 30)}</div><p>${d.trial ? "En essai gratuit, tes quiz ne sont pas enregistrés. Après activation, tes 8 derniers quiz s'affichent ici." : "Aucun quiz pour l'instant."}</p><a class="btn btn-primary" href="#/p/${exam.code}/quiz">Lancer mon premier quiz</a></div>`}</div></div>
       </div>`;
   }
   function emptyBox(t) { return `<div class="card empty"><div class="e e-ico">${icon("info", 30)}</div><p>${esc(t)}</p></div>`; }
@@ -713,10 +730,12 @@
   }
   function subjectRow(exam, d, s, i) {
     const n = (d.bySubject.get(s.id) || []).length, p = revSaved(exam.code, s.id, n);
+    if (d.trial && !n) return `<div class="subject locked"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>🔒 Se débloque à l'activation du parcours</span></div><a class="btn btn-ghost btn-sm" href="#/p/${exam.code}/activer">🔒 Débloquer</a></div>`;
+    if (d.trial) return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>🎁 ${n} question${n > 1 ? "s" : ""} offerte${n > 1 ? "s" : ""} · 🔒 la suite après activation${p ? ` · <b>arrêté à la question ${p.i + 1}</b>` : ""}</span></div><a class="btn btn-primary btn-sm" href="#/p/${exam.code}/revision/${s.id}">${p ? "Reprendre" : "Réviser"}</a></div>`;
     return `<div class="subject"><div class="num">${i + 1}</div><div class="info"><b>${esc(s.name)}</b><span>${n} question${n > 1 ? "s" : ""}${p ? ` · <b>arrêté à la question ${p.i + 1}</b>` : ""}</span></div><a class="btn btn-primary btn-sm" href="#/p/${exam.code}/revision/${s.id}">${p ? "Reprendre" : "Réviser"}</a></div>`;
   }
   function renderSubjects(exam, d) {
-    app.innerHTML = hero(exam, "Matières", d.questions.length + " questions réparties dans " + d.subjects.length + " matières.", "Matières") +
+    app.innerHTML = hero(exam, "Matières", d.trial ? d.subjects.length + " matières · " + d.questions.length + " questions ouvertes dans l'essai gratuit." : d.questions.length + " questions réparties dans " + d.subjects.length + " matières.", "Matières") +
       `<div class="subject-list">${d.subjects.map((s, i) => subjectRow(exam, d, s, i)).join("") || emptyBox("Aucune question n'a encore été publiée pour ce parcours.")}</div>`;
   }
 
@@ -778,7 +797,8 @@
           <button class="btn btn-ghost btn-sm" data-act="srs-toggle">${srsHas(q.id) ? "🔁 Dans « À revoir » ✓" : "🔁 À revoir"}</button>${reportBtn("question", q.id, exam.code, q.question, q.answer)}</div>
       </article>
       <div class="nav-q"><button class="btn btn-ghost" data-act="rev-prev" ${r.i === 0 ? "disabled" : ""}>← Précédente</button><button class="btn btn-primary" data-act="rev-next" ${r.i >= r.list.length - 1 ? "disabled" : ""}>Suivante →</button></div>
-      <p class="hint center">Astuce : flèches ← → pour naviguer, barre d'espace pour afficher la réponse.</p></div>`;
+      <p class="hint center">Astuce : flèches ← → pour naviguer, barre d'espace pour afficher la réponse.</p>
+      ${inTrial(exam.code) && r.i >= r.list.length - 1 ? trialCta(exam, "La suite de « " + subject.name + " » est dans le parcours complet") : ""}</div>`;
   }
   function revAction(act) {
     const r = S.rev; if (!r) return;
@@ -806,12 +826,20 @@
     if (!d.questions.length) { app.innerHTML = hero(exam, "Quiz " + exam.name, "Entraîne-toi et mesure ta progression.", "Quiz") + emptyBox("Le quiz sera disponible dès que les questions de ce parcours seront publiées."); return; }
     app.innerHTML = hero(exam, "Quiz " + exam.name, "Entraîne-toi et mesure ta progression.", "Quiz") +
       `<div class="card study"><form id="quizForm">
-        <label for="qzSub">Matière</label><select id="qzSub"><option value="">Toutes les matières (${d.questions.length} questions)</option>${d.subjects.map((s) => `<option value="${s.id}">${esc(s.name)} (${(d.bySubject.get(s.id) || []).length})</option>`).join("")}</select>
-        <label for="qzNum">Nombre de questions</label><select id="qzNum"><option>10</option><option selected>20</option><option>30</option><option>50</option></select>
+        <label for="qzSub">Matière</label><select id="qzSub"><option value="">Toutes les matières (${d.questions.length} questions${d.trial ? " ouvertes" : ""})</option>${d.subjects.map((s) => { const n = (d.bySubject.get(s.id) || []).length; return n ? `<option value="${s.id}">${esc(s.name)} (${n})</option>` : `<option disabled>🔒 ${esc(s.name)} (après activation)</option>`; }).join("")}</select>
+        <label for="qzNum">Nombre de questions</label><select id="qzNum">${quizSizes(d)}</select>
         <label>Type de quiz</label>
         <div class="radio-cards"><label><input type="radio" name="qzMode" value="qcm" checked> QCM — 4 propositions</label><label><input type="radio" name="qzMode" value="auto"> Auto-évaluation — je me note</label></div>
         <p class="hint">QCM : choisis la bonne réponse parmi 4. Auto-évaluation : lis la question, réponds de tête, puis vérifie et indique si tu savais.</p>
         <button class="btn btn-primary btn-block" style="margin-top:14px">Lancer le quiz</button></form></div>`;
+  }
+  function quizSizes(d) {
+    const all = [10, 20, 30, 50];
+    if (!d.trial) return all.map((n) => `<option ${n === 20 ? "selected" : ""}>${n}</option>`).join("");
+    const max = d.questions.length, open = all.filter((n) => n <= max);
+    const list = open.length ? open : [max];
+    return list.map((n, k) => `<option value="${n}" ${k === list.length - 1 ? "selected" : ""}>${n}</option>`).join("") +
+      all.filter((n) => !list.includes(n)).map((n) => `<option disabled>🔒 ${n} (parcours complet)</option>`).join("");
   }
   function startQuiz(ev) {
     ev.preventDefault();
@@ -831,7 +859,7 @@
       }
       return { q, options, chosen: null, ok: null, shown: false };
     });
-    S.quiz = { exam: code, subjectId: sid ? Number(sid) : null, mode, items, i: 0, finished: false, saved: false };
+    S.quiz = { exam: code, subjectId: sid ? Number(sid) : null, mode, items, i: 0, finished: false, saved: false, trial: !!d.trial };
     drawQuiz();
   }
   function drawQuiz() {
@@ -876,7 +904,7 @@
     else if (srsHas(it.q.id)) srsAnswer(it.q.id, true);
   }
   async function saveQuiz() {
-    const z = S.quiz; if (z.saved) return;
+    const z = S.quiz; if (z.saved || z.trial) return;
     const correct = z.items.filter((x) => x.ok).length;
     const args = { p_exam: z.exam, p_subject_id: z.subjectId, p_mode: z.mode, p_total: z.items.length, p_correct: correct };
     try {
@@ -896,14 +924,15 @@
     const wrong = z.items.filter((x) => !x.ok);
     const verdict = pct >= 80 ? "Excellent travail !" : pct >= 60 ? "Bon résultat, continue ainsi." : pct >= 40 ? "Des bases solides, mais il faut réviser." : "Reprends les fiches de révision puis réessaie.";
     app.innerHTML = hero(exam, "Résultat du quiz", verdict, "Quiz") +
-      `<div class="study"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${correct} / ${z.items.length} bonnes réponses</h2><p class="muted">${z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera ajouté à ta progression dès le retour d'Internet." : "Résultat non enregistré."}</p>
+      `<div class="study"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${correct} / ${z.items.length} bonnes réponses</h2><p class="muted">${z.trial ? "🎁 Essai gratuit : ce résultat n'est pas enregistré. Avec le parcours complet, chaque quiz est ajouté à ta progression." : z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera ajouté à ta progression dès le retour d'Internet." : "Résultat non enregistré."}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-primary" data-act="qz-again">Nouveau quiz</button><a class="btn btn-ghost" href="#/p/${exam.code}">Retour au parcours</a></div></div>
-      ${wrong.length ? `<div class="card" style="margin-top:14px"><div class="row between"><h3 style="margin:0">À revoir (${wrong.length})</h3><a class="btn btn-soft btn-sm" href="#/p/${exam.code}/revoir/new">🔁 Ajoutées à « Mes questions à revoir »</a></div>${wrong.map((x) => `<div class="review-item"><b>${esc(x.q.question)}</b><div class="answer">${formatAnswer(x.q.answer)}</div></div>`).join("")}</div>` : ""}</div>`;
+      ${wrong.length ? `<div class="card" style="margin-top:14px"><div class="row between"><h3 style="margin:0">À revoir (${wrong.length})</h3><a class="btn btn-soft btn-sm" href="#/p/${exam.code}/revoir/new">🔁 Ajoutées à « Mes questions à revoir »</a></div>${wrong.map((x) => `<div class="review-item"><b>${esc(x.q.question)}</b><div class="answer">${formatAnswer(x.q.answer)}</div></div>`).join("")}</div>` : ""}
+      ${z.trial ? trialCta(exam, pct >= 60 ? "Continue sur ta lancée" : "Progresse avec le parcours complet") : ""}</div>`;
   }
 
   /* ----- Recherche ----- */
   function renderSearch(exam, d) {
-    app.innerHTML = hero(exam, "Recherche", "Retrouve une question ou une notion dans tout le parcours " + exam.name + ".", "Recherche") +
+    app.innerHTML = hero(exam, "Recherche", d.trial ? "Essai gratuit : recherche dans les " + d.questions.length + " questions ouvertes. Après activation, la recherche porte sur tout le parcours " + exam.name + "." : "Retrouve une question ou une notion dans tout le parcours " + exam.name + ".", "Recherche") +
       `<div class="study"><input id="searchBox" type="search" placeholder="Ex. réquisition, flagrant délit, LRAC…" autocomplete="off" aria-label="Rechercher"><div id="searchOut" style="margin-top:14px"><p class="muted center">Tape au moins 2 caractères.</p></div></div>`;
     const box = document.getElementById("searchBox"); box.focus();
     let t = null;
@@ -1054,7 +1083,7 @@
         <button class="btn btn-block pay-submit">✅ Envoyer ma preuve de paiement</button><div class="msg" id="payMsg"></div>
         <p class="pay-help">L'administrateur valide ton accès, généralement dans la journée.<br>Un souci ? <a target="_blank" rel="noopener noreferrer" href="${esc(waLinkHelp(exam))}">Écris-nous sur WhatsApp</a></p>
       </form>`;
-    const trial = trialOk(exam) ? `<a class="trial-card" href="#/p/${esc(exam.code)}/essai"><span class="tc-ico" aria-hidden="true">🎁</span><span><b>Essaie gratuitement avant de payer</b><small>20 questions du parcours ${esc(exam.name)} en fiches et en quiz express, sans engagement.</small></span><span class="tc-go" aria-hidden="true">›</span></a>` : "";
+    const trial = trialOk(exam) ? `<a class="trial-card" href="#/p/${esc(exam.code)}"><span class="tc-ico" aria-hidden="true">🎁</span><span><b>${pend ? "Continuer l'essai gratuit" : "Essaie gratuitement avant de payer"}</b><small>Découvre le parcours ${esc(exam.name)} tel qu'il s'affichera après activation : fiches, quiz, examen blanc et Julien – IA.</small></span><span class="tc-go" aria-hidden="true">›</span></a>` : "";
     app.innerHTML = `<div class="pay-wrap">${top}${actBanner(false)}${trial}${body}</div>`;
     bindProofZone();
   }
@@ -1496,7 +1525,7 @@
     }).join("") || emptyBox("Aucun compte dans cette catégorie."));
   }
   function waTrialInvite(u) {
-    const t = `Bonjour ${u.first_name || ""}, ici LUKOS-REVISION 👋\nNouveau : tu peux maintenant ESSAYER GRATUITEMENT chaque parcours (DAP, DQEG, CAT-1/CAT-2, BNSP, Police) avant de payer : 20 questions avec leurs réponses officielles, en fiches et en quiz express.\nOuvre l'application, touche un parcours marqué « 🎁 ESSAI GRATUIT », puis « Essaie gratuitement ».\nLien : ${location.origin + location.pathname}`;
+    const t = `Bonjour ${u.first_name || ""}, ici LUKOS-REVISION 👋\nNouveau : tu peux maintenant ESSAYER GRATUITEMENT chaque parcours (DAP, DQEG, CAT-1/CAT-2, BNSP, Police) avant de payer, exactement comme il s'affichera après activation : fiches, quiz, examen blanc et Julien – IA.\nOuvre l'application et touche un parcours marqué « 🎁 ESSAI GRATUIT ».\nLien : ${location.origin + location.pathname}`;
     return "https://wa.me/" + digits(u.phone).replace(/^(?!221)/, "221") + "?text=" + encodeURIComponent(t);
   }
   async function setEnrollment(el) {
@@ -2141,7 +2170,6 @@
       if (act === "exs-self") return exSelf(el);
       if (act.startsWith("ex-")) return exAction(act, el);
       if (act.startsWith("qz-")) return quizAction(act, el);
-      if (act.startsWith("tr-")) return trialAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
       if (act === "act-go") { const l = document.querySelector(".exam-list"); if (l) l.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
       if (act === "ad-expfilter") { AD.expFilter = el.dataset.f; return drawExpired(); }
@@ -2279,8 +2307,8 @@
     { id: "payer", t: "Payer et activer un parcours", k: ["payer", "paiement", "wave", "orange money", "comment payer", "activer un parcours", "activer ce parcours", "acheter", "numero wave"],
       a: () => `Pour activer un parcours :\n• Sur la page « Parcours », touche le parcours voulu.\n• Envoie le montant indiqué uniquement par Wave au ${C.WAVE_NUMBER || "numéro affiché"} (bouton « Copier le numéro »).\n• Fais une capture d'écran du paiement Wave.\n• Reviens dans l'application, touche la zone 📸 pour insérer la capture, puis « Envoyer ma preuve de paiement ».\n• L'administrateur vérifie et active ton parcours, généralement dans la journée.` },
     { id: "essai", t: "L'essai gratuit", k: ["essai", "essai gratuit", "essayer", "gratuit", "gratuitement", "tester", "tester avant", "avant de payer", "demo", "apercu"],
-      to: (c) => (c && c.exam && trialOk(c.exam) ? "#/p/" + c.exam.code + "/essai" : "#/"),
-      a: () => `Tu peux essayer chaque parcours gratuitement avant de payer :\n• Sur la page « Parcours », touche un parcours marqué « 🎁 ESSAI GRATUIT ».\n• Touche « Essaie gratuitement avant de payer ».\n• Découvre 20 questions du parcours en fiches (avec les réponses officielles) ou en quiz express de 10 QCM.\nSi ça te plaît, active le parcours complet : paiement unique de ${jPrice()}, accès illimité.` },
+      to: (c) => (c && c.exam && trialOk(c.exam) ? "#/p/" + c.exam.code : "#/"),
+      a: () => `Tu peux essayer chaque parcours gratuitement avant de payer :\n• Sur la page « Parcours », touche un parcours marqué « 🎁 ESSAI GRATUIT ».\n• Le parcours s'ouvre exactement comme après activation : accueil, matières, fiches, quiz, examen blanc (${TRIAL_LIM.exam} questions) et Julien – IA (${TRIAL_LIM.ia} questions par jour).\n• Une partie des questions de chaque matière est ouverte ; tout ce qui est marqué 🔒 se débloque à l'activation.\nSi ça te plaît, touche « Activer » dans le bandeau rose : paiement unique de ${jPrice()}, accès illimité.` },
     { id: "prix", t: "Prix et durée d'accès", k: ["prix", "tarif", "combien", "combien coute", "cout", "fcfa", "abonnement", "mensuel", "acces illimite", "illimite"],
       a: () => `Chaque parcours coûte ${jPrice()} (le prix exact est affiché sur sa page).\n• C'est un paiement unique, une seule fois : pas d'abonnement mensuel.\n• Une fois activé, le parcours reste accessible sans limite de durée.\n• Chaque parcours s'active séparément.\n• Bonus : dès qu'un parcours est activé, le module RDG-RSA est offert.` },
     { id: "preuve", t: "Envoyer la capture du paiement", k: ["capture", "preuve", "preuve de paiement", "screenshot", "photo du paiement", "envoyer ma preuve", "envoyer la capture"],
@@ -2376,7 +2404,7 @@
       const pc = p[2] === "cours" && courseOfExam(p[1]);
       if (pc && crsOk(pc)) return { mode: "course", label: "Recherche dans le cours " + ex.name, codes: [], course: pc.code };
       if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
-      if (!hasAccess(p[1])) return { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
+      if (!hasAccess(p[1])) return trialOk(ex) ? { mode: "exam", trial: true, label: "Essai gratuit · " + ex.name, codes: [p[1]], exam: ex } : { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
       return { mode: "exam", label: "Recherche dans " + ex.name, codes: [p[1]], exam: ex };
     }
     if (p[0] === "cours" && crsOk(COURSES["RDG-RSA"])) return { mode: "course", label: "Recherche dans le cours " + COURSES["RDG-RSA"].name, codes: [], course: "RDG-RSA" };
@@ -2390,6 +2418,7 @@
     if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>, l'assistant de LUKOS-REVISION.<br>Je t'aide à <b>créer ton compte</b>, te <b>connecter</b>, <b>installer l'application</b> sur Android ou iPhone, retrouver ton <b>mot de passe</b> ou <b>payer ton parcours</b>.<br>Une fois ton parcours activé, je réponds aussi à toutes tes questions de cours en une seconde.`;
     if (c.mode === "locked") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>. Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi.<br>🎁 <b>Essaie-le gratuitement</b> : 20 questions en fiches et en quiz express, sans payer.<br>💳 Je t'explique aussi comment le <b>payer par Wave</b> et l'<b>activer</b> (paiement unique, accès illimité).<br>📚 Dès qu'il est activé, pose-moi tes questions de cours : je trouve la réponse officielle en une seconde.<br>${appLine}`;
     if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📘 <b>Pose-moi une question sur le ${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}, ou tape un numéro (ex. « ${cc.unit === "Article" ? "article 45" : "leçon 12"} »).<br>${appLine}`; }
+    if (c.mode === "exam" && c.trial) return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>🎁 <b>Essai gratuit du parcours ${esc(c.exam.name)}</b> : pose-moi une question de cours, je cherche la réponse officielle parmi les questions ouvertes de l'essai (${TRIAL_LIM.ia} questions par jour).<br>💳 Après activation, je cherche dans tout le parcours, sans limite.<br>${appLine}${ex}`;
     if (c.mode === "exam") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📚 <b>Pose-moi n'importe quelle question du parcours ${esc(c.exam.name)}</b> : je retrouve la réponse officielle en une seconde, même avec des fautes ou des abréviations (CAT, MGO, OPJ…).<br>${appLine}${ex}`;
     return c.codes.length
       ? `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📚 <b>Pose-moi une question de cours</b> sur ${c.codes.length > 1 ? "tes parcours" : "ton parcours"} ${c.codes.map((x) => "<b>" + esc((examByCode(x) || {}).name || x) + "</b>").join(", ")} : je retrouve la réponse officielle en une seconde, même avec des fautes ou des abréviations.<br>${appLine}${ex}`
@@ -2483,13 +2512,20 @@
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.<p class="small muted" style="margin-top:8px">Toujours bloqué ? L'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
       if (c.codes.length) {
-        for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await loadExamData(code); JIA.msgs.pop(); }
+        for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await (c.trial ? trialView(code) : loadExamData(code)); JIA.msgs.pop(); }
         const res = jSearch(jClean(raw), c.codes);
         if (res.length && !appWins(res[0].s)) {
+          if (c.trial) {                                   // essai : nombre de réponses limité par jour
+            const k = "jiatrial:" + c.exam.code, st = LS.get(k, { day: "", n: 0 });
+            if (st.day !== today()) { st.day = today(); st.n = 0; }
+            if (st.n >= TRIAL_LIM.ia) return jPush("bot", `Tu as utilisé tes <b>${TRIAL_LIM.ia} questions gratuites</b> d'aujourd'hui 🎁. Reviens demain, ou active le parcours <b>${esc(c.exam.name)}</b> pour me poser autant de questions que tu veux, sur tout le parcours.`, `<div class="jia-acts"><button type="button" data-jia="go" data-h="#/p/${esc(c.exam.code)}/activer">💳 Activer le parcours</button></div>`);
+            st.n++; LS.set(k, st);
+          }
           const out = jRender(res[0], res.slice(1), c);
-          return jPush("bot", out.html, out.extra);
+          return jPush("bot", out.html, out.extra + (c.trial ? `<p class="small muted" style="margin-top:6px">🎁 Essai : ${Math.max(0, TRIAL_LIM.ia - LS.get("jiatrial:" + c.exam.code, { n: 0 }).n)} question(s) gratuite(s) restante(s) aujourd'hui.</p>` : ""));
         }
         if (fq) return faqOut();
+        if (c.trial) return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » parmi les questions ouvertes de l'essai. La réponse se trouve peut-être dans la partie 🔒 du parcours ${esc(c.exam.name)}, qui se débloque à l'activation.`, `<div class="jia-acts"><button type="button" data-jia="go" data-h="#/p/${esc(c.exam.code)}/activer">💳 Activer le parcours</button></div>`);
         // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
         for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, jClean(raw)); if (out) return jPush("bot", out.html, out.extra); }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
@@ -2715,92 +2751,52 @@
   /* lisibles par tout membre connecté, en fiches et en quiz express.    */
   /* Rien n'est enregistré : c'est une découverte avant le paiement.     */
   /* ------------------------------------------------------------------ */
-  const TR = { data: {}, fi: null, qz: null };
+  /* Limites du mode essai (modifiables ici) */
+  const TRIAL_LIM = { perSubject: 3, exam: 5, ia: 5 };
   const trialOk = (e) => !!(e && S.profile && !isAdmin() && !S.profile.is_blocked && e.is_open && !hasAccess(e.code) && !(S.enr[e.code] && S.enr[e.code].status === "suspended"));
-  async function trialLoad(code) {
-    if (TR.data[code]) return TR.data[code];
+  const inTrial = (code) => !hasAccess(code) && trialOk(examByCode(code));
+  /* Données de l'essai : toutes les matières du parcours (visibles), mais seulement les
+     questions marquées « is_trial » (3 par matière au maximum). Même forme que loadExamData,
+     avec trial: true. Rien n'est gardé sur le téléphone ni envoyé au serveur. */
+  async function trialView(code) {
+    if (S.data[code] && S.data[code].trial) return S.data[code];
     if (S.offline) throw new Error("L'essai gratuit nécessite une connexion Internet.");
     const [sj, qs] = await Promise.all([
-      sb.from("subjects").select("id,name").eq("exam_code", code),
-      sb.from("questions").select("id,subject_id,question,answer,position").eq("exam_code", code).eq("is_trial", true).eq("is_active", true).order("subject_id").order("position").limit(40)
+      sb.from("subjects").select("id,name,position").eq("exam_code", code).order("position"),
+      sb.from("questions").select("id,subject_id,question,answer,position").eq("exam_code", code).eq("is_trial", true).eq("is_active", true).order("subject_id").order("position").limit(300)
     ]);
     if (qs.error) throw new Error(/is_trial/i.test(qs.error.message || "") ? "L'essai gratuit n'est pas encore installé sur le serveur." : errText(qs.error));
-    const names = new Map((sj.data || []).map((x) => [x.id, x.name]));
-    const list = (qs.data || []).map((q) => ({ ...q, sname: names.get(q.subject_id) || "" }));
-    return (TR.data[code] = list);
+    if (sj.error) throw sj.error;
+    const subjects = sj.data || [], bySubject = new Map();
+    subjects.forEach((s) => bySubject.set(s.id, []));
+    (qs.data || []).forEach((q) => {
+      if (!bySubject.has(q.subject_id)) bySubject.set(q.subject_id, []);
+      const l = bySubject.get(q.subject_id); if (l.length < TRIAL_LIM.perSubject) l.push(Object.assign({ is_active: true }, q));
+    });
+    const questions = [].concat(...subjects.map((s) => bySubject.get(s.id) || []));
+    return (S.data[code] = { trial: true, subjects, allSubjects: subjects, questions, all: questions, bySubject, savedAt: null, fromCache: false });
+  }
+  function trialBar(exam) {
+    const pend = S.payments.find((p) => p.exam_code === exam.code && p.status === "pending");
+    if (pend) return `<div class="trial-bar wait" role="status"><span>⏳ <b>Paiement en cours de vérification</b> — en attendant la validation, continue à découvrir le parcours en essai gratuit.</span><a class="btn btn-sm" href="#/p/${esc(exam.code)}/activer">Voir mon paiement</a></div>`;
+    const d = S.data[exam.code], n = d && d.trial ? d.questions.length : 0;
+    return `<div class="trial-bar" role="status"><span>🎁 <b>Mode essai gratuit</b>${n ? " · " + n + " questions ouvertes" : ""}. Tu vois le parcours tel qu'il s'affichera après activation : tout ce qui est marqué 🔒 se débloque avec le paiement.</span><a class="btn btn-sm" href="#/p/${esc(exam.code)}/activer">Activer · ${esc(fmtXof(exam.price_xof))}</a></div>`;
   }
   function trialCta(exam, title) {
     return `<div class="trial-cta"><h3 style="margin:0">${esc(title || "Tu veux la suite ?")}</h3>
-      <p>Active le parcours complet <b>${esc(exam.name)}</b> : toutes les questions, quiz illimités, simulateur d'examen, Julien – IA et mode hors connexion.<br><b>${esc(fmtXof(exam.price_xof))} · paiement unique · accès illimité</b></p>
-      <a class="btn btn-primary" href="#/p/${esc(exam.code)}">Activer le parcours complet →</a></div>`;
+      <p>Active le parcours complet <b>${esc(exam.name)}</b> : toutes les questions, quiz illimités, simulateur d'examen de 10 à 30 questions, Julien – IA sans limite et mode hors connexion.<br><b>${esc(fmtXof(exam.price_xof))} · paiement unique · accès illimité</b></p>
+      <a class="btn btn-primary" href="#/p/${esc(exam.code)}/activer">Activer le parcours complet →</a></div>`;
   }
-  async function renderTrial(exam, mode) {
-    homeBottomNav("home");
-    document.body.className = "exam-" + exam.code;
-    app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement de l'essai gratuit…</p></div>`;
-    const list = await trialLoad(exam.code);
-    track(exam.code, "essai");
-    { const st = LS.get("trialnews", { n: 0, day: "" }); if (!st.tried) LS.set("trialnews", Object.assign(st, { tried: true })); }
-    const head = hero(exam, "Essai gratuit " + exam.name, "Découvre " + list.length + " questions du parcours, sans payer.", "Essai gratuit");
-    if (!list.length) { app.innerHTML = head + emptyBox("L'essai gratuit de ce parcours sera bientôt disponible.") + trialCta(exam); return; }
-    if (mode === "fiches") { if (!TR.fi || TR.fi.code !== exam.code) TR.fi = { code: exam.code, i: 0, show: false }; return trialFiche(exam, list); }
-    if (mode === "quiz") { if (!TR.qz || TR.qz.code !== exam.code || TR.qz.finished) trialQuizStart(exam, list); return trialQuizDraw(exam); }
-    app.innerHTML = head + `<div class="study stack">
-      <div class="tip" style="margin-top:0">${icon("info", 22)}<span>Voici un aperçu gratuit du parcours <b>${esc(exam.name)}</b> : ${list.length} questions tirées de plusieurs matières, avec leurs réponses officielles. Choisis comment les découvrir :</span></div>
-      <div class="trial-modes"><a href="#/p/${esc(exam.code)}/essai/fiches"><span>📖</span><b>Fiches</b><br><small class="muted">${list.length} questions avec réponses</small></a><a href="#/p/${esc(exam.code)}/essai/quiz"><span>🎯</span><b>Quiz express</b><br><small class="muted">10 QCM, score immédiat</small></a></div>
-      ${trialCta(exam, "Convaincu ?")}</div>`;
-  }
-  function trialFiche(exam, list) {
-    const f = TR.fi, q = list[f.i];
-    app.innerHTML = hero(exam, "Essai gratuit — fiches", "Question " + (f.i + 1) + " sur " + list.length, "Essai gratuit") +
-      `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((f.i + 1) / list.length) * 100}%"></i></div>
-      <article class="qcard">${watermark()}<div class="qmeta"><span class="badge acc">${esc(q.sname)}</span><span class="badge trial">🎁 ESSAI</span></div>
-        <div class="qtext">${esc(q.question)}</div>
-        ${f.show ? `<div class="answer">${formatAnswer(q.answer)}</div>` : ""}
-        <div class="row" style="margin-top:14px;position:relative"><button class="btn ${f.show ? "btn-ghost" : "btn-primary"}" data-act="tr-show">${f.show ? "Masquer la réponse" : "Afficher la réponse"}</button></div></article>
-      <div class="nav-q"><button class="btn btn-ghost" data-act="tr-prev" ${f.i === 0 ? "disabled" : ""}>← Précédente</button>${f.i < list.length - 1 ? `<button class="btn btn-primary" data-act="tr-next">Suivante →</button>` : `<a class="btn btn-primary" href="#/p/${esc(exam.code)}/essai/quiz">Faire le quiz express →</a>`}</div>
-      ${f.i >= list.length - 1 ? trialCta(exam, "Tu as vu les " + list.length + " questions de l'essai") : `<p class="hint center"><a href="#/p/${esc(exam.code)}">Activer le parcours complet</a></p>`}</div>`;
-  }
-  function trialQuizStart(exam, list) {
-    const items = shuffle(list).slice(0, Math.min(10, list.length)).map((q) => {
-      const others = shuffle(list.filter((x) => x.id !== q.id && x.answer !== q.answer)), picked = [];
-      for (const o of others) { if (picked.length >= 3) break; if (!picked.includes(o.answer)) picked.push(o.answer); }
-      return { q, options: shuffle([q.answer].concat(picked)), chosen: null, ok: null };
-    });
-    TR.qz = { code: exam.code, items, i: 0, finished: false };
-  }
-  function trialQuizDraw(exam) {
-    const z = TR.qz;
-    if (z.finished) {
-      const good = z.items.filter((x) => x.ok).length, pct = Math.round(good / z.items.length * 100);
-      app.innerHTML = hero(exam, "Résultat du quiz express", pct >= 60 ? "Beau départ !" : "Le parcours complet est là pour t'entraîner.", "Essai gratuit") +
-        `<div class="study stack"><div class="card center"><div class="score-ring" style="--p:${pct}"><div>${pct}%</div></div><h2>${good} / ${z.items.length} bonnes réponses</h2>
-        <p class="muted">Avec le parcours complet, tes quiz sont enregistrés, tes erreurs vont dans « Mes questions à revoir » et tu peux passer des examens blancs notés sur 20.</p>
-        <div class="row" style="justify-content:center"><button class="btn btn-ghost" data-act="tr-again">Refaire un quiz express</button><a class="btn btn-ghost" href="#/p/${esc(exam.code)}/essai/fiches">Voir les fiches</a></div></div>
-        ${trialCta(exam, pct >= 60 ? "Continue sur ta lancée" : "Progresse avec le parcours complet")}</div>`;
-      return;
-    }
-    const it = z.items[z.i], answered = it.chosen !== null;
-    app.innerHTML = hero(exam, "Quiz express gratuit", "Question " + (z.i + 1) + " sur " + z.items.length + " · score " + z.items.filter((x) => x.ok).length, "Essai gratuit") +
-      `<div class="study"><div class="bar" style="margin-bottom:14px"><i style="width:${((z.i + 1) / z.items.length) * 100}%"></i></div>
-      <article class="qcard">${watermark()}<div class="qmeta"><span class="badge acc">${esc(it.q.sname)}</span><span class="badge trial">🎁 ESSAI</span></div>
-      <div class="qtext">${esc(it.q.question)}</div>
-      <div class="choices">${it.options.map((o, k) => { let cls = "choice"; if (answered) { if (o === it.q.answer) cls += " good"; else if (k === it.chosen) cls += " bad"; } return `<button class="${cls}" data-act="tr-pick" data-k="${k}" ${answered ? "disabled" : ""}><span class="letter">${"ABCD"[k]}</span><span class="ctext">${esc(o)}</span></button>`; }).join("")}</div>
-      ${answered ? `<div class="feedback ${it.ok ? "ok" : "bad"}">${it.ok ? "✓ Bonne réponse !" : "✗ Mauvaise réponse. La bonne réponse est :"}</div>${it.ok ? "" : `<div class="answer">${formatAnswer(it.q.answer)}</div>`}` : ""}</article>
-      <div class="nav-q"><a class="btn btn-ghost" href="#/p/${esc(exam.code)}/essai">Quitter</a>${answered ? `<button class="btn btn-primary" data-act="tr-qnext">${z.i < z.items.length - 1 ? "Question suivante →" : "Voir mon résultat"}</button>` : ""}</div></div>`;
-  }
-  function trialAction(act, el) {
-    const code = parts()[1], exam = examByCode(code), list = TR.data[code];
-    if (!exam || !list) return route();
-    if (act === "tr-show") TR.fi.show = !TR.fi.show;
-    if (act === "tr-next" && TR.fi.i < list.length - 1) { TR.fi.i++; TR.fi.show = false; }
-    if (act === "tr-prev" && TR.fi.i > 0) { TR.fi.i--; TR.fi.show = false; }
-    if (/^tr-(show|next|prev)$/.test(act)) { trialFiche(exam, list); return window.scrollTo(0, 0); }
-    const z = TR.qz; if (!z) return route();
-    if (act === "tr-pick" && z.items[z.i].chosen === null) { const it = z.items[z.i]; it.chosen = Number(el.dataset.k); it.ok = it.options[it.chosen] === it.q.answer; }
-    if (act === "tr-qnext") { if (z.i < z.items.length - 1) z.i++; else z.finished = true; window.scrollTo(0, 0); }
-    if (act === "tr-again") { trialQuizStart(exam, list); window.scrollTo(0, 0); }
-    trialQuizDraw(exam);
+  /* Parties réservées au parcours complet : la page existe, mais verrouillée */
+  function trialLock(exam, page) {
+    const c = courseOfExam(exam.code);
+    const T = {
+      documents: ["Documents", "📄", "Les documents PDF de référence du parcours " + exam.name + " s'ouvrent dès l'activation du parcours."],
+      annales: ["Annales de l'examen", "📜", "Les vrais sujets de l'examen " + exam.name + " avec leur corrigé officiel, à lire par session ou à passer en examen blanc, s'ouvrent dès l'activation du parcours."],
+      cours: ["Cours", "📘", (c ? c.full : "Le cours complet") + " : toutes les leçons, à lire une par une avec ta progression, s'ouvrent dès l'activation du parcours."]
+    }[page];
+    app.innerHTML = hero(exam, T[0], exam.full_name || exam.name, T[0]) +
+      `<div class="study stack"><div class="card center trial-lock"><div style="font-size:2.6rem">${T[1]}🔒</div><h2>${esc(T[0])} : réservé au parcours complet</h2><p>${esc(T[2])}</p></div>${trialCta(exam)}</div>`;
   }
 
   /* ------------------------------------------------------------------ */
@@ -2981,14 +2977,15 @@
     }
     const top = hero(exam, "Simulateur d'examen", "Mets-toi dans les conditions du jour J : réponses rédigées, chronomètre et note sur 20.", "Examen");
     if (!d.questions.length) { app.innerHTML = top + emptyBox("Le simulateur sera disponible dès que les questions de ce parcours seront publiées."); return; }
-    const hist = await loadExamAttempts(exam.code).catch(() => []);
-    const A = ANN_EXAMS.includes(exam.code) ? await annLoad(exam.code).catch(() => null) : null;
-    const annOpts = A && A.rows.length ? `<optgroup label="🎯 Sujets officiels (annales corrigées)">${[...A.years.keys()].map((y) => [...A.years.get(y).entries()].map(([s, l]) => { const n = l.filter((q) => q.answer).length; return n ? `<option value="A|${y}|${esc(s)}">Sujet officiel ${esc(exam.name)} ${y} — ${esc(s)} (${n} q.)</option>` : ""; }).join("")).join("")}</optgroup>` : "";
+    const hist = d.trial ? [] : await loadExamAttempts(exam.code).catch(() => []);
+    const A = !d.trial && ANN_EXAMS.includes(exam.code) ? await annLoad(exam.code).catch(() => null) : null;
+    const annOpts = d.trial ? (ANN_EXAMS.includes(exam.code) ? `<optgroup label="🔒 Sujets officiels (après activation)"><option disabled>Annales corrigées ${esc(exam.name)} : disponibles dans le parcours complet</option></optgroup>` : "") : A && A.rows.length ? `<optgroup label="🎯 Sujets officiels (annales corrigées)">${[...A.years.keys()].map((y) => [...A.years.get(y).entries()].map(([s, l]) => { const n = l.filter((q) => q.answer).length; return n ? `<option value="A|${y}|${esc(s)}">Sujet officiel ${esc(exam.name)} ${y} — ${esc(s)} (${n} q.)</option>` : ""; }).join("")).join("")}</optgroup>` : "";
     const subjName = (id) => (d.allSubjects.find((s) => s.id === id) || {}).name || "Tout le parcours";
     const avg = hist.length ? hist.reduce((a, x) => a + Number(x.note20), 0) / hist.length : 0;
     app.innerHTML = top + `<div class="study stack"><div class="card"><form id="examForm">
-        <label for="exSub">Épreuve</label><select id="exSub"><option value="">Tout le parcours ${esc(exam.name)} (${d.questions.length} questions, toutes matières)</option>${d.subjects.map((s) => `<option value="${s.id}">${esc(s.name)} (${(d.bySubject.get(s.id) || []).length})</option>`).join("")}${annOpts}</select>
-        <label>Nombre de questions</label><div class="radio-cards ex-sizes">${EX_SIZES.map((n) => `<label><input type="radio" name="exNum" value="${n}" ${n === 10 ? "checked" : ""}> ${n}</label>`).join("")}</div>
+        <label for="exSub">Épreuve</label><select id="exSub"><option value="">Tout le parcours ${esc(exam.name)} (${d.questions.length} questions, toutes matières)</option>${d.subjects.map((s) => { const n = (d.bySubject.get(s.id) || []).length; return n ? `<option value="${s.id}">${esc(s.name)} (${n})</option>` : `<option disabled>🔒 ${esc(s.name)} (après activation)</option>`; }).join("")}${annOpts}</select>
+        <label>Nombre de questions</label><div class="radio-cards ex-sizes">${d.trial ? `<label><input type="radio" name="exNum" value="${TRIAL_LIM.exam}" checked> ${TRIAL_LIM.exam} 🎁</label>` + EX_SIZES.map((n) => `<label title="Parcours complet" style="opacity:.55"><input type="radio" name="exNum" value="${n}" disabled> 🔒 ${n}</label>`).join("") : EX_SIZES.map((n) => `<label><input type="radio" name="exNum" value="${n}" ${n === 10 ? "checked" : ""}> ${n}</label>`).join("")}</div>
+        ${d.trial ? `<p class="hint">🎁 Essai gratuit : examen blanc de ${TRIAL_LIM.exam} questions, avec la vraie notation sur 20 et le corrigé détaillé. 10 à 30 questions après activation.</p>` : ""}
         <label for="exPace">Temps par question</label><select id="exPace">${EX_PACE.map(([s, l]) => `<option value="${s}" ${s === 90 ? "selected" : ""}>${l}</option>`).join("")}</select>
         <p class="hint" id="exDur"></p>
         <div class="ex-rules"><b>📋 Règlement de l'épreuve</b><ul>
@@ -3017,9 +3014,10 @@
     const code = parts()[1], d = S.data[code]; if (!d || exRunning()) return;
     if (!document.getElementById("exHonor").checked) return toast("Coche l'engagement sur l'honneur pour commencer.", "err");
     const sid = document.getElementById("exSub").value;
-    const n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 10;
+    let n = Number((document.querySelector('input[name="exNum"]:checked') || {}).value) || 10;
+    if (d.trial) n = Math.min(n, TRIAL_LIM.exam);
     const pace = Number(document.getElementById("exPace").value) || 90;
-    const off = annPool(code, sid);
+    const off = d.trial ? null : annPool(code, sid);
     if (off) {
       if (!off.length) return toast("Aucune question corrigée dans ce sujet.", "err");
       const [, y, sj] = sid.split("|"), t0 = Date.now();
@@ -3047,7 +3045,7 @@
     S.exam = {
       uid: S.session.user.id, exam: code, subjectId: sid ? Number(sid) : null, scope: sid ? sname(Number(sid)) : "Tout le parcours",
       items: picked.map((q) => ({ id: q.id, subject_id: q.subject_id, sname: sname(q.subject_id), question: q.question, answer: q.answer, resp: "" })),
-      i: 0, pace, startedAt: now, endsAt: now + picked.length * pace * 1000, leaves: 0, done: false
+      i: 0, pace, startedAt: now, endsAt: now + picked.length * pace * 1000, leaves: 0, done: false, trial: !!d.trial
     };
     exSave(); drawExamRun(); window.scrollTo(0, 0);
   }
@@ -3129,7 +3127,7 @@
     drawExamResult(); window.scrollTo(0, 0);
   }
   async function saveExam() {
-    const z = S.exam; if (z.saved || z.pending) return;
+    const z = S.exam; if (z.saved || z.pending || z.trial) return;
     const args = {
       p_exam: z.exam, p_subject_id: z.subjectId, p_total: z.items.length, p_score: z.score, p_note20: z.note20,
       p_duration_s: Math.round((z.endedAt - z.startedAt) / 1000), p_leaves: z.leaves,
@@ -3205,7 +3203,7 @@
     z.items.forEach((x) => { const b = bySub.get(x.sname) || { n: 0, s: 0 }; b.n++; b.s += exCredit(x); bySub.set(x.sname, b); });
     const weak = [...bySub].filter(([, b]) => b.s / b.n < 0.5).map(([k]) => k);
     const reasonTxt = { time: "⏱️ Temps écoulé : ta copie a été remise automatiquement.", leaves: `🚫 Copie remise automatiquement après ${z.leaves} sorties de l'application.` }[z.reason] || "";
-    const saveTxt = z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera envoyé dès le retour d'Internet." : "Résultat non enregistré" + (z.saveErr ? " : " + z.saveErr : ".");
+    const saveTxt = z.trial ? "🎁 Essai gratuit : ce résultat n'est pas enregistré. Après activation, chaque examen blanc est ajouté à ta progression." : z.saved ? "Résultat enregistré dans ta progression." : z.pending ? "📴 Résultat gardé sur le téléphone : il sera envoyé dès le retour d'Internet." : "Résultat non enregistré" + (z.saveErr ? " : " + z.saveErr : ".");
     app.innerHTML = hero(exam, "Résultat de l'examen", exMention(z.note20) + " — " + z.scope, "Examen") + `<div class="study stack">
       <div class="card center ex-score">
         <div class="score-ring" style="--p:${pct}"><div>${fmtNote(z.note20)}<small>/20</small></div></div>
@@ -3222,6 +3220,7 @@
       ${nSelf ? `<div class="card ex-selfinfo"><b>✍️ Vérifie ta copie</b><p class="small" style="margin:6px 0 0">La correction automatique compare des mots-clés : elle peut se tromper si tu as répondu juste avec tes propres mots. Sous chaque réponse, compare avec le corrigé et indique si tu avais bon. <b>Ta note se met à jour</b>.</p></div>` : ""}
       <div class="card"><h3>Corrigé détaillé</h3>${z.items.map(exCorr).join("")}</div>
       ${nNone + cnt("bad", "weak") ? `<a class="ex-banner rv-banner" href="#/p/${exam.code}/revoir"><span class="ex-ico" aria-hidden="true">🔁</span><span><b>Revoir les questions ratées</b><small>Elles sont dans « Mes questions à revoir » : révise-les avant ton prochain examen</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      ${z.trial ? trialCta(exam, z.note20 >= 10 ? "Belle copie ! Passe à la vitesse supérieure" : "Entraîne-toi sur tout le parcours") : ""}
       <p class="hint center">Correction automatique par notions clés : chaque réponse est comparée aux éléments attendus du corrigé officiel (fautes d'orthographe, pluriels, racines de mots et sigles tolérés), puis tu peux la vérifier toi-même. En cas de doute, fie-toi au corrigé officiel.</p>
     </div>`;
   }
