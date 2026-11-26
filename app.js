@@ -135,7 +135,7 @@
   })();
   (function () {
     const st = document.createElement("style");
-    st.textContent = ".badge.trial{background:#fde7f0;color:#a3164a;border:1px solid #f5b5cd}.trial-card{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:2px dashed #e9739e;color:#7a1238;text-decoration:none}.trial-card b{display:block;font-size:1.05rem}.trial-card small{display:block;color:#8a3a57}.trial-card .tc-ico{font-size:2rem}.trial-card .tc-go{margin-left:auto;font-weight:900;font-size:1.3rem}.trial-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.trial-modes a{display:block;padding:18px 14px;border-radius:16px;background:#fff;border:1px solid var(--line,#e3e8f0);text-align:center;text-decoration:none;color:inherit;box-shadow:0 4px 0 #e3e8f0}.trial-modes a span{display:block;font-size:2rem}.trial-cta{margin-top:14px;padding:18px;border-radius:16px;background:linear-gradient(135deg,#0b1f3a,#1f4fa8);color:#fff;text-align:center}.trial-cta p{color:#dbe6ff}.trial-cta .btn{margin-top:6px}.onb-card ol{margin:8px 0 0;padding-left:0;list-style:none;display:grid;gap:8px}.onb-card li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid var(--line,#e3e8f0)}.onb-card li.done{background:#ecfdf3;border-color:#a6f4c5}.onb-card li .onb-n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#1f4fa8;color:#fff}.onb-card li.done .onb-n{background:#13804a}.onb-card li span.onb-t{flex:1}.onb-card li .btn{flex:none}.ex-skipnote{margin:8px 0;padding:8px 12px;border-radius:10px;background:#fff7e6;color:#7a4b00;font-size:.9rem}.ex-grid .skip{background:#fff1d6;border-color:#f5c26b}.ex-self{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px dashed #9cb4e6}.ex-self small{display:block;margin-bottom:6px;color:#33415e}.ex-selfinfo{background:#eef4ff;border:1px solid #c9d8f5}.trial-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:1px solid #f5b5cd;color:#7a1238;line-height:1.45}.trial-bar>span{flex:1;min-width:210px}.trial-bar .btn{background:#c2185b;color:#fff;border:0;white-space:nowrap}.trial-bar.wait{background:#eaf3ff;border-color:#9cc3f5;color:#0b3a75}.trial-bar.wait .btn{background:#1f4fa8}.subject.locked{opacity:.78}.subject.locked .num{background:#e9edf3;color:#5b6b82}.subject.locked .info span{color:#8a3a57}.action.locked{position:relative;opacity:.8}.action.locked::after{content:'🔒';position:absolute;top:8px;right:10px;font-size:1rem}.lk-lock{font-size:.82em;color:#8a3a57;font-weight:700}.trial-lock h2{margin-top:6px}";
+    st.textContent = ".badge.trial{background:#fde7f0;color:#a3164a;border:1px solid #f5b5cd}.trial-card{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:2px dashed #e9739e;color:#7a1238;text-decoration:none}.trial-card b{display:block;font-size:1.05rem}.trial-card small{display:block;color:#8a3a57}.trial-card .tc-ico{font-size:2rem}.trial-card .tc-go{margin-left:auto;font-weight:900;font-size:1.3rem}.trial-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.trial-modes a{display:block;padding:18px 14px;border-radius:16px;background:#fff;border:1px solid var(--line,#e3e8f0);text-align:center;text-decoration:none;color:inherit;box-shadow:0 4px 0 #e3e8f0}.trial-modes a span{display:block;font-size:2rem}.trial-cta{margin-top:14px;padding:18px;border-radius:16px;background:linear-gradient(135deg,#0b1f3a,#1f4fa8);color:#fff;text-align:center}.trial-cta p{color:#dbe6ff}.trial-cta .btn{margin-top:6px}.onb-card ol{margin:8px 0 0;padding-left:0;list-style:none;display:grid;gap:8px}.onb-card li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid var(--line,#e3e8f0)}.onb-card li.done{background:#ecfdf3;border-color:#a6f4c5}.onb-card li .onb-n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#1f4fa8;color:#fff}.onb-card li.done .onb-n{background:#13804a}.onb-card li span.onb-t{flex:1}.onb-card li .btn{flex:none}.ex-skipnote{margin:8px 0;padding:8px 12px;border-radius:10px;background:#fff7e6;color:#7a4b00;font-size:.9rem}.ex-grid .skip{background:#fff1d6;border-color:#f5c26b}.ex-self{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px dashed #9cb4e6}.ex-self small{display:block;margin-bottom:6px;color:#33415e}.ex-selfinfo{background:#eef4ff;border:1px solid #c9d8f5}.trial-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#fff4f8,#ffe6f0);border:1px solid #f5b5cd;color:#7a1238;line-height:1.45}.trial-bar>span{flex:1;min-width:210px}.trial-bar .btn{background:#c2185b;color:#fff;border:0;white-space:nowrap}.trial-bar.wait{background:#eaf3ff;border-color:#9cc3f5;color:#0b3a75}.trial-bar.wait .btn{background:#1f4fa8}.subject.locked{opacity:.78}.subject.locked .num{background:#e9edf3;color:#5b6b82}.subject.locked .info span{color:#8a3a57}.action.locked{position:relative;opacity:.8}.action.locked::after{content:'🔒';position:absolute;top:8px;right:10px;font-size:1rem}.lk-lock{font-size:.82em;color:#8a3a57;font-weight:700}.trial-lock h2{margin-top:6px}.crs-lib{display:grid;gap:10px}.crs-lib a{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--line,#e3e8f0);text-decoration:none;color:inherit;box-shadow:0 3px 0 #e3e8f0}.crs-lib .cl-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.5rem;background:#eef3ff}.crs-lib b{display:block}.crs-lib small{display:block;color:#5b6b82}.crs-lib .cl-go{margin-left:auto;font-weight:900;font-size:1.3rem;color:#1f4fa8}.crs-enonce{padding:12px 14px;border-radius:14px;background:#f5f8ff;border:2px solid #9cb4e6;margin-bottom:12px}.crs-lbl{margin:0 0 6px;font-weight:800;color:#1f4fa8}.crs-corr{margin:12px 0;border:1px solid #a6f4c5;border-radius:14px;background:#f3fdf7}.crs-corr summary{cursor:pointer;padding:12px 14px;font-weight:800;color:#13804a}.crs-corr-in{padding:0 14px 12px}.crs-hdr{margin:2px 0;text-align:right;font-style:italic;color:#33415e}.crs-note{margin:4px 0 10px;color:#5b6b82}";
     document.head.appendChild(st);
   })();
   const isAdmin = () => S.profile && S.profile.role === "admin" && !S.profile.is_blocked;
@@ -652,7 +652,7 @@
     TRACK_AT.set(k, t);
     sb.rpc("lk_track", { p_exam: exam || "", p_kind: kind }).then(() => {}, () => {});
   }
-  const TRACK_KIND = { matieres: "revision", revision: "revision", cours: "cours", annales: "annales", quiz: "quiz", revoir: "quiz", examen: "examen", documents: "documents", recherche: "recherche" };
+  const TRACK_KIND = { matieres: "revision", revision: "revision", cours: "cours", annales: "annales", sujets: "annales", quiz: "quiz", revoir: "quiz", examen: "examen", documents: "documents", recherche: "recherche" };
   async function renderExam(code, page, rest) {
     const exam = examByCode(code);
     document.body.className = "exam-" + code;
@@ -667,9 +667,16 @@
       if (page === "activer" || page === "essai") return go("#/p/" + code);
       if (TRACK_KIND[page]) track(code, TRACK_KIND[page]);
     }
-    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page === "annales" ? "accueil" : page);
-    if (trial && (page === "documents" || page === "annales" || page === "cours")) { if (!S.data[code]) await trialView(code).catch(() => null); return trialLock(exam, page); }
-    if (page === "cours" && courseOfExam(code)) { crsUse(courseOfExam(code).code); return await renderCourse(rest[0]); }
+    examBottomNav(code, page === "revision" ? "matieres" : page === "examen" || page === "revoir" ? "quiz" : page === "annales" || page === "sujets" ? "accueil" : page);
+    if (trial && (page === "documents" || page === "annales" || page === "cours" || page === "sujets")) { if (!S.data[code]) await trialView(code).catch(() => null); return trialLock(exam, page); }
+    if (page === "cours" && courseOfExam(code)) {
+      const list = coursesOfExam(code), pick = list.find((c) => c.code === rest[0]);
+      if (pick) { crsUse(pick.code); return await renderCourse(rest[1]); }
+      if (/^\d+$/.test(rest[0] || "")) { crsUse(list[0].code); return go(list[0].base + "/" + rest[0]); }   // anciens liens « cours/12 »
+      if (list.length === 1) { crsUse(list[0].code); return await renderCourse(); }
+      return renderCourseLib(exam);
+    }
+    if (page === "sujets") { const sc = sujetsOfExam(code); if (!sc) return go("#/p/" + code); crsUse(sc.code); return await renderCourse(rest[0]); }
     app.innerHTML = `<div class="center-load"><div class="spinner"></div><p>Chargement du parcours ${esc(exam.name)}…</p></div>`;
     const d = trial ? await trialView(code) : await loadExamData(code);
     if (page === "matieres") return renderSubjects(exam, d);
@@ -708,7 +715,8 @@
       </div>
       ${reviewBanner(exam)}
       ${ANN_EXAMS.includes(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/annales"><span class="ex-ico" aria-hidden="true">📜</span><span><b>Annales de l'examen</b><small>Les vrais sujets de l'examen ${esc(exam.name)} avec leur corrigé officiel${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
-      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>Cours complet</b><small>${esc(courseOfExam(exam.code).full)} — à lire leçon par leçon, avec ta progression${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      ${courseOfExam(exam.code) ? `<a class="ex-banner crs-banner" href="#/p/${exam.code}/cours"><span class="ex-ico" aria-hidden="true">📘</span><span><b>${coursesOfExam(exam.code).length > 1 ? coursesOfExam(exam.code).length + " cours à lire" : "Cours complet"}</b><small>${esc(coursesOfExam(exam.code).map((c) => c.name).join(" · "))} — avec ta progression${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      ${sujetsOfExam(exam.code) ? `<a class="ex-banner ann-banner" href="#/p/${exam.code}/sujets"><span class="ex-ico" aria-hidden="true">✍️</span><span><b>Sujets corrigés</b><small>${esc(sujetsOfExam(exam.code).full)} — énoncé puis corrigé${lk}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
       <a class="ex-banner" href="#/p/${exam.code}/examen"><span class="ex-ico" aria-hidden="true">🎓</span><span><b>Simulateur d'examen</b><small>${d.trial ? "Essai : " + TRIAL_LIM.exam + " questions" : "10 à 30 questions"}, réponses rédigées, chronométré, corrigé et noté sur 20</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>
       <div class="grid-2">
         <div><div class="section-title"><h2>Matières</h2><a href="#/p/${exam.code}/matieres" class="small">Tout voir →</a></div>
@@ -2332,8 +2340,8 @@
     { id: "annales", t: "Les annales corrigées", k: ["annale", "annales", "sujet officiel", "sujets officiels", "anciens sujets", "examens passes"],
       to: (c) => (c && c.exam && ANN_EXAMS.includes(c.exam.code) ? jExamTo(c, "annales") : null),
       a: () => `Les annales contiennent les vrais sujets de l'examen final avec leur corrigé officiel (parcours ${ANN_EXAMS.join(" et ")}).\n• Sur l'accueil du parcours, touche « Annales de l'examen », puis choisis une session.\n• « Voir le corrigé » sous chaque question, ou « Afficher tous les corrigés ».\n• Tu peux aussi passer un sujet officiel en examen blanc : Simulateur › Épreuve › « Sujet officiel ».` },
-    { id: "cours", t: "Les cours (Police et RDG-RSA)", k: ["cours complet", "lecon", "lecons", "article", "rdg", "rsa", "rdg rsa", "reglement de discipline", "module offert", "cours police"],
-      a: () => `Deux cours se lisent leçon par leçon, avec ta progression :\n• Cours Police nationale : inclus dans le parcours Police (onglet « Cours »).\n• Module RDG-RSA (règlement de discipline générale) : offert automatiquement dès que tu as au moins un parcours activé, sur la page « Parcours ».\nDans un cours, pose-moi ta question : je te donne le passage et le numéro de la leçon ou de l'article.` },
+    { id: "cours", t: "Les cours et les sujets corrigés", k: ["cours complet", "lecon", "lecons", "article", "rdg", "rsa", "rdg rsa", "reglement de discipline", "module offert", "cours police", "sujets corriges", "sujet corrige", "corrige type"],
+      a: () => `Les cours se lisent leçon par leçon, avec ta progression :\n• Parcours Police (onglet « Cours ») : Cours Police nationale, Statut du personnel de la Police nationale (loi 2009-18), Constitution du Sénégal, L'extinction de l'action publique, Le Procureur de la République. Chaque cours a son titre et son sommaire.\n• Parcours Police, accueil : « Sujets corrigés » (dissertation, rapports, correspondances administratives) : lis l'énoncé, rédige ta réponse, puis touche « Voir le corrigé ».\n• Module RDG-RSA (règlement de discipline générale) : offert automatiquement dès que tu as au moins un parcours activé, sur la page « Parcours ».\nPose-moi ta question : je cherche dans tous les cours du parcours et je te donne le passage.` },
     { id: "recherche", t: "Rechercher une notion", k: ["rechercher", "recherche", "chercher une question", "trouver une question", "trouver une notion"],
       to: (c) => jExamTo(c, "recherche"), a: () => `Deux façons de retrouver une notion :\n• Onglet « Recherche » du parcours : tape un mot (ex. « réquisition ») pour voir toutes les questions qui le contiennent.\n• Ou demande-moi directement : je comprends les fautes et les abréviations, et je te propose les questions proches.` },
     { id: "documents", t: "Les documents PDF", k: ["document", "documents", "pdf", "recueil", "telecharger le recueil"],
@@ -2401,7 +2409,7 @@
     if (exRunning()) return { mode: "quiz", label: "En pause pendant l'examen", codes: [] };
     if (p[0] === "p" && examByCode(p[1])) {
       const ex = examByCode(p[1]);
-      const pc = p[2] === "cours" && courseOfExam(p[1]);
+      const pc = (p[2] === "sujets" && sujetsOfExam(p[1])) || (p[2] === "cours" && (coursesOfExam(p[1]).find((c) => c.code === p[3]) || (/^\d*$/.test(p[3] || "") && coursesOfExam(p[1]).length === 1 && courseOfExam(p[1]))));
       if (pc && crsOk(pc)) return { mode: "course", label: "Recherche dans le cours " + ex.name, codes: [], course: pc.code };
       if (p[2] === "quiz" && S.quiz && !S.quiz.finished) return { mode: "quiz", label: "En pause pendant le quiz", codes: [] };
       if (!hasAccess(p[1])) return trialOk(ex) ? { mode: "exam", trial: true, label: "Essai gratuit · " + ex.name, codes: [p[1]], exam: ex } : { mode: "locked", label: "Activation du parcours " + ex.name, codes: [], exam: ex };
@@ -2417,7 +2425,7 @@
     const ex = `<br><span class="jia-ex">Exemples : « c'est quoi la MGO ? » · « comment installer l'appli sur iPhone ? »</span>`;
     if (c.mode === "guest") return `Bonjour 👋 Je suis <b>Julien – IA</b>, l'assistant de LUKOS-REVISION.<br>Je t'aide à <b>créer ton compte</b>, te <b>connecter</b>, <b>installer l'application</b> sur Android ou iPhone, retrouver ton <b>mot de passe</b> ou <b>payer ton parcours</b>.<br>Une fois ton parcours activé, je réponds aussi à toutes tes questions de cours en une seconde.`;
     if (c.mode === "locked") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>. Le parcours <b>${esc(c.exam.name)}</b> n'est pas encore activé pour toi.<br>🎁 <b>Essaie-le gratuitement</b> : 20 questions en fiches et en quiz express, sans payer.<br>💳 Je t'explique aussi comment le <b>payer par Wave</b> et l'<b>activer</b> (paiement unique, accès illimité).<br>📚 Dès qu'il est activé, pose-moi tes questions de cours : je trouve la réponse officielle en une seconde.<br>${appLine}`;
-    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📘 <b>Pose-moi une question sur le ${esc(cc.name)}</b> (${esc(cc.hint)}) : je trouve le passage et ${cc.unit === "Article" ? "l'article" : "la leçon"} correspondant${cc.fem ? "e" : ""}, ou tape un numéro (ex. « ${cc.unit === "Article" ? "article 45" : "leçon 12"} »).<br>${appLine}`; }
+    if (c.mode === "course") { const cc = COURSES[c.course]; return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📘 <b>Pose-moi une question sur « ${esc(cc.name)} »</b> (${esc(cc.hint)}) : je trouve le passage correspondant${cc.unit === "Article" ? ", ou tape un numéro (ex. « article 25 »)" : cc.unit === "Leçon" ? ", ou tape un numéro (ex. « leçon 12 »)" : ""}.<br>${appLine}`; }
     if (c.mode === "exam" && c.trial) return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>🎁 <b>Essai gratuit du parcours ${esc(c.exam.name)}</b> : pose-moi une question de cours, je cherche la réponse officielle parmi les questions ouvertes de l'essai (${TRIAL_LIM.ia} questions par jour).<br>💳 Après activation, je cherche dans tout le parcours, sans limite.<br>${appLine}${ex}`;
     if (c.mode === "exam") return `Bonjour${n} 👋 Je suis <b>Julien – IA</b>, ton assistant de révision.<br>📚 <b>Pose-moi n'importe quelle question du parcours ${esc(c.exam.name)}</b> : je retrouve la réponse officielle en une seconde, même avec des fautes ou des abréviations (CAT, MGO, OPJ…).<br>${appLine}${ex}`;
     return c.codes.length
@@ -2509,7 +2517,13 @@
         const cr = crsSearch(jClean(raw));
         if (cr.length && !appWins(cr[0].s)) { const out = crsAnswer(cr); return jPush("bot", out.html, out.extra); }
         if (fq) return faqOut();
-        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)}) ou un numéro ${CRS.unit === "Article" ? "d'article (ex. « article 45 »)" : "de leçon (ex. « leçon 12 »)"}.<p class="small muted" style="margin-top:8px">Toujours bloqué ? L'assistance peut t'aider :</p>`, jWaBtn(raw));
+        { // rien dans ce cours : on cherche dans les autres cours du même parcours
+          const here = CRS, ex = here.exam; let best = null;
+          if (ex) for (const cc of coursesOfExam(ex).concat(sujetsOfExam(ex) || [])) { if (cc === here) continue; const r = await crsTry(cc, jClean(raw)); if (r && (!best || r.s > best.s)) best = r; }
+          crsUse(here.code);
+          if (best) return jPush("bot", best.out.html, best.out.extra);
+        }
+        return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans le cours ${esc(CRS.name)}. Essaie avec un mot-clé simple (ex. ${esc(CRS.hint)})${CRS.unit === "Article" ? " ou un numéro d'article (ex. « article 25 »)" : CRS.unit === "Leçon" ? " ou un numéro de leçon (ex. « leçon 12 »)" : ""}.<p class="small muted" style="margin-top:8px">Toujours bloqué ? L'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
       if (c.codes.length) {
         for (const code of c.codes) if (!S.data[code]) { jPush("bot", "Je charge les questions du parcours " + esc((examByCode(code) || {}).name || code) + "…"); await (c.trial ? trialView(code) : loadExamData(code)); JIA.msgs.pop(); }
@@ -2527,7 +2541,11 @@
         if (fq) return faqOut();
         if (c.trial) return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » parmi les questions ouvertes de l'essai. La réponse se trouve peut-être dans la partie 🔒 du parcours ${esc(c.exam.name)}, qui se débloque à l'activation.`, `<div class="jia-acts"><button type="button" data-jia="go" data-h="#/p/${esc(c.exam.code)}/activer">💳 Activer le parcours</button></div>`);
         // sinon : le cours du parcours (s'il en a un), puis le module RDG-RSA
-        for (const cc of [...new Set(c.codes.map(courseOfExam).filter(Boolean)), COURSES["RDG-RSA"]]) { const out = await crsTry(cc, jClean(raw)); if (out) return jPush("bot", out.html, out.extra); }
+        { // tous les cours du parcours (et RDG-RSA) : on garde le passage le plus pertinent
+          let best = null;
+          for (const cc of [...new Set([].concat(...c.codes.map((k) => coursesOfExam(k).concat(sujetsOfExam(k) || []))))].concat(COURSES["RDG-RSA"])) { const r = await crsTry(cc, jClean(raw)); if (r && (!best || r.s > best.s)) best = r; }
+          if (best) return jPush("bot", best.out.html, best.out.extra);
+        }
         const others = S.exams.filter((e) => !hasAccess(e.code)).map((e) => e.name);
         return jPush("bot", `Je n'ai rien trouvé pour « ${esc(raw)} » dans ${c.codes.length > 1 ? "tes parcours" : "ce parcours"}. Essaie avec un mot-clé plus simple (ex. « fracture », « réquisition », « MGO »)${others.length && c.mode === "home" ? ", ou active un autre parcours (" + others.map(esc).join(", ") + ")" : ""}.<p class="small muted" style="margin-top:8px">Si c'est une question sur l'application, demande-moi par exemple « comment payer ? » ou « comment installer ? ». Sinon, l'assistance peut t'aider :</p>`, jWaBtn(raw));
       }
@@ -2569,14 +2587,49 @@
       base: "#/cours", unit: "Article", partLabel: "Partie", heroClass: "crs-hero", readKey: (uid) => "crsread:" + uid,
       hint: "permission, salut, punition…", sugg: ["Qu'est-ce que la discipline militaire ?", "Permissions exceptionnelles", "Punitions des sous-officiers", "Le salut"],
       data: null, idx: null, read: null, uid: null, q: "" },
-    "POLICE": { code: "POLICE", name: "Cours Police nationale", full: "Référentiel pédagogique du fonctionnaire de police", exam: "POLICE",
-      base: "#/p/POLICE/cours", unit: "Leçon", fem: true, partLabel: "Module", heroClass: "", readKey: (uid) => "crsread:POLICE:" + uid,
+    "POLICE": { code: "POLICE", name: "Cours Police nationale", full: "Référentiel pédagogique du fonctionnaire de police", exam: "POLICE", ico: "🚓",
+      base: "#/p/POLICE/cours/POLICE", unit: "Leçon", fem: true, partLabel: "Module", heroClass: "", readKey: (uid) => "crsread:POLICE:" + uid,
       hint: "infraction, flagrant délit, rébellion…", sugg: ["Éléments constitutifs de l'infraction", "La légitime défense", "Accident mortel", "Le proxénétisme"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE-STATUT": { code: "POLICE-STATUT", name: "Statut du personnel de la Police nationale", full: "Loi n° 2009-18 du 9 mars 2009 relative au statut du personnel de la Police nationale", exam: "POLICE", ico: "📜",
+      base: "#/p/POLICE/cours/POLICE-STATUT", unit: "Article", titled: true, partLabel: "", heroClass: "", readKey: (uid) => "crsread:POLICE-STATUT:" + uid,
+      hint: "positions, détachement, sanctions…", sugg: ["Les positions du policier", "Les sanctions disciplinaires", "La disponibilité", "Le détachement"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE-CONST": { code: "POLICE-CONST", name: "Constitution du Sénégal", full: "Loi n° 2001-03 du 22 janvier 2001 portant Constitution, modifiée", exam: "POLICE", ico: "🇸🇳",
+      base: "#/p/POLICE/cours/POLICE-CONST", unit: "Article", titled: true, partLabel: "", heroClass: "", readKey: (uid) => "crsread:POLICE-CONST:" + uid,
+      hint: "Président, Assemblée nationale, libertés…", sugg: ["Durée du mandat présidentiel", "Le pouvoir judiciaire", "La révision de la Constitution", "Les libertés fondamentales"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE-EXTINCTION": { code: "POLICE-EXTINCTION", name: "L'extinction de l'action publique", full: "Prescription, décès du délinquant, abrogation, amnistie, retrait de plainte", exam: "POLICE", ico: "⚖️",
+      base: "#/p/POLICE/cours/POLICE-EXTINCTION", unit: "Partie", fem: true, titled: true, partLabel: "", heroClass: "", readKey: (uid) => "crsread:POLICE-EXTINCTION:" + uid,
+      hint: "prescription, amnistie, décès…", sugg: ["Délai de prescription des délits", "L'amnistie", "Le décès du délinquant", "Le retrait de la plainte"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE-PROCUREUR": { code: "POLICE-PROCUREUR", name: "Le Procureur de la République", full: "Mise en mouvement et exercice de l'action publique, prérogatives du Procureur", exam: "POLICE", ico: "👨‍⚖️",
+      base: "#/p/POLICE/cours/POLICE-PROCUREUR", unit: "Fiche", fem: true, titled: true, partLabel: "", heroClass: "", readKey: (uid) => "crsread:POLICE-PROCUREUR:" + uid,
+      hint: "réquisitions, flagrant délit, irrécusable…", sugg: ["Les prérogatives du Procureur", "L'exercice de l'action publique", "Citation directe", "Le Procureur est-il irrécusable ?"],
+      data: null, idx: null, read: null, uid: null, q: "" },
+    "POLICE-SUJETS": { code: "POLICE-SUJETS", name: "Sujets corrigés Police", full: "Dissertation, rapports et correspondances administratives", exam: "POLICE", ico: "✍️", kind: "sujets",
+      base: "#/p/POLICE/sujets", unit: "Sujet", titled: true, partLabel: "", heroClass: "", readKey: (uid) => "crsread:POLICE-SUJETS:" + uid,
+      hint: "grève, flagrant délit, positions…", sugg: ["Les positions du policier", "Rapport sur un vol à la tire", "Note de service", "Découverte de cadavre"],
       data: null, idx: null, read: null, uid: null, q: "" }
   };
   let CRS = COURSES["RDG-RSA"];                       // cours affiché en ce moment
   const crsUse = (code) => (CRS = COURSES[code] || COURSES["RDG-RSA"]);
-  const courseOfExam = (code) => Object.values(COURSES).find((c) => c.exam === code) || null;
+  const coursesOfExam = (code) => Object.values(COURSES).filter((c) => c.exam === code && c.kind !== "sujets");
+  const sujetsOfExam = (code) => Object.values(COURSES).find((c) => c.exam === code && c.kind === "sujets") || null;
+  const courseOfExam = (code) => coursesOfExam(code)[0] || null;
+  /* libellé d'une leçon : « Leçon 12 – titre » ou, pour les textes de loi et sujets, le titre seul */
+  const crsLabel = (no, title) => (CRS.titled ? title : CRS.unit + " " + no + " – " + title);
+  const crsShort = (no, title) => (CRS.titled ? (title.length > 34 ? title.slice(0, 33) + "…" : title) : CRS.unit + " " + no);
+  /* Page « Cours » d'un parcours : un titre par cours */
+  async function renderCourseLib(exam) {
+    const list = coursesOfExam(exam.code), sj = sujetsOfExam(exam.code);
+    const prog = async (c) => { const r = await idb.get(c.readKey(S.session.user.id)); return r && r.ids ? r.ids.length : 0; };
+    const done = await Promise.all(list.map(prog));
+    app.innerHTML = hero(exam, "Cours", list.length + " cours à lire, chacun avec son sommaire et ta progression.", "Cours") +
+      `<div class="study stack"><div class="crs-lib">${list.map((c, k) => `<a href="${c.base}"><span class="cl-ico" aria-hidden="true">${c.ico || "📘"}</span><span><b>${esc(c.name)}</b><small>${esc(c.full)}${done[k] ? ` · ${done[k]} ${c.unit.toLowerCase()}${done[k] > 1 ? "s" : ""} ${c.fem ? "lue" : "lu"}${done[k] > 1 ? "s" : ""}` : ""}</small></span><span class="cl-go" aria-hidden="true">›</span></a>`).join("")}</div>
+      ${sj ? `<a class="ex-banner ann-banner" href="${sj.base}"><span class="ex-ico" aria-hidden="true">✍️</span><span><b>Sujets corrigés</b><small>${esc(sj.full)}</small></span><span class="ex-go" aria-hidden="true">${icon("next", 22)}</span></a>` : ""}
+      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tous ces cours à la fois.</span></div></div>`;
+  }
   const crsOk = (c) => !!S.profile && (isAdmin() || (!S.profile.is_blocked && (c.exam ? hasAccess(c.exam) : Object.values(S.enr || {}).some((e) => e && e.status === "active"))));
   const crsUnlocked = () => crsOk(CRS);
   const crsKey = (c) => "course:" + (c || CRS).code;
@@ -2618,10 +2671,12 @@
   }
   function crsHero(title, sub, crumb) {
     const ex = CRS.exam && examByCode(CRS.exam);
-    const root = ex ? `<a href="#/">Parcours</a> › <a href="#/p/${esc(ex.code)}">${esc(ex.name)}</a> › ` : `<a href="#/">Parcours</a> › `;
-    const back = crumb ? CRS.base : (ex ? "#/p/" + ex.code : "#/");
-    return `<section class="hero ${CRS.heroClass}"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb">${root}${crumb ? `<a href="${CRS.base}">${esc(CRS.exam ? "Cours" : CRS.name)}</a> › ${esc(crumb)}` : esc(CRS.exam ? "Cours" : CRS.name)}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
+    const lib = ex && CRS.kind !== "sujets" && coursesOfExam(ex.code).length > 1;
+    const root = ex ? `<a href="#/">Parcours</a> › <a href="#/p/${esc(ex.code)}">${esc(ex.name)}</a> › ${lib ? `<a href="#/p/${esc(ex.code)}/cours">Cours</a> › ` : ""}` : `<a href="#/">Parcours</a> › `;
+    const back = crumb ? CRS.base : (lib ? "#/p/" + ex.code + "/cours" : ex ? "#/p/" + ex.code : "#/");
+    return `<section class="hero ${CRS.heroClass}"><div class="hero-top"><a class="icon-btn" href="${back}" aria-label="Retour">${icon("back", 22)}</a><div class="crumb">${root}${crumb ? `<a href="${CRS.base}">${esc(crsTitle())}</a> › ${esc(crumb)}` : esc(crsTitle())}</div></div><h1>${esc(title)}</h1><p>${esc(sub)}</p></section>`;
   }
+  const crsTitle = () => (CRS.exam && !CRS.titled && coursesOfExam(CRS.exam).length < 2 ? "Cours" : CRS.name);
   async function renderCourse(no) {
     if (!CRS.exam) { homeBottomNav("home"); document.body.className = "crs-page"; }
     if (!crsUnlocked()) {
@@ -2644,19 +2699,19 @@
       if (x.part_no !== part) {
         if (part !== null) html += `</div></details>`;
         const inPart = rows.filter((y) => y.part_no === x.part_no), pd = inPart.filter((y) => r.ids.has(y.article_no)).length;
-        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>${esc(U)}s ${inPart[0].article_no} à ${inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} ${CRS.fem ? "lues" : "lus"}</small></span></summary><div class="crs-pbody">`;
+        html += `<details class="crs-part" ${resume && resume.part_no === x.part_no ? "open" : ""}><summary><span class="crs-pn">${x.part_no}</span><span class="crs-pt"><b>${esc(x.part_title)}</b><small>${CRS.titled ? inPart.length + " " + (inPart.length > 1 ? Up : U.toLowerCase()) : esc(U) + "s " + inPart[0].article_no + " à " + inPart[inPart.length - 1].article_no} · ${pd}/${inPart.length} ${CRS.fem ? "lues" : "lus"}</small></span></summary><div class="crs-pbody">`;
         part = x.part_no; chap = null;
       }
-      if (x.chapter_no !== chap) { html += `<div class="crs-chap">${esc(x.chapter_title)}</div>`; chap = x.chapter_no; }
+      if (x.chapter_no !== chap) { if (x.chapter_title !== x.part_title) html += `<div class="crs-chap">${esc(x.chapter_title)}</div>`; chap = x.chapter_no; }
       html += `<a class="crs-item ${r.ids.has(x.article_no) ? "read" : ""}" href="${CRS.base}/${x.article_no}"><span class="crs-no">${x.article_no}</span><span class="crs-it">${esc(x.title)}${x.updated_2013 ? ` <span class="badge upd">MIS À JOUR 2013</span>` : ""}</span><span class="crs-ck" aria-hidden="true">${r.ids.has(x.article_no) ? "✓" : ""}</span></a>`;
     });
     if (part !== null) html += `</div></details>`;
-    app.innerHTML = `${crsHero(CRS.exam ? "Cours" : CRS.name, CRS.full + " — " + n + " " + Up)}
+    app.innerHTML = `${crsHero(crsTitle(), CRS.full + " — " + n + " " + Up)}
       <div class="card crs-prog"><div class="row between"><b>Ta progression</b><span>${done} / ${n} ${Up} ${CRS.fem ? "lues" : "lus"}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
-        ${resume ? `<a class="btn btn-primary btn-block" href="${CRS.base}/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : ${esc(U)} ${resume.article_no} – ${esc(resume.title)}</a>` : ""}</div>
+        ${resume ? `<a class="btn btn-primary btn-block" href="${CRS.base}/${resume.article_no}">${done ? "Reprendre" : "Commencer"} : ${esc(crsLabel(resume.article_no, resume.title))}</a>` : ""}</div>
       <div class="card crs-search"><input id="crsQ" type="search" placeholder="🔎 Rechercher dans le cours (ex. ${esc(CRS.hint)})" value="${esc(CRS.q)}" aria-label="Rechercher dans le cours"><div id="crsRes"></div></div>
       <div class="crs-parts">${html}</div>
-      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique ${U === "Article" ? "l'article" : "la leçon"}.</span></div>`;
+      <div class="tip">${icon("info", 22)}<span>Une question ? Ouvre <b>Julien – IA</b> : il cherche la réponse dans tout le cours et t'indique ${U === "Article" ? "l'article" : U === "Sujet" ? "le sujet" : U === "Partie" ? "la partie" : "la leçon"}.</span></div>`;
     const q = document.getElementById("crsQ");
     const run = () => { CRS.q = q.value; crsShowSearch(q.value); };
     q.addEventListener("input", run); if (CRS.q) run();
@@ -2665,7 +2720,7 @@
     const box = document.getElementById("crsRes"); if (!box) return;
     if (String(raw || "").trim().length < 2) { box.innerHTML = ""; return; }
     const res = crsSearch(raw, 8);
-    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="${CRS.base}/${x.it.no}"><b>${esc(CRS.unit)} ${x.it.no} – ${esc(x.it.title)}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
+    box.innerHTML = res.length ? res.map((x) => `<a class="crs-hit" href="${CRS.base}/${x.it.no}"><b>${esc(crsLabel(x.it.no, x.it.title))}</b><small>${esc(x.it.text.slice(0, 160))}${x.it.text.length > 160 ? "…" : ""}</small></a>`).join("")
       : `<p class="muted small" style="margin:10px 2px 0">Aucun résultat pour « ${esc(raw)} ».</p>`;
   }
   async function crsLesson(rows, no) {
@@ -2673,16 +2728,16 @@
     if (i < 0) return go(CRS.base);
     const x = rows[i], prev = rows[i - 1], next = rows[i + 1], U = CRS.unit;
     await crsMarkRead(no);
-    app.innerHTML = `${crsHero(U + " " + x.article_no, x.title, U + " " + x.article_no)}
+    app.innerHTML = `${CRS.titled ? crsHero(x.title, x.chapter_title !== x.part_title ? x.part_title + " · " + x.chapter_title : x.part_title, crsShort(x.article_no, x.title)) : crsHero(U + " " + x.article_no, x.title, U + " " + x.article_no)}
       <article class="card crs-lesson">
-        <div class="crs-meta"><span>${esc(CRS.partLabel)} ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
-        <div class="row tools-row" style="margin:-4px 0 12px">${listenBtn()}${reportBtn("cours", x.article_no, "", CRS.name + " · " + CRS.unit + " " + x.article_no + " – " + x.title, "")}</div>
+        <div class="crs-meta">${CRS.titled ? `<span>${esc(CRS.name)}</span>` : `<span>${esc(CRS.partLabel)} ${x.part_no} · ${esc(x.part_title)}</span><span>${esc(x.chapter_title)}</span>`}${x.updated_2013 ? `<span class="badge upd">MIS À JOUR 2013</span>` : ""}</div>
+        <div class="row tools-row" style="margin:-4px 0 12px">${listenBtn()}${reportBtn("cours", x.article_no, CRS.exam || "", CRS.name + " · " + crsLabel(x.article_no, x.title), "")}</div>
         <div class="crs-body">${x.body_html}</div>
       </article>
       <div class="crs-nav">
-        ${prev ? `<a class="btn btn-ghost" href="${CRS.base}/${prev.article_no}">← ${esc(U)} ${prev.article_no}</a>` : `<span></span>`}
+        ${prev ? `<a class="btn btn-ghost" href="${CRS.base}/${prev.article_no}">← ${esc(CRS.titled ? "Précédent" : U + " " + prev.article_no)}</a>` : `<span></span>`}
         <a class="btn btn-ghost" href="${CRS.base}">Sommaire</a>
-        ${next ? `<a class="btn btn-primary" href="${CRS.base}/${next.article_no}">${esc(U)} ${next.article_no} →</a>` : `<a class="btn btn-primary" href="${CRS.base}">Terminé ✓</a>`}
+        ${next ? `<a class="btn btn-primary" href="${CRS.base}/${next.article_no}">${esc(CRS.titled ? "Suivant" : U + " " + next.article_no)} →</a>` : `<a class="btn btn-primary" href="${CRS.base}">Terminé ✓</a>`}
       </div>`;
   }
   /* Recherche dans le cours (utilisée par la page et par Julien – IA) */
@@ -2702,7 +2757,8 @@
   function crsSearch(raw, max) {
     if (!CRS.data) return [];
     const m = norm(raw).match(/\b(?:art(?:icle)?|lecon)\.?\s*(\d{1,3})\b/);
-    if (m) { const it = crsIndex().find((x) => x.no === parseInt(m[1], 10)); if (it) return [{ s: 99, it }]; }
+    if (m && CRS.titled) { const re = new RegExp("^(article|art\\.?)\\s+" + m[1] + "\\b"); const it = crsIndex().find((x) => x.k === 0 && re.test(norm(x.title))); if (it) return [{ s: 99, it }]; }
+    else if (m) { const it = crsIndex().find((x) => x.no === parseInt(m[1], 10)); if (it) return [{ s: 99, it }]; }
     const words = jExpand(jTok(raw)); if (!words.length) return [];
     const res = [];
     crsIndex().forEach((it) => {
@@ -2721,14 +2777,14 @@
     const r = res[0], it = r.it, U = CRS.unit, cc = esc(CRS.code);
     const all = crsIndex().filter((x) => x.no === it.no);
     const ctx = all.slice(Math.max(0, it.k), it.k + 2).map((x) => `<p>${esc(x.text)}</p>`).join("");
-    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">${esc(U)} ${it.no} – ${esc(it.title)}</div>`;
-    const more = res.length > 1 ? `<div class="jia-alts"><small>${U === "Article" ? "Articles proches" : "Leçons proches"} :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-course="${cc}" data-no="${a.it.no}">${esc(U)} ${a.it.no} – ${esc(a.it.title)}</button>`).join("")}</div>` : "";
-    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-course="${cc}" data-no="${it.no}">📖 Lire ${U === "Article" ? "l'article" : "la leçon"} ${it.no}</button></div>` + more };
+    const head = `<div class="jia-src">${esc(CRS.name)} · ${esc(it.chap)}</div><div class="jia-q">${esc(crsLabel(it.no, it.title))}</div>`;
+    const more = res.length > 1 ? `<div class="jia-alts"><small>Passages proches :</small>${res.slice(1).map((a) => `<button type="button" data-jia="crs" data-course="${cc}" data-no="${a.it.no}">${esc(crsLabel(a.it.no, a.it.title))}</button>`).join("")}</div>` : "";
+    return { html: head + `<div class="answer">${ctx}</div>`, extra: `<div class="jia-acts"><button type="button" data-jia="crs" data-course="${cc}" data-no="${it.no}">📖 ${CRS.titled ? "Lire : " + esc(crsShort(it.no, it.title)) : "Lire " + (U === "Article" ? "l'article" : "la leçon") + " " + it.no}</button></div>` + more };
   }
   /* cherche dans un cours donné (pour Julien – IA) */
   async function crsTry(c, raw) {
     if (!c || !crsOk(c)) return null;
-    try { crsUse(c.code); await crsLoad(c); const cr = crsSearch(raw); return cr.length ? crsAnswer(cr) : null; } catch (e) { return null; }
+    try { crsUse(c.code); await crsLoad(c); const cr = crsSearch(raw); return cr.length ? { s: cr[0].s, out: crsAnswer(cr) } : null; } catch (e) { return null; }
   }
 
   /* ------------------------------------------------------------------ */
@@ -2793,7 +2849,8 @@
     const T = {
       documents: ["Documents", "📄", "Les documents PDF de référence du parcours " + exam.name + " s'ouvrent dès l'activation du parcours."],
       annales: ["Annales de l'examen", "📜", "Les vrais sujets de l'examen " + exam.name + " avec leur corrigé officiel, à lire par session ou à passer en examen blanc, s'ouvrent dès l'activation du parcours."],
-      cours: ["Cours", "📘", (c ? c.full : "Le cours complet") + " : toutes les leçons, à lire une par une avec ta progression, s'ouvrent dès l'activation du parcours."]
+      cours: ["Cours", "📘", (coursesOfExam(exam.code).length > 1 ? "Les cours " + coursesOfExam(exam.code).map((x) => "« " + x.name + " »").join(", ") : (c ? c.full : "Le cours complet")) + " : à lire leçon par leçon avec ta progression, ils s'ouvrent dès l'activation du parcours."],
+      sujets: ["Sujets corrigés", "✍️", "Les sujets corrigés du parcours " + exam.name + " (dissertation, rapports, correspondances administratives) s'ouvrent dès l'activation du parcours."]
     }[page];
     app.innerHTML = hero(exam, T[0], exam.full_name || exam.name, T[0]) +
       `<div class="study stack"><div class="card center trial-lock"><div style="font-size:2.6rem">${T[1]}🔒</div><h2>${esc(T[0])} : réservé au parcours complet</h2><p>${esc(T[2])}</p></div>${trialCta(exam)}</div>`;
