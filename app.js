@@ -1257,7 +1257,7 @@
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
   /* L'Admin est rangée en 5 espaces ; chaque onglet garde son adresse #/admin/<onglet>. */
   const ADMIN_SPACES = [
-    { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord", null, "home"], ["direct", "Rapport du jour (direct)", null, "clock"]] },
+    { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord", null, "home"], ["direct", "Rapport du jour (direct)", null, "clock"], ["sauvegarde", "Sauvegarde Excel", null, "upload"]] },
     { k: "traiter", label: "À traiter", ic: "bell", tabs: [["paiements", "Paiements", "payments", "cash"], ["assistance", "Assistance", "support", "key"], ["signalements", "Signalements", "reports", "flag"], ["suggestions", "Suggestions", "suggestions", "idea"], ["expires", "Comptes expirés", "expired", "clock"]] },
     { k: "membres", label: "Membres", ic: "users", tabs: [["candidats", "Candidats"]] },
     { k: "stats", label: "Statistiques", ic: "chart", tabs: [["statistiques", "Statistiques d'usage"]] },
@@ -1296,7 +1296,7 @@
       <div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div></div>`;
     paintBadges(); refreshBadges(true);
     const body = document.getElementById("adminBody");
-    const fn = { direct: adToday, statistiques: adStats, tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
+    const fn = { sauvegarde: adBackup, direct: adToday, statistiques: adStats, tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1318,6 +1318,7 @@
       </section>
       <div class="adtodo">${todo.map(([tab, key, ic, lab, cl]) => `<a href="#/admin/${tab}" class="tdc ${cl}"><span class="tdc-ic">${icon(ic, 22)}</span><b data-badge="${key}">0</b><span class="tdc-l">${lab}</span></a>`).join("")}</div>
       <a href="#/admin/direct" class="rj-strip" id="rjStrip"><span class="rj-live"><i></i> En direct</span><span id="rjStripTxt">Chargement du rapport du jour…</span><b>Voir le rapport du jour →</b></a>
+      ${bkReminder()}
       <div class="adkpi">
         <div class="kp kp-cash"><span class="kp-ic">${icon("cash", 22)}</span><small>Encaissé au total</small><b>${esc(fmtXof(data.revenue_xof))}</b><em>${nf(paid)} paiement(s) réellement payés</em></div>
         <div class="kp kp-month"><span class="kp-ic">${icon("chart", 22)}</span><small>Encaissé ce mois</small><b>${esc(fmtXof(data.revenue_month_xof))}</b><em>${esc(new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }))}</em></div>
@@ -1343,10 +1344,117 @@
     }, () => {});
   }
 
+  /* ----- Sauvegarde Excel : toutes les tables dans un seul fichier .xlsx ----- */
+  const BK_DAYS = 7;                                   // rappel si la dernière sauvegarde a plus de 7 jours
+  const bkLast = () => Number(LS.get("bk:last", 0)) || 0;
+  function bkReminder() {
+    const last = bkLast(), days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+    if (days !== null && days < BK_DAYS) return "";
+    return `<a href="#/admin/sauvegarde" class="rj-strip bk-warn"><span>💾</span><span>${days === null ? "Aucune sauvegarde Excel faite depuis ce téléphone." : "Dernière sauvegarde Excel il y a <b>" + days + " jours</b>."} Pense à sauvegarder tes données.</span><b>Sauvegarder maintenant →</b></a>`;
+  }
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"; s.crossOrigin = "anonymous";
+      s.onload = () => (window.XLSX ? res(window.XLSX) : rej(new Error("Outil Excel indisponible.")));
+      s.onerror = () => { s.remove(); rej(new Error("Impossible de charger l'outil Excel : vérifie ta connexion Internet.")); };
+      document.head.appendChild(s);
+    });
+  }
+  const BK_NAMES = { profiles: "Membres (profils)", payments: "Paiements", enrollments: "Parcours activés", exams: "Parcours et prix", subjects: "Matières", questions: "Questions", quiz_attempts: "Quiz faits", exam_attempts: "Examens blancs", suggestions: "Suggestions", exam_annals: "Annales", course_lessons: "Cours", audit_log: "Journal des actions", lk_presence: "Présence (rapport du jour)" };
+  async function adBackup(body) {
+    const last = bkLast();
+    body.innerHTML = `<div class="card bk-card" style="max-width:760px">
+        <h3>💾 Sauvegarde Excel de LUKOS-REVISION</h3>
+        <p>Un clic télécharge <b>un fichier Excel</b> avec toutes les données de l'application : une feuille par table (membres, paiements, parcours activés, questions, quiz, examens, suggestions…) et une feuille « LISEZ-MOI » qui résume le contenu.</p>
+        <p class="small muted">Dernière sauvegarde depuis ce téléphone : <b>${last ? esc(fmtDate(last)) : "jamais"}</b>. Conseil : au moins une fois par semaine, et range le fichier dans Google Drive.</p>
+        <label class="check"><input type="checkbox" id="bkHash"> Inclure les mots de passe <b>chiffrés</b> des membres (pour une restauration complète où chacun garde son mot de passe). Le fichier devient alors très sensible : ne le partage avec personne.</label>
+        <button class="btn btn-primary btn-block" type="button" data-act="bk-go" style="margin-top:12px">📥 Télécharger la sauvegarde Excel</button>
+        <div class="msg" id="bkMsg"></div>
+        <div class="bar" id="bkBar" hidden style="margin-top:10px"><i style="width:0%"></i></div>
+        <p class="small muted" style="margin-top:12px">Les captures Wave et les PDF ne sont pas dans ce fichier (ils sont copiés chaque nuit par la sauvegarde GitHub). Les textes très longs (plus de 32 000 caractères, par exemple certaines leçons de cours) sont coupés dans Excel : la feuille LISEZ-MOI les signale.</p></div>`;
+  }
+  async function runBackup(btn) {
+    const msg = document.getElementById("bkMsg"), bar = document.getElementById("bkBar"), withHash = document.getElementById("bkHash").checked;
+    const step = (t, p) => { msg.className = "msg"; msg.textContent = t; if (p != null) { bar.hidden = false; bar.firstElementChild.style.width = Math.round(p) + "%"; } };
+    btn.disabled = true;
+    try {
+      step("Chargement de l'outil Excel…", 2);
+      const X = await loadXlsx();
+      step("Liste des tables…", 5);
+      const lt = await sb.rpc("lk_admin_export_tables");
+      if (lt.error) throw (/lk_admin_export|does not exist|schema cache|function/i.test(lt.error.message || "") ? new Error("Exécute d'abord le script 14_export_excel.sql dans Supabase (SQL Editor).") : lt.error);
+      const tables = lt.data || [];
+      const totalRows = tables.reduce((a, t) => a + Number(t.n || 0), 0) || 1;
+      const wb = X.utils.book_new(), used = new Set(), summary = [], cut = [];
+      let done = 0;
+      const sheetName = (n) => { let s = n.replace(/[\\/?*[\]:]/g, "_").slice(0, 31), k = 2; while (used.has(s.toLowerCase())) s = n.slice(0, 28) + "_" + k++; used.add(s.toLowerCase()); return s; };
+      const cell = (v, tab, col) => {
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object") v = JSON.stringify(v);
+        if (typeof v === "string" && v.length > 32000) { cut.push(tab + "." + col); return v.slice(0, 31990) + " …[COUPÉ]"; }
+        return v;
+      };
+      const addSheet = (name, rows, tab) => {
+        const cols = [...rows.reduce((s, r) => { Object.keys(r).forEach((k) => s.add(k)); return s; }, new Set())];
+        const data = rows.map((r) => { const o = {}; cols.forEach((c) => (o[c] = cell(r[c], tab, c))); return o; });
+        const ws = data.length ? X.utils.json_to_sheet(data, { header: cols }) : X.utils.aoa_to_sheet([["(table vide)"]]);
+        if (cols.length) ws["!cols"] = cols.map((c) => ({ wch: Math.min(60, Math.max(10, c.length + 2)) }));
+        const sn = sheetName(name); X.utils.book_append_sheet(wb, ws, sn); return sn;
+      };
+      const sheets = [];
+      for (const t of tables) {
+        const rows = [];
+        for (let off = 0; ; off += 2000) {
+          step(`Table ${t.name} : ${rows.length} / ${t.n} lignes…`, 5 + (done + rows.length) / totalRows * 85);
+          const r = await sb.rpc("lk_admin_export_table", { p_table: t.name, p_offset: off, p_limit: 2000 });
+          if (r.error) throw r.error;
+          rows.push(...(r.data || []));
+          if (!r.data || r.data.length < 2000) break;
+        }
+        done += rows.length;
+        sheets.push({ t, rows });
+        summary.push([t.name, BK_NAMES[t.name] || "", rows.length]);
+      }
+      step("Comptes de connexion des membres…", 92);
+      const acc = await sb.rpc("lk_admin_export_accounts", { p_hash: withHash });
+      if (acc.error) throw acc.error;
+      const accounts = (acc.data || []).map((a) => { const o = Object.assign({}, a); if (!withHash) delete o.encrypted_password; return o; });
+      step("Création du fichier Excel…", 95);
+      const now = new Date();
+      const readme = [
+        ["LUKOS-REVISION — Sauvegarde Excel"],
+        ["Date", now.toLocaleString("fr-FR")],
+        ["Faite par", (S.profile.first_name || "") + " " + (S.profile.last_name || "")],
+        ["Mots de passe chiffrés inclus", withHash ? "OUI — fichier très sensible, ne le partage avec personne" : "non"],
+        [],
+        ["Table (nom technique)", "Contenu", "Lignes"],
+        ...summary,
+        ["auth_users", "Comptes de connexion (numéro = identifiant)", accounts.length],
+        [],
+        ["Textes coupés dans Excel (plus de 32 000 caractères)", cut.length ? [...new Set(cut)].join(", ") : "aucun"],
+        [],
+        ["Chaque feuille garde les noms de colonnes exacts de la base : une feuille peut être enregistrée en CSV et réimportée dans la même table d'un nouveau projet Supabase."]
+      ];
+      const rws = X.utils.aoa_to_sheet(readme); rws["!cols"] = [{ wch: 34 }, { wch: 48 }, { wch: 12 }];
+      X.utils.book_append_sheet(wb, rws, sheetName("LISEZ-MOI"));
+      sheets.forEach(({ t, rows }) => addSheet(t.name, rows, t.name));
+      addSheet("auth_users", accounts, "auth_users");
+      const file = "LUKOS-REVISION-sauvegarde-" + today() + "-" + String(now.getHours()).padStart(2, "0") + "h" + String(now.getMinutes()).padStart(2, "0") + ".xlsx";
+      X.writeFile(wb, file, { compression: true });
+      LS.set("bk:last", Date.now());
+      step("", 100);
+      msg.className = "msg ok"; msg.textContent = `✓ Sauvegarde téléchargée : ${file} (${tables.length} tables, ${done.toLocaleString("fr-FR")} lignes, ${accounts.length} comptes). Range-la dans Google Drive.`;
+      toast("Sauvegarde Excel téléchargée ✓", "ok");
+    } catch (e) { msg.className = "msg err"; msg.textContent = "Sauvegarde impossible : " + errText(e); bar.hidden = true; }
+    finally { btn.disabled = false; }
+  }
+
   /* ----- Rapport du jour, en direct (actualisé toutes les 30 secondes) ----- */
   (function () {
     const st = document.createElement("style");
-    st.textContent = ".rj-live{display:inline-flex;align-items:center;gap:7px;font-weight:800;color:#13804a}.rj-live i{width:10px;height:10px;border-radius:50%;background:#16a34a;animation:rjp 1.6s infinite}@keyframes rjp{0%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}70%{box-shadow:0 0 0 9px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}@media (prefers-reduced-motion:reduce){.rj-live i{animation:none}}.rj-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:14px 0;padding:14px 16px;border-radius:16px;background:#ecfdf3;border:1px solid #a6f4c5;color:#0b3a22;text-decoration:none}.rj-strip>span:nth-child(2){flex:1;min-width:220px}.rj-strip>b{color:#13804a;white-space:nowrap}.rj-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.rj-head .row{gap:8px}.rj-row p small{display:block;margin-top:2px}.rj-row .badge{margin-left:4px}.rj-ex{display:grid;gap:8px}.rj-exr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid #e3e8f0}.rj-exr small{color:#5b6b82}#rjQ{margin:10px 0}";
+    st.textContent = ".rj-live{display:inline-flex;align-items:center;gap:7px;font-weight:800;color:#13804a}.rj-live i{width:10px;height:10px;border-radius:50%;background:#16a34a;animation:rjp 1.6s infinite}@keyframes rjp{0%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}70%{box-shadow:0 0 0 9px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}@media (prefers-reduced-motion:reduce){.rj-live i{animation:none}}.rj-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:14px 0;padding:14px 16px;border-radius:16px;background:#ecfdf3;border:1px solid #a6f4c5;color:#0b3a22;text-decoration:none}.rj-strip>span:nth-child(2){flex:1;min-width:220px}.rj-strip>b{color:#13804a;white-space:nowrap}.rj-strip.bk-warn{background:#fff7e6;border-color:#f5c26b;color:#7a4b00}.rj-strip.bk-warn>b{color:#9a5b00}.rj-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.rj-head .row{gap:8px}.rj-row p small{display:block;margin-top:2px}.rj-row .badge{margin-left:4px}.rj-ex{display:grid;gap:8px}.rj-exr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid #e3e8f0}.rj-exr small{color:#5b6b82}#rjQ{margin:10px 0}";
     document.head.appendChild(st);
   })();
   const RJ_PAGES = { accueil: "Accueil", matieres: "Matières", revision: "Révision", quiz: "Quiz", examen: "Examen blanc", recherche: "Recherche", documents: "Documents", annales: "Annales", cours: "Cours", sujets: "Sujets corrigés", revoir: "À revoir", activer: "Paiement", essai: "Essai gratuit" };
@@ -2318,6 +2426,7 @@
       if (act.startsWith("qz-")) return quizAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
       if (act === "act-go") { const l = document.querySelector(".exam-list"); if (l) l.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      if (act === "bk-go") return runBackup(el);
       if (act === "rj-reload") return rjRefresh(true);
       if (act === "rj-f") { AD.rjF = el.dataset.f; return rjList(); }
       if (act === "ad-expfilter") { AD.expFilter = el.dataset.f; return drawExpired(); }
