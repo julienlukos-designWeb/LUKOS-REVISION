@@ -674,6 +674,46 @@
     ping(away > 10 * 60000);                     // retour après plus de 10 min : nouvelle ouverture
   });
   setInterval(() => { if (document.visibilityState === "visible") ping(false); }, 60000);
+
+  /* Activation automatique : dès que l'administrateur valide (ou refuse, ou offre) un parcours,
+     le téléphone du candidat le voit sans fermer l'application :
+     - toutes les 30 s tant qu'un paiement est en vérification ;
+     - à chaque retour dans l'application (après WhatsApp, Wave…). */
+  const ACTW = { busy: false, at: 0 };
+  const actSig = (enr, pend) => Object.keys(enr).sort().map((k) => k + ":" + enr[k].status).join("|") + "#" + pend.map((p) => p.id).sort().join(",");
+  async function checkActivation(force) {
+    if (!configured || !S.session || !S.profile || isAdmin() || S.offline || S.profile.is_blocked || ACTW.busy) return;
+    const pendBefore = S.payments.filter((p) => p.status === "pending");
+    if (!force && !pendBefore.length) return;
+    if (Date.now() - ACTW.at < 20000) return;
+    ACTW.busy = true; ACTW.at = Date.now();
+    try {
+      const uid = S.session.user.id;
+      const [e, p] = await Promise.all([
+        sb.from("enrollments").select("exam_code,status").eq("user_id", uid),
+        sb.from("payments").select("id").eq("user_id", uid).eq("status", "pending")
+      ]);
+      if (e.error || p.error) return;
+      const enrNow = {}; (e.data || []).forEach((r) => (enrNow[r.exam_code] = r));
+      if (actSig(enrNow, p.data || []) === actSig(S.enr, pendBefore)) return;      // rien n'a changé
+      const had = new Set(S.exams.filter((x) => hasAccess(x.code)).map((x) => x.code));
+      const pendIds = new Set(pendBefore.map((x) => x.id));
+      await loadAccount();
+      const opened = S.exams.filter((x) => hasAccess(x.code) && !had.has(x.code));
+      const refused = S.payments.filter((x) => pendIds.has(x.id) && x.status === "rejected");
+      if (opened.length) {
+        toast("🎉 Ton parcours " + opened.map((x) => x.name).join(", ") + " est activé ! Accès complet et illimité.", "ok");
+        setTimeout(prefetchOffline, 1500);
+      } else if (refused.length) toast("Ton paiement pour " + refused.map((x) => examName(x.exam_code)).join(", ") + " a été refusé. Le motif est affiché sur la page du parcours.", "err");
+      // on ne coupe pas un quiz ou un examen en cours : la page se met à jour à la prochaine navigation
+      const p0 = parts();
+      if (exRunning() || (S.quiz && !S.quiz.finished && p0[2] === "quiz")) return;
+      route();
+    } catch (err) { /* réseau : nouvel essai plus tard */ }
+    finally { ACTW.busy = false; }
+  }
+  setInterval(() => { if (document.visibilityState === "visible") checkActivation(false); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkActivation(true); });
   const TRACK_KIND = { matieres: "revision", revision: "revision", cours: "cours", annales: "annales", sujets: "annales", quiz: "quiz", revoir: "quiz", examen: "examen", documents: "documents", recherche: "recherche" };
   async function renderExam(code, page, rest) {
     const exam = examByCode(code);
