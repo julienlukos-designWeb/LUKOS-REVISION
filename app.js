@@ -384,6 +384,7 @@
       routing = false;
       app.focus({ preventScroll: true });
       try { jRefresh(); } catch (e) { /* assistant facultatif */ }
+      try { ping(false); } catch (e) { /* rapport du jour facultatif */ }
     }
   }
   window.addEventListener("hashchange", () => { window.scrollTo(0, 0); route(); });
@@ -526,7 +527,7 @@
     userLogout = true;
     try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
-    await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0;
+    await idb.clear(); S.offline = false; S.offMeta = {}; S.verifiedAt = 0; PRES.first = true; PRES.at = 0;
     S.session = null; S.profile = null; S.enr = {}; S.data = {}; S.attempts = {}; S.payments = []; S.act = null; S.quiz = null; S.rev = null; S.rv = null; S.exam = null; S.deviceBlocked = false; S.authMode = "login"; clearInterval(exTick); ttsStop();
     go("#/");
   }
@@ -652,6 +653,27 @@
     TRACK_AT.set(k, t);
     sb.rpc("lk_track", { p_exam: exam || "", p_kind: kind }).then(() => {}, () => {});
   }
+  /* Présence (rapport du jour en direct) : ouverture de l'application, temps passé, dernière page vue.
+     Un petit signal au plus une fois par minute, seulement quand l'application est à l'écran. */
+  const PRES = { at: 0, first: true, hiddenAt: 0 };
+  function presPage() {
+    const p = parts();
+    if (p[0] === "p" && p[1]) return (p[1] + "/" + (p[2] || "accueil")).slice(0, 40);
+    return (p[0] || "parcours").slice(0, 40);
+  }
+  function ping(open) {
+    if (!configured || !S.session || !S.profile || isAdmin() || S.offline) return;
+    const first = PRES.first;
+    if (!open && !first && Date.now() - PRES.at < 55000) return;
+    PRES.at = Date.now(); PRES.first = false;
+    sb.rpc("lk_ping", { p_open: !!(open || first), p_page: presPage(), p_device: deviceLabel() }).then(() => {}, () => {});
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { PRES.hiddenAt = Date.now(); return; }
+    const away = PRES.hiddenAt ? Date.now() - PRES.hiddenAt : 0; PRES.hiddenAt = 0;
+    ping(away > 10 * 60000);                     // retour après plus de 10 min : nouvelle ouverture
+  });
+  setInterval(() => { if (document.visibilityState === "visible") ping(false); }, 60000);
   const TRACK_KIND = { matieres: "revision", revision: "revision", cours: "cours", annales: "annales", sujets: "annales", quiz: "quiz", revoir: "quiz", examen: "examen", documents: "documents", recherche: "recherche" };
   async function renderExam(code, page, rest) {
     const exam = examByCode(code);
@@ -1235,7 +1257,7 @@
   const AD = { payFilter: "pending", people: null, peopleQ: "", peopleFilter: "actifs", contentExam: "DAP", contentQ: "", importRows: null, exp: null, expFilter: "tous", expDate: "" };
   /* L'Admin est rangée en 5 espaces ; chaque onglet garde son adresse #/admin/<onglet>. */
   const ADMIN_SPACES = [
-    { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord"]] },
+    { k: "accueil", label: "Tableau de bord", ic: "home", tabs: [["tableau", "Tableau de bord", null, "home"], ["direct", "Rapport du jour (direct)", null, "clock"]] },
     { k: "traiter", label: "À traiter", ic: "bell", tabs: [["paiements", "Paiements", "payments", "cash"], ["assistance", "Assistance", "support", "key"], ["signalements", "Signalements", "reports", "flag"], ["suggestions", "Suggestions", "suggestions", "idea"], ["expires", "Comptes expirés", "expired", "clock"]] },
     { k: "membres", label: "Membres", ic: "users", tabs: [["candidats", "Candidats"]] },
     { k: "stats", label: "Statistiques", ic: "chart", tabs: [["statistiques", "Statistiques d'usage"]] },
@@ -1264,6 +1286,7 @@
   }
   async function renderAdmin(tab) {
     homeBottomNav("admin");
+    clearInterval(AD.liveT);
     const space = ADMIN_SPACES.find((sp) => sp.tabs.some((t) => t[0] === tab)) || ADMIN_SPACES[0];
     if (!space.tabs.some((t) => t[0] === tab)) tab = space.tabs[0][0];
     const pill = (n, key) => `<span class="adbadge zero" data-badge="${key}">${n}</span>`;
@@ -1273,7 +1296,7 @@
       <div id="adminBody"><div class="center-load"><div class="spinner"></div></div></div></div>`;
     paintBadges(); refreshBadges(true);
     const body = document.getElementById("adminBody");
-    const fn = { statistiques: adStats, tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
+    const fn = { direct: adToday, statistiques: adStats, tableau: adDash, paiements: adPayments, candidats: adPeople, expires: adExpired, contenu: adContent, documents: adDocs, parcours: adExams, suggestions: adSuggestions, signalements: adReports, assistance: adSupport, journal: adLog }[tab] || adDash;
     await fn(body);
   }
   const examName = (c) => (examByCode(c) || {}).name || c;
@@ -1294,6 +1317,7 @@
         <a href="#/admin/paiements" class="adh-todo"><b data-badge="traiter" class="adbig">0</b><span>élément(s) à traiter</span></a>
       </section>
       <div class="adtodo">${todo.map(([tab, key, ic, lab, cl]) => `<a href="#/admin/${tab}" class="tdc ${cl}"><span class="tdc-ic">${icon(ic, 22)}</span><b data-badge="${key}">0</b><span class="tdc-l">${lab}</span></a>`).join("")}</div>
+      <a href="#/admin/direct" class="rj-strip" id="rjStrip"><span class="rj-live"><i></i> En direct</span><span id="rjStripTxt">Chargement du rapport du jour…</span><b>Voir le rapport du jour →</b></a>
       <div class="adkpi">
         <div class="kp kp-cash"><span class="kp-ic">${icon("cash", 22)}</span><small>Encaissé au total</small><b>${esc(fmtXof(data.revenue_xof))}</b><em>${nf(paid)} paiement(s) réellement payés</em></div>
         <div class="kp kp-month"><span class="kp-ic">${icon("chart", 22)}</span><small>Encaissé ce mois</small><b>${esc(fmtXof(data.revenue_month_xof))}</b><em>${esc(new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }))}</em></div>
@@ -1311,6 +1335,120 @@
         </section>
       </div>`;
     paintBadges();
+    sb.rpc("lk_admin_today", { p_day: null }).then(({ data: t, error: e2 }) => {
+      const box = document.getElementById("rjStripTxt"), strip = document.getElementById("rjStrip"); if (!box) return;
+      if (e2 || !t) { box.textContent = "Rapport du jour : installe le script 13_rapport_jour.sql dans Supabase."; return; }
+      box.innerHTML = `<b>${nf(t.online_now)}</b> en ligne maintenant · <b>${nf(t.opened)}</b> membre(s) ont ouvert l'application aujourd'hui · <b>${nf(t.signups)}</b> inscrit(s) · <b>${esc(fmtXof(t.revenue))}</b> encaissé(s)`;
+      void strip;
+    }, () => {});
+  }
+
+  /* ----- Rapport du jour, en direct (actualisé toutes les 30 secondes) ----- */
+  (function () {
+    const st = document.createElement("style");
+    st.textContent = ".rj-live{display:inline-flex;align-items:center;gap:7px;font-weight:800;color:#13804a}.rj-live i{width:10px;height:10px;border-radius:50%;background:#16a34a;animation:rjp 1.6s infinite}@keyframes rjp{0%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}70%{box-shadow:0 0 0 9px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}@media (prefers-reduced-motion:reduce){.rj-live i{animation:none}}.rj-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:14px 0;padding:14px 16px;border-radius:16px;background:#ecfdf3;border:1px solid #a6f4c5;color:#0b3a22;text-decoration:none}.rj-strip>span:nth-child(2){flex:1;min-width:220px}.rj-strip>b{color:#13804a;white-space:nowrap}.rj-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.rj-head .row{gap:8px}.rj-row p small{display:block;margin-top:2px}.rj-row .badge{margin-left:4px}.rj-ex{display:grid;gap:8px}.rj-exr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#f5f8ff;border:1px solid #e3e8f0}.rj-exr small{color:#5b6b82}#rjQ{margin:10px 0}";
+    document.head.appendChild(st);
+  })();
+  const RJ_PAGES = { accueil: "Accueil", matieres: "Matières", revision: "Révision", quiz: "Quiz", examen: "Examen blanc", recherche: "Recherche", documents: "Documents", annales: "Annales", cours: "Cours", sujets: "Sujets corrigés", revoir: "À revoir", activer: "Paiement", essai: "Essai gratuit" };
+  const rjPage = (pg) => {
+    if (!pg) return "—";
+    const [a, b] = String(pg).split("/");
+    if (b !== undefined) return examName(a) + " · " + (RJ_PAGES[b] || b);
+    return { parcours: "Page des parcours", profil: "Mon compte", suggestions: "Suggestions", cours: "Module RDG-RSA" }[a] || a;
+  };
+  const rjHm = (d) => (d ? new Date(d).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—");
+  const rjAgo = (d) => { const m = Math.max(0, Math.round((Date.now() - new Date(d)) / 60000)); return m < 1 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : "il y a " + Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0"); };
+  const rjDur = (m) => { m = Number(m || 0); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0"); };
+  async function rjLoad() {
+    const { data, error } = await sb.rpc("lk_admin_today", { p_day: AD.rjDay && AD.rjDay !== today() ? AD.rjDay : null });
+    if (error) throw error;
+    AD.rj = data; AD.rjAt = new Date();
+    return data;
+  }
+  async function adToday(body) {
+    try { await rjLoad(); }
+    catch (e) {
+      if (/lk_admin_today|does not exist|schema cache|function/i.test((e && e.message) || "")) { body.innerHTML = emptyBox("Le rapport du jour n'est pas encore installé : exécute le script 13_rapport_jour.sql dans Supabase (SQL Editor)."); return; }
+      throw e;
+    }
+    AD.rjF = AD.rjF || "tous"; AD.rjQ = AD.rjQ || "";
+    body.innerHTML = `<div class="card rj-head"><div><span class="rj-live" id="rjLive"><i></i> En direct</span> <span class="small muted" id="rjUpd"></span></div>
+        <div class="row"><label for="rjDay" style="margin:0">Jour</label><input type="date" id="rjDay" value="${esc(AD.rjDay || today())}" max="${esc(today())}" style="width:auto">
+          <button class="btn btn-ghost btn-sm" type="button" data-act="rj-reload">↻ Actualiser</button>
+          <a class="btn btn-ok btn-sm" id="rjShare" target="_blank" rel="noopener noreferrer" href="#">💬 Envoyer le rapport</a></div></div>
+      <div id="rjKpi"></div>
+      <div class="adrow">
+        <section class="adp adp-chart"><h2>Membres actifs par heure</h2><p class="muted small">Nombre de membres ayant utilisé l'application à chaque heure</p><div id="rjHours"></div></section>
+        <section class="adp adp-ex"><h2>Activité par parcours</h2><p class="muted small">Quiz et examens blancs du jour</p><div id="rjEx"></div></section>
+      </div>
+      <section class="adp st-sec"><h2 id="rjListT">Qui a ouvert l'application</h2>
+        <div class="seg" id="rjSeg" style="max-width:760px"></div>
+        <input id="rjQ" type="search" placeholder="Rechercher un nom, un numéro ou un service…" value="${esc(AD.rjQ)}" aria-label="Rechercher un membre">
+        <div id="rjList"></div></section>`;
+    document.getElementById("rjDay").addEventListener("change", (e) => { AD.rjDay = e.target.value || today(); rjRefresh(true); });
+    document.getElementById("rjQ").addEventListener("input", (e) => { AD.rjQ = e.target.value; rjList(); });
+    rjFill();
+    clearInterval(AD.liveT);
+    AD.liveT = setInterval(() => {
+      if (parts()[0] !== "admin" || parts()[1] !== "direct") return clearInterval(AD.liveT);
+      if (document.visibilityState === "visible" && (!AD.rjDay || AD.rjDay === today())) rjRefresh(false);
+    }, 30000);
+  }
+  async function rjRefresh(manual) {
+    try { await rjLoad(); rjFill(); if (manual) toast("Rapport du jour actualisé.", "ok"); }
+    catch (e) { if (manual) toast(errText(e), "err"); }
+  }
+  function rjFill() {
+    const t = AD.rj; if (!t || !document.getElementById("rjKpi")) return;
+    const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
+    const live = !!t.is_today;
+    const dayTxt = new Date(t.day + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    document.getElementById("rjLive").hidden = !live;
+    document.getElementById("rjUpd").textContent = live ? "Mis à jour à " + AD.rjAt.toLocaleTimeString("fr-FR") + " · actualisation automatique toutes les 30 s" : "Rapport du " + dayTxt;
+    const avg = t.opened ? Math.round(Number(t.minutes) / Number(t.opened)) : 0;
+    const k = [
+      ["kp-cash", "users", live ? "En ligne maintenant" : "Membres ce jour-là", live ? nf(t.online_now) : nf(t.opened), live ? "actifs il y a moins de 3 min" : nf(t.opens) + " ouverture(s)"],
+      ["kp-month", "chart", "Ont ouvert l'application", nf(t.opened), nf(t.opens) + " ouverture(s) · veille : " + nf(t.opened_prev)],
+      ["kp-users", "clock", "Temps d'utilisation", rjDur(t.minutes), "≈ " + rjDur(avg) + " par membre"],
+      ["kp-gift", "user", "Nouveaux inscrits", nf(t.signups), nf(t.activations) + " parcours activé(s)"],
+      ["kp-cash", "cash", "Encaissé", esc(fmtXof(t.revenue)), nf(t.pay_validated) + " validé(s) · " + nf(t.pay_declared) + " preuve(s) reçue(s)"],
+      ["kp-quiz", "target", "Quiz", nf(t.quiz), t.quiz_pct == null ? "aucun quiz" : "réussite " + t.quiz_pct + " %"],
+      ["kp-month", "cap", "Examens blancs", nf(t.exams), t.exam_avg == null ? "aucun examen" : "moyenne " + String(t.exam_avg).replace(".", ",") + " / 20"],
+      ["kp-gift", "idea", "Suggestions", nf(t.suggestions), "reçues ce jour"]
+    ];
+    document.getElementById("rjKpi").innerHTML = `<div class="adkpi st-kpi">${k.map(([c, ic, l, v, s]) => `<div class="kp ${c}"><span class="kp-ic">${icon(ic, 22)}</span><small>${esc(l)}</small><b>${v}</b><em>${esc(s)}</em></div>`).join("")}</div>`;
+    const hrs = Array.isArray(t.hours) ? t.hours : [], max = Math.max(1, ...hrs.map((x) => Number(x.n || 0)));
+    document.getElementById("rjHours").innerHTML = `<div class="adbars" role="img" aria-label="Membres actifs par heure">${hrs.map((x) => { const v = Number(x.n || 0); return `<div class="adbar"><span class="adbar-v">${v || ""}</span><i style="height:${Math.max(v ? 8 : 3, Math.round(v / max * 130))}px" class="${v ? "" : "nil"}"></i></div>`; }).join("")}</div>
+      <div class="adbars-d">${hrs.map((x) => `<span>${x.h % 3 === 0 ? x.h + " h" : ""}</span>`).join("")}</div>`;
+    const be = t.by_exam || {};
+    document.getElementById("rjEx").innerHTML = `<div class="rj-ex">${S.exams.map((e) => { const x = be[e.code] || {}; return `<div class="rj-exr"><b>${esc(e.name)}</b><small>${nf(x.users)} membre(s) · ${nf(x.quiz)} quiz · ${nf(x.exams)} examen(s)</small></div>`; }).join("")}</div>`;
+    const sh = `📊 Rapport LUKOS-REVISION du ${dayTxt}\n` +
+      `👥 ${nf(t.opened)} membre(s) ont ouvert l'application (${nf(t.opens)} ouvertures)${live ? ", " + nf(t.online_now) + " en ligne maintenant" : ""}\n` +
+      `⏱️ Temps d'utilisation : ${rjDur(t.minutes)} (≈ ${rjDur(avg)} par membre)\n` +
+      `🆕 Nouveaux inscrits : ${nf(t.signups)} · Parcours activés : ${nf(t.activations)}\n` +
+      `💰 Encaissé : ${fmtXof(t.revenue)} (${nf(t.pay_validated)} paiement(s) validé(s), ${nf(t.pay_declared)} preuve(s) reçue(s))\n` +
+      `🎯 Quiz : ${nf(t.quiz)}${t.quiz_pct == null ? "" : " (réussite " + t.quiz_pct + " %)"} · 🎓 Examens blancs : ${nf(t.exams)}${t.exam_avg == null ? "" : " (moyenne " + String(t.exam_avg).replace(".", ",") + "/20)"}\n` +
+      `💡 Suggestions : ${nf(t.suggestions)}`;
+    document.getElementById("rjShare").href = "https://wa.me/?text=" + encodeURIComponent(sh);
+    rjList();
+  }
+  function rjList() {
+    const t = AD.rj, out = document.getElementById("rjList"); if (!t || !out) return;
+    const all = Array.isArray(t.members) ? t.members : [];
+    const FL = { tous: "Tous", online: "🟢 En ligne", nouveaux: "🆕 Nouveaux", sans: "Sans parcours", examens: "🎓 Examen passé" };
+    const test = { tous: () => true, online: (m) => m.online, nouveaux: (m) => m.new, sans: (m) => !m.active, examens: (m) => Number(m.exams) > 0 };
+    if (!t.is_today && AD.rjF === "online") AD.rjF = "tous";
+    const keys = Object.keys(FL).filter((k) => t.is_today || k !== "online");
+    document.getElementById("rjSeg").innerHTML = keys.map((k) => `<button type="button" data-act="rj-f" data-f="${k}" class="${AD.rjF === k ? "on" : ""}">${FL[k]} (${all.filter(test[k]).length})</button>`).join("");
+    const q = norm(AD.rjQ || "").replace(/\s+/g, "");
+    const rows = all.filter(test[AD.rjF] || test.tous).filter((m) => !q || norm((m.name || "") + serviceLabel(m.service) + (m.device || "")).replace(/\s+/g, "").includes(q) || (q.replace(/\D/g, "") && String(m.phone || "").replace(/\D/g, "").includes(q.replace(/\D/g, ""))));
+    const wa = (m) => waTo(m.phone, `Bonjour ${String(m.name || "").split(" ")[0]}, ici LUKOS-REVISION. `);
+    out.innerHTML = rows.length ? `<div class="st-never">${rows.map((m) => `<div class="st-nrow rj-row"><p><b>${esc(m.name || "—")}</b>${m.online ? ' <span class="badge ok">🟢 EN LIGNE</span>' : ""}${m.new ? ' <span class="badge warn">NOUVEAU</span>' : ""}${m.active ? "" : ' <span class="badge">SANS PARCOURS</span>'}
+        <small>${m.service ? esc(serviceLabel(m.service)) + " · " : ""}${esc(phonePretty(m.phone))}${m.device ? " · " + esc(m.device) : ""}</small>
+        <small>1re ouverture ${esc(rjHm(m.first_seen))} · ${t.is_today ? "dernière activité " + esc(rjAgo(m.last_seen)) : "dernière activité " + esc(rjHm(m.last_seen))} · ${Number(m.opens) || 1} ouverture(s) · ≈ ${esc(rjDur(m.minutes))}</small>
+        <small>${Number(m.quiz) || 0} quiz · ${Number(m.exams) || 0} examen(s) blanc(s)${m.exam_best != null ? " (meilleure note " + esc(String(m.exam_best).replace(".", ",")) + "/20)" : ""} · ${m.online ? "en ce moment" : "dernière page"} : ${esc(rjPage(m.page))}</small></p>
+        ${wa(m) ? `<a class="btn btn-ok btn-sm" target="_blank" rel="noopener noreferrer" href="${esc(wa(m))}">WhatsApp</a>` : ""}</div>`).join("")}</div>`
+      : emptyBox(all.length ? "Aucun membre dans cette catégorie." : t.is_today ? "Personne n'a encore ouvert l'application aujourd'hui (ou les membres n'ont pas encore la nouvelle version)." : "Aucune ouverture enregistrée ce jour-là.");
   }
 
   /* Statistiques d'usage */
@@ -2180,6 +2318,8 @@
       if (act.startsWith("qz-")) return quizAction(act, el);
       if (act === "open-doc") return openDoc(el.dataset.path);
       if (act === "act-go") { const l = document.querySelector(".exam-list"); if (l) l.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      if (act === "rj-reload") return rjRefresh(true);
+      if (act === "rj-f") { AD.rjF = el.dataset.f; return rjList(); }
       if (act === "ad-expfilter") { AD.expFilter = el.dataset.f; return drawExpired(); }
       if (act === "ad-exp-all") { document.querySelectorAll(".exp-chk").forEach((c) => (c.checked = el.checked)); return; }
       if (act === "ad-exp-reload") return expReload();
